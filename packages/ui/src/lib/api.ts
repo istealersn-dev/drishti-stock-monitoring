@@ -243,6 +243,25 @@ export async function rejectInstruction(id: string): Promise<void> {
 }
 
 /**
+ * Update SL threshold and targets for a holding in stock_config.
+ * Pass null for targetOne/targetTwo to clear a previously set value.
+ * Creates the row if it does not yet exist.
+ * @param symbol - Upstox trading symbol
+ * @param patch - SL threshold (required) and targets (null = clear, number = set)
+ * @returns Resolves on success, throws on HTTP error
+ */
+export async function updateHoldingConfig(
+  symbol: string,
+  patch: { slThreshold: number; targetOne: number | null; targetTwo: number | null },
+): Promise<void> {
+  await apiFetch(
+    `/api/holdings/${encodeURIComponent(symbol)}/config`,
+    z.object({ ok: z.boolean() }),
+    { method: "PUT", body: JSON.stringify(patch) },
+  );
+}
+
+/**
  * Cancel an active GTT order.
  * @param id - GTT order ID
  * @returns Resolves on success, throws on HTTP error
