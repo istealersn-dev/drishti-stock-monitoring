@@ -243,19 +243,117 @@ body {
   }
 
   .topbar {
-    @apply fixed left-0 right-0 top-0 z-40 flex h-[53px] items-center border-b border-border-subtle px-4;
+    @apply flex h-[53px] flex-none items-center justify-between gap-4 border-b border-border-subtle px-[18px];
     background: rgba(13, 13, 13, 0.72);
     backdrop-filter: blur(10px);
   }
 
+  /* Status pill in topbar */
+  .status-pill {
+    @apply flex items-center gap-[7px] rounded-pill border px-[13px] py-[5px] pl-[11px];
+  }
+  .status-pill-success {
+    background: rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.25);
+    color: var(--color-success);
+  }
+  .status-pill-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: var(--color-warning);
+  }
+  .status-pill-danger {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: var(--color-danger);
+  }
+
+  .status-dot {
+    @apply rounded-full flex-none;
+    width: 7px;
+    height: 7px;
+    animation: drk-pulse 1.8s ease-in-out infinite;
+  }
+  .status-dot-success {
+    background: var(--color-success);
+    box-shadow: 0 0 8px var(--color-success);
+  }
+  .status-dot-warning {
+    background: var(--color-warning);
+    box-shadow: 0 0 8px var(--color-warning);
+  }
+  .status-dot-danger {
+    background: var(--color-danger);
+    box-shadow: 0 0 8px var(--color-danger);
+  }
+
+  /* Topbar right-side buttons */
+  .topbar-refresh-btn {
+    @apply flex cursor-pointer items-center justify-center rounded-xl border border-border-default text-text-secondary transition-colors;
+    width: 34px;
+    height: 34px;
+    background: #1a1a1a;
+  }
+  .topbar-refresh-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary-text);
+    background: #181826;
+  }
+
+  .topbar-pending-btn {
+    @apply flex cursor-pointer items-center gap-[6px] rounded-xl border font-mono text-[12px] font-semibold transition-colors;
+    height: 30px;
+    padding: 0 11px;
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--color-warning);
+  }
+  .topbar-pending-btn:hover {
+    background: rgba(245, 158, 11, 0.18);
+  }
+
+  /* Sidebar */
+  .sidebar-header {
+    @apply flex h-[53px] flex-none items-center gap-[10px] overflow-hidden border-b border-border-subtle px-[18px];
+  }
+
+  .sidebar-logo {
+    @apply flex flex-none items-center justify-center rounded-lg font-mono font-bold text-white;
+    width: 26px;
+    height: 26px;
+    font-size: 14px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    box-shadow:
+      0 0 0 1px rgba(99, 102, 241, 0.4),
+      0 4px 14px rgba(99, 102, 241, 0.35);
+  }
+
+  .sidebar-collapse-btn {
+    @apply flex h-[42px] flex-none cursor-pointer items-center justify-center gap-2 border-none border-t border-border-subtle bg-transparent text-[12px] text-text-dim transition-colors;
+  }
+  .sidebar-collapse-btn:hover {
+    @apply bg-bg-elevated text-text-secondary;
+  }
+
   .nav-item {
-    @apply flex h-[38px] items-center gap-2.5 rounded-card px-[11px] text-[13px] font-medium text-text-tertiary transition-colors;
+    @apply relative flex h-[38px] w-full cursor-pointer items-center gap-[11px] overflow-hidden whitespace-nowrap rounded-xl border-none px-[11px] text-left text-[13.5px] font-medium text-text-tertiary transition-colors;
+    font-family: inherit;
+    background: transparent;
   }
   .nav-item:hover {
-    @apply bg-bg-hover text-text-primary;
+    background: #19191b;
+    color: var(--color-text-primary);
   }
   .nav-item.active {
     @apply bg-primary-bg text-primary-text;
+  }
+
+  .nav-pending-dot {
+    @apply absolute right-[9px] top-[8px] rounded-full;
+    width: 7px;
+    height: 7px;
+    background: var(--color-warning);
+    box-shadow: 0 0 6px var(--color-warning);
   }
 
   .table-row-header {
