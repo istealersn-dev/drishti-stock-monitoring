@@ -489,6 +489,108 @@ body {
     font-family: var(--font-mono);
   }
 
+  /* ── Dashboard stat cards ── */
+  .stat-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 11px;
+    border: 1px solid #2a2a2a;
+    background: #1e1e1e;
+    padding: 16px;
+  }
+
+  .stat-card-accent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+  .stat-card-accent-indigo { background: linear-gradient(90deg, #6366f1, transparent); }
+  .stat-card-accent-success { background: linear-gradient(90deg, var(--color-success), transparent); }
+  .stat-card-accent-warning { background: linear-gradient(90deg, var(--color-warning), transparent); }
+  .stat-card-accent-danger { background: linear-gradient(90deg, var(--color-danger), transparent); }
+
+  .stat-card-label {
+    font-size: 11px;
+    color: #7c7c7c;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    margin-bottom: 9px;
+  }
+
+  .stat-card-value {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-primary);
+  }
+
+  .stat-card-sub {
+    margin-top: 7px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: #5f5f5f;
+  }
+
+  /* ── Holdings overview table ── */
+  .holdings-card {
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 11px;
+    overflow: hidden;
+  }
+
+  .holdings-col-grid {
+    display: grid;
+    grid-template-columns: 118px 60px 52px 92px 92px 110px 84px 90px 92px;
+    align-items: center;
+    padding: 0 16px;
+  }
+
+  .holdings-col-header {
+    height: 34px;
+    font-size: 10.5px;
+    color: #6f6f6f;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  .holdings-data-row {
+    height: 36px;
+    border-bottom: 1px solid #232323;
+    font-variant-numeric: tabular-nums;
+    cursor: default;
+    transition: background 0.1s;
+  }
+  .holdings-data-row:hover { background: #232327; }
+  .holdings-data-row:last-child { border-bottom: none; }
+
+  .holding-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+  .holding-status-badge-success { background: rgba(34, 197, 94, 0.08); color: var(--color-success); }
+  .holding-status-badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--color-warning); }
+  .holding-status-badge-danger { background: rgba(239, 68, 68, 0.08); color: var(--color-danger); }
+
+  .holding-status-dot {
+    @apply inline-block rounded-full;
+    width: 5px;
+    height: 5px;
+  }
+  .holding-status-dot-success { background: var(--color-success); }
+  .holding-status-dot-warning { background: var(--color-warning); }
+  .holding-status-dot-danger { background: var(--color-danger); }
+
   /* Custom checkbox */
   .login-checkbox {
     @apply flex flex-none items-center justify-center rounded-md border transition-colors;
