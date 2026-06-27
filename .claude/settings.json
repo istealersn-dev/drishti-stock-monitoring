@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(tsx *)",
+      "Bash(tsc *)",
+      "Bash(git *)",
+      "Bash(cloudflared tunnel run drishti)",
+      "Bash(curl https://api.upstox.com/*)",
+      "Bash(curl https://slack.com/api/*)",
+      "Bash(curl http://localhost:1234/*)",
+      "Bash(find * -type f *)",
+      "Bash(grep *)",
+      "Bash(mkdir *)",
+      "Bash(node -e *)"
+    ]
+  }
+}

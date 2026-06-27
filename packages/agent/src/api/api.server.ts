@@ -3,9 +3,17 @@ import crypto from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import express from "express";
 import type { Express, NextFunction, Request, Response } from "express";
+import { z } from "zod";
 
 import { db } from "../db/db.js";
-import { agentLogs, agentRuns, agentSettings, gttOrders, pendingApprovals } from "../db/schema.js";
+import {
+  agentLogs,
+  agentRuns,
+  agentSettings,
+  gttOrders,
+  pendingApprovals,
+  stockConfig,
+} from "../db/schema.js";
 import { getApproval, resolveApproval } from "../features/approval/approval.store.js";
 import { updateApprovalCard } from "../features/instructions/instructions.approval.js";
 import { executeApprovedInstruction } from "../features/instructions/instructions.executor.js";
@@ -323,6 +331,72 @@ export function buildApiApp(): Express {
     }
 
     response.json({ ok: true });
+  });
+
+  const HoldingConfigBodySchema = z.object({
+    slThreshold: z.number().positive(),
+    targetOne: z.number().positive().nullable(),
+    targetTwo: z.number().positive().nullable(),
+  });
+
+  /**
+   * Update SL threshold and targets for a holding in stock_config.
+   * Send null for targetOne/targetTwo to clear a previously set value.
+   * Creates the row if it does not yet exist.
+   * @param request - Express request with symbol param and HoldingConfigBody
+   * @param response - Express response
+   * @returns JSON {ok: true} on success or {ok: false, error} on failure
+   */
+  app.put("/api/holdings/:symbol/config", (request, response) => {
+    const symbol = request.params["symbol"] ?? "";
+    if (!symbol) {
+      response.status(400).json({ ok: false, error: "symbol required" });
+      return;
+    }
+
+    const parsed = HoldingConfigBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      response
+        .status(400)
+        .json({ ok: false, error: parsed.error.issues.map((issue) => issue.message).join("; ") });
+      return;
+    }
+
+    const { slThreshold, targetOne, targetTwo } = parsed.data;
+    const now = new Date().toISOString();
+
+    try {
+      const existing = db.select().from(stockConfig).where(eq(stockConfig.symbol, symbol)).get();
+
+      if (existing) {
+        db.update(stockConfig)
+          .set({ slThreshold, targetOne, targetTwo, updatedAt: now })
+          .where(eq(stockConfig.symbol, symbol))
+          .run();
+      } else {
+        db.insert(stockConfig)
+          .values({ symbol, slThreshold, targetOne, targetTwo, updatedAt: now })
+          .run();
+      }
+
+      logger.info("stock_config updated via UI", { symbol, slThreshold, targetOne, targetTwo });
+      response.json({ ok: true });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error("PUT /api/holdings/:symbol/config failed", { symbol, error: message });
+      db.insert(agentLogs)
+        .values({
+          runId: "ui",
+          symbol,
+          action: "stock_config_update_failed",
+          reasoning: null,
+          dryRun: false,
+          error: message,
+          createdAt: now,
+        })
+        .run();
+      response.status(500).json({ ok: false, error: message });
+    }
   });
 
   return app;

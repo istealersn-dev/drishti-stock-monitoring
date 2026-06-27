@@ -1,0 +1,248 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Animations ────────────────────────────────────────────── */
+  --animate-spin-drk: drk-spin 0.7s linear infinite;
+  --animate-blink-drk: drk-blink 1.4s step-end infinite;
+  --animate-fade-drk: drk-fade 0.2s ease-out;
+
+  /* ── Backgrounds ───────────────────────────────────────────── */
+  --color-bg-root: #0d0d0d;
+  --color-bg-sidebar: #0f0f0f;
+  --color-bg-card: #1e1e1e;
+  --color-bg-surface: #141414;
+  --color-bg-elevated: #161616;
+  --color-bg-hover: #232327;
+  --color-bg-inset: #202024;
+
+  /* ── Borders ───────────────────────────────────────────────── */
+  --color-border-subtle: #1f1f1f;
+  --color-border-default: #2a2a2a;
+  --color-border-strong: #232323;
+  --color-border-dim: #262626;
+
+  /* ── Text ──────────────────────────────────────────────────── */
+  --color-text-primary: #e8e8e8;
+  --color-text-secondary: #bcbcbc;
+  --color-text-tertiary: #9a9a9a;
+  --color-text-muted: #7a7a7a;
+  --color-text-dim: #6a6a6a;
+  --color-text-faint: #5f5f5f;
+  --color-text-disabled: #3f3f3f;
+
+  /* ── Primary (Indigo) ──────────────────────────────────────── */
+  --color-primary: #6366f1;
+  --color-primary-dark: #4f46e5;
+  --color-primary-text: #a5b4fc;
+  --color-primary-text-bright: #c7d2fe;
+  --color-primary-bg: #1c1c2c;
+  --color-primary-bg-hover: #26263c;
+  --color-primary-surface: #16161c;
+  --color-primary-border: #2e2e42;
+
+  /* ── Success ───────────────────────────────────────────────── */
+  --color-success: #22c55e;
+  --color-success-text: #bdf0c8;
+
+  /* ── Warning ───────────────────────────────────────────────── */
+  --color-warning: #f59e0b;
+  --color-warning-muted: #8a6d2f;
+
+  /* ── Danger ────────────────────────────────────────────────── */
+  --color-danger: #ef4444;
+  --color-danger-text: #f87171;
+  --color-danger-text-soft: #f0a0a0;
+
+  /* ── Radii ─────────────────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 5px;
+  --radius-md: 6px;
+  --radius-lg: 7px;
+  --radius-xl: 8px;
+  --radius-2xl: 9px;
+  --radius-3xl: 10px;
+  --radius-card: 11px;
+  --radius-pill: 999px;
+
+  /* ── Fonts ─────────────────────────────────────────────────── */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* ── Spacing ───────────────────────────────────────────────── */
+  --spacing-sidebar: 238px;
+  --spacing-sidebar-collapsed: 52px;
+  --spacing-topbar: 53px;
+}
+
+/* ── Global reset ──────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--color-bg-root);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2f2f2f;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── Animations ────────────────────────────────────────────────── */
+@keyframes drk-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.32;
+  }
+}
+
+@keyframes drk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes drk-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes drk-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Compound component classes ────────────────────────────────── */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold text-white transition-all;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+  }
+  .btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 rounded-xl border border-border-default bg-bg-card px-4 py-2 text-[13px] font-medium text-text-secondary transition-colors;
+  }
+  .btn-ghost:hover {
+    @apply bg-bg-hover text-text-primary;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold text-white transition-all;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+  }
+  .btn-danger:hover {
+    filter: brightness(1.08);
+  }
+
+  .card {
+    @apply relative overflow-hidden rounded-card border border-border-default bg-bg-card;
+  }
+
+  .card-accent-indigo::before {
+    content: "";
+    @apply absolute left-0 right-0 top-0 h-0.5 rounded-tl-card rounded-tr-card;
+    background: linear-gradient(90deg, var(--color-primary), transparent);
+  }
+
+  .card-accent-success::before {
+    content: "";
+    @apply absolute left-0 right-0 top-0 h-0.5 rounded-tl-card rounded-tr-card;
+    background: linear-gradient(90deg, var(--color-success), transparent);
+  }
+
+  .card-accent-warning::before {
+    content: "";
+    @apply absolute left-0 right-0 top-0 h-0.5 rounded-tl-card rounded-tr-card;
+    background: linear-gradient(90deg, var(--color-warning), transparent);
+  }
+
+  .card-accent-danger::before {
+    content: "";
+    @apply absolute left-0 right-0 top-0 h-0.5 rounded-tl-card rounded-tr-card;
+    background: linear-gradient(90deg, var(--color-danger), transparent);
+  }
+
+  .logo-box {
+    @apply flex h-8 w-8 items-center justify-center rounded-lg font-mono text-[15px] font-bold text-white;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    box-shadow:
+      0 0 0 1px rgba(99, 102, 241, 0.4),
+      0 4px 16px rgba(99, 102, 241, 0.35);
+  }
+
+  .topbar {
+    @apply fixed left-0 right-0 top-0 z-40 flex h-[53px] items-center border-b border-border-subtle px-4;
+    background: rgba(13, 13, 13, 0.72);
+    backdrop-filter: blur(10px);
+  }
+
+  .nav-item {
+    @apply flex h-[38px] items-center gap-2.5 rounded-card px-[11px] text-[13px] font-medium text-text-tertiary transition-colors;
+  }
+  .nav-item:hover {
+    @apply bg-bg-hover text-text-primary;
+  }
+  .nav-item.active {
+    @apply bg-primary-bg text-primary-text;
+  }
+
+  .table-row-header {
+    @apply h-9 border-b border-border-subtle text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted;
+  }
+
+  .table-row-data {
+    @apply h-11 border-b border-border-subtle text-[13px] text-text-secondary;
+  }
+
+  .badge-pill {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-[11px] font-medium font-mono;
+  }
+
+  .animate-fade {
+    animation: drk-fade 0.2s ease-out;
+  }
+}
