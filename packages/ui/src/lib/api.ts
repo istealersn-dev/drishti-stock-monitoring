@@ -1,12 +1,20 @@
 import { z } from "zod";
 
-const API_BASE = `http://localhost:${String(import.meta.env["VITE_API_PORT"] ?? "4000")}`;
+import { clearKey, getStoredKey } from "./auth";
 
 async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  const key = getStoredKey();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (key) headers["X-Access-Key"] = key;
+
+  const response = await fetch(path, { headers, ...init });
+
+  if (response.status === 401) {
+    clearKey();
+    window.location.replace("/login");
+    throw new Error("Session expired");
+  }
+
   if (!response.ok) {
     let detail = "";
     try {
@@ -26,6 +34,22 @@ async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestIni
   }
   const json: unknown = await response.json();
   return schema.parse(json);
+}
+
+/**
+ * Validate an access key against the server.
+ * @param key - The access key to validate
+ * @returns Resolves on success, throws on invalid key
+ */
+export async function loginWithKey(key: string): Promise<void> {
+  const response = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+  if (!response.ok) {
+    throw new Error("Invalid access key");
+  }
 }
 
 // ── Schemas ──────────────────────────────────────────────────────────────────

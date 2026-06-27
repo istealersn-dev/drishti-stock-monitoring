@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { desc, eq } from "drizzle-orm";
 import express from "express";
@@ -123,9 +125,18 @@ export function queryApprovals(): unknown[] {
 function corsMiddleware(_request: Request, response: Response, next: NextFunction): void {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Access-Key");
   if (_request.method === "OPTIONS") {
     response.sendStatus(200);
+    return;
+  }
+  next();
+}
+
+function authMiddleware(request: Request, response: Response, next: NextFunction): void {
+  const key = request.headers["x-access-key"];
+  if (key !== env.DRISHTI_ACCESS_KEY) {
+    response.status(401).json({ ok: false, error: "Unauthorized" });
     return;
   }
   next();
@@ -140,6 +151,25 @@ export function buildApiApp(): Express {
   const app = express();
   app.use(express.json());
   app.use(corsMiddleware);
+
+  // Login is the only public endpoint — all other /api/* require X-Access-Key
+  app.post("/api/auth/login", (request, response) => {
+    const raw: unknown = request.body;
+    const key =
+      typeof raw === "object" &&
+      raw !== null &&
+      "key" in raw &&
+      typeof (raw as Record<string, unknown>)["key"] === "string"
+        ? String((raw as Record<string, unknown>)["key"])
+        : "";
+    if (key !== env.DRISHTI_ACCESS_KEY) {
+      response.status(401).json({ ok: false, error: "Invalid access key" });
+      return;
+    }
+    response.json({ ok: true });
+  });
+
+  app.use("/api", authMiddleware);
 
   app.get("/api/runs", (_request, response) => {
     response.json({ ok: true, data: queryRuns() });
@@ -397,6 +427,13 @@ export function buildApiApp(): Express {
         .run();
       response.status(500).json({ ok: false, error: message });
     }
+  });
+
+  const uiDistributionPath = join(dirname(fileURLToPath(import.meta.url)), "../../../ui/dist");
+  app.use(express.static(uiDistributionPath));
+  // SPA fallback — must come after all API routes so unmatched /api/* return 404, not index.html
+  app.get("*splat", (_request, response) => {
+    response.sendFile(join(uiDistributionPath, "index.html"));
   });
 
   return app;

@@ -40,6 +40,7 @@ const EnvironmentSchema = z.object({
   DRISHTI_APPROVAL_TIMEOUT_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
 
   AGENT_API_PORT: z.coerce.number().int().default(4000),
+  DRISHTI_ACCESS_KEY: z.string().min(16),
 });
 
 type Environment = z.infer<typeof EnvironmentSchema>;
