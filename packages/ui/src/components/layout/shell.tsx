@@ -37,20 +37,8 @@ export function Shell(): React.ReactElement {
   return (
     <div className="relative min-h-full overflow-hidden bg-bg-root">
       {/* Ambient gradient orbs */}
-      <div
-        className="pointer-events-none fixed left-0 top-0 h-[600px] w-[600px] -translate-x-1/4 -translate-y-1/4 rounded-full opacity-100"
-        style={{
-          background: "radial-gradient(circle, rgba(99,102,241,.16), transparent 62%)",
-          animation: "drk-float 22s ease-in-out infinite",
-        }}
-      />
-      <div
-        className="pointer-events-none fixed bottom-0 right-0 h-[500px] w-[500px] translate-x-1/4 translate-y-1/4 rounded-full opacity-100"
-        style={{
-          background: "radial-gradient(circle, rgba(34,197,94,.10), transparent 64%)",
-          animation: "drk-float2 26s ease-in-out infinite",
-        }}
-      />
+      <div className="orb-indigo pointer-events-none fixed left-0 top-0 h-[600px] w-[600px] -translate-x-1/4 -translate-y-1/4 rounded-full animate-float-drk" />
+      <div className="orb-green pointer-events-none fixed bottom-0 right-0 h-[500px] w-[500px] translate-x-1/4 translate-y-1/4 rounded-full animate-float2-drk" />
 
       <Topbar dryRun={dryRun} agentStatus={agentStatus} />
       <Sidebar pendingApprovals={pendingCount} collapsed={collapsed} onToggle={handleToggle} />
