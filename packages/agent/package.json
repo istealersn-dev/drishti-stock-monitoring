@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "start:dry": "DRISHTI_DRY_RUN=true node dist/main.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",

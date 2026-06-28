@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "test": "pnpm -r test",
     "db:migrate": "pnpm --filter agent db:migrate",
-    "agent:dry": "DRISHTI_DRY_RUN=true pnpm --filter agent dev"
+    "agent:dry": "DRISHTI_DRY_RUN=true pnpm --filter agent dev",
+    "start": "pnpm --filter agent start",
+    "start:dry": "pnpm --filter agent start:dry"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.0.0",
