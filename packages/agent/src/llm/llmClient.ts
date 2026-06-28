@@ -7,7 +7,11 @@ import type {
 import { env } from "../shared/env.js";
 import { LlmError } from "../shared/errors.js";
 
-const MAX_CONTEXT_TOKENS = 2048;
+const DEFAULT_MAX_TOKENS = 2048;
+
+// Portfolio analysis needs room for reasoning + JSON across all holdings.
+// ~400 reasoning tokens × 12 holdings + JSON output ≈ 6000+ tokens needed.
+export const PORTFOLIO_MAX_TOKENS = 8192;
 
 const LLM_TIMEOUT_MS = 120_000;
 
@@ -21,13 +25,17 @@ const client = new OpenAI({
 /**
  * Send a chat completion request to LM Studio.
  * @param messages - The conversation messages
+ * @param maxTokens - Max completion tokens; defaults to 2048, use PORTFOLIO_MAX_TOKENS for multi-holding analysis
  * @returns The assistant's text response
  */
-export async function chat(messages: ChatCompletionMessageParam[]): Promise<string> {
+export async function chat(
+  messages: ChatCompletionMessageParam[],
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+): Promise<string> {
   const response = await client.chat.completions.create({
     model: env.LM_MODEL,
     messages,
-    max_tokens: MAX_CONTEXT_TOKENS,
+    max_tokens: maxTokens,
     temperature: 0.1,
     stream: false,
   });
@@ -53,7 +61,7 @@ export async function chatWithTools(
     model: env.LM_MODEL,
     messages,
     tools,
-    max_tokens: MAX_CONTEXT_TOKENS,
+    max_tokens: DEFAULT_MAX_TOKENS,
     temperature: 0.1,
     stream: false,
   });
