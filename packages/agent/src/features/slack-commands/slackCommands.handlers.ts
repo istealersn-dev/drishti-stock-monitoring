@@ -12,6 +12,7 @@ import { fetchHoldings } from "../portfolio/portfolio.tools.js";
 import {
   formatAnalysis,
   formatGtts,
+  formatHelp,
   formatHoldings,
   formatPnl,
   formatStatus,
@@ -181,6 +182,15 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
     logCommandError(CMD_ANALYSE_LLM, message, holding.trading_symbol);
     await say(`⚠️ LLM analysis failed: ${message}`);
   }
+}
+
+/**
+ * Respond to /drishti (no subcommand) or /drishti help — list all commands.
+ * @param say - Slack say function for the originating channel
+ * @returns Resolved when message is sent
+ */
+export async function handleHelp(say: SayFunction): Promise<void> {
+  await say(formatHelp());
 }
 
 function logCommandError(action: string, error: string, symbol?: string): void {

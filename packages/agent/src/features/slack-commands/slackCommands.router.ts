@@ -6,6 +6,7 @@ import { routeCommand } from "./slackCommands.command.js";
 import {
   handleAnalyse,
   handleGtts,
+  handleHelp,
   handleHoldings,
   handlePnl,
   handleStatus,
@@ -49,6 +50,41 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
         error: errorMessage,
       });
       await say(`⚠️ Unexpected error handling \`!${matched.command}\`. Check agent logs.`);
+    }
+  });
+
+  // /drishti slash command — routes subcommands or shows help
+  app.command("/drishti", async ({ command, ack, say }) => {
+    await ack();
+
+    const sub = command.text.trim().toLowerCase();
+    logger.info("Slash command received", { subcommand: sub || "help" });
+
+    try {
+      if (sub === "" || sub === "help") {
+        await handleHelp(say);
+      } else if (sub === "status") {
+        await handleStatus(say);
+      } else if (sub === "pnl") {
+        await handlePnl(say);
+      } else if (sub === "holdings") {
+        await handleHoldings(say);
+      } else if (sub === "gtts") {
+        await handleGtts(say);
+      } else if (sub.startsWith("analyse ")) {
+        const query = sub.slice("analyse ".length).trim();
+        if (query.length > 0) {
+          await handleAnalyse(query, say);
+        } else {
+          await say("Usage: `/drishti analyse <symbol or name>`");
+        }
+      } else {
+        await say(`Unknown subcommand \`${sub}\`. Try \`/drishti help\` for the full list.`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error("Slash command handler threw", { subcommand: sub, error: errorMessage });
+      await say(`⚠️ Unexpected error handling \`/drishti ${sub}\`. Check agent logs.`);
     }
   });
 }

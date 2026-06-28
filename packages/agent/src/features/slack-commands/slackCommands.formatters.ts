@@ -159,3 +159,32 @@ export function formatGtts(gtts: GttOrder[]): string {
 export function formatAnalysis(symbol: string, reasoning: string): string {
   return `🔍 *Analysis — ${symbol}*\n\n${reasoning}`;
 }
+
+/**
+ * Format the /drishti help reply listing all available commands.
+ * @returns Slack-formatted help string
+ */
+export function formatHelp(): string {
+  return [
+    "👁️ *Drishti — Available Commands*",
+    "",
+    "*Slash command*",
+    "`/drishti [subcommand]` — run any command below via slash",
+    "",
+    "*Message commands* (in #drishti-commands)",
+    "`!status` — agent health, last run, dry-run mode, next poll",
+    "`!pnl` — portfolio P&L summary and top movers",
+    "`!holdings` — full holdings list with LTP and P&L",
+    "`!gtts` — active GTT orders",
+    "`!analyse <symbol or name>` — LLM analysis of a specific holding",
+    "",
+    "*Buy instruction* (in #drishti-commands or #drishti-alerts)",
+    "`Ramco Systems Buy 560-580 SL 520 Tgt 680 800+`",
+    "↳ Sends an approval card — tap Approve to place the GTT entry order.",
+    "",
+    "*Automated alerts* (no command needed)",
+    "• SL breach → GTT exit placed, Slack notified",
+    "• T1 / T2 hit → alert ping",
+    "• Morning digest at 09:15 IST · EOD digest at 15:30 IST",
+  ].join("\n");
+}
