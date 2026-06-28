@@ -33,7 +33,7 @@ acts as a control panel.
   external data store.
 - **LM Studio must be the only LLM provider.** No calls to OpenAI, Anthropic, or
   any cloud API. The LLM runs locally via LM Studio at `http://localhost:1234`.
-  Model: `google/gemma-4-12b-it-qat` (QAT 4-bit, ~7GB, safe on 24GB M4 Pro).
+  Model: `google/gemma-4-12b-qat` (QAT 4-bit, ~7GB, safe on 24GB M4 Pro).
   Do NOT use the BF16 variant — it requires significantly more RAM.
   Avoid Qwen3/Qwen3.5 — LM Studio has open bugs where thinking mode cannot
   be disabled, leaving content always empty (issues #1990, #16945).
