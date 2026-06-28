@@ -8,7 +8,6 @@ import { pushAlert } from "../alerts/alerts.slack.js";
 import { buildSlExitRequest } from "../gtt/gtt.service.js";
 import { cancelGTT, createGTT } from "../gtt/gtt.tools.js";
 import { analysePortfolio } from "../insights/insights.chain.js";
-import type { LlmOutput } from "../insights/insights.schema.js";
 import { updateHoldingsCache } from "../portfolio/portfolio.cache.js";
 import { fetchHoldings, fetchLTP } from "../portfolio/portfolio.tools.js";
 import { loadSlConfigs } from "../stopLoss/stopLoss.config.js";
@@ -127,7 +126,7 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
   const result = await analysePortfolio(state.holdings, state.ltpMap, state.slConfigs);
 
   if (!result.ok) {
-    logger.warn("llmAnalyse: analysis failed, falling back to alert_only", {
+    logger.warn("llmAnalyse: analysis failed — skipping Slack alerts", {
       error: result.error.message,
     });
     db.insert(agentLogs)
@@ -140,16 +139,8 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
         createdAt: new Date().toISOString(),
       })
       .run();
-    const fallbackOutput: LlmOutput = {
-      decisions: state.holdings.map((h) => ({
-        symbol: h.trading_symbol,
-        action: "alert_only",
-        reasoning: "LLM analysis unavailable — manual review required.",
-        gttParams: null,
-      })),
-      portfolioSummary: "LLM analysis unavailable — all positions set to alert-only.",
-    };
-    return { llmOutput: fallbackOutput };
+    // Return null so executeActionsNode and logAndAlertNode both no-op silently
+    return { llmOutput: null };
   }
 
   logger.info("llmAnalyse: complete", {
