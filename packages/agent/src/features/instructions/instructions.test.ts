@@ -4,11 +4,12 @@ const { mockChat } = vi.hoisted(() => ({ mockChat: vi.fn() }));
 
 vi.mock("../../llm/llmClient.js", () => ({ chat: mockChat }));
 vi.mock("../../shared/env.js", () => ({
-  env: { LM_STUDIO_BASE_URL: "http://localhost:1234", LM_MODEL: "test-model" },
+  env: { LM_STUDIO_BASE_URL: "http://localhost:1234", LM_MODEL: "test-model", UPSTOX_EXTENDED_TOKEN: "", UPSTOX_ACCESS_TOKEN: "" },
 }));
 
 import { calculateSuggestedQty } from "./instructions.executor.js";
 import { parseInstruction } from "./instructions.parser.js";
+import { resolveSymbol } from "./instructions.resolver.js";
 
 describe("parseInstruction", () => {
   it("parses the canonical format correctly", async () => {
@@ -145,6 +146,44 @@ describe("parseInstruction", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.stockName).toBe("WIPRO");
+  });
+});
+
+// ── resolveSymbol tests ───────────────────────────────────────────────────────
+
+describe("resolveSymbol", () => {
+  it("returns err when no NSE equity is found for the stock name", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: "success", data: [] }),
+      }),
+    );
+
+    const result = await resolveSymbol("UnknownStockXYZ123");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain("No NSE equity found");
+
+    vi.unstubAllGlobals();
+  });
+
+  it("returns err when the Upstox search API responds with an error status", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        statusText: "Unauthorized",
+      }),
+    );
+
+    const result = await resolveSymbol("RELIANCE");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain("Symbol search failed");
+
+    vi.unstubAllGlobals();
   });
 });
 

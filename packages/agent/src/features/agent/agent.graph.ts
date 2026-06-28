@@ -126,7 +126,9 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
   const result = await analysePortfolio(state.holdings, state.ltpMap, state.slConfigs);
 
   if (!result.ok) {
-    logger.warn("llmAnalyse: analysis failed, skipping", { error: result.error.message });
+    logger.warn("llmAnalyse: analysis failed, falling back to alert_only", {
+      error: result.error.message,
+    });
     db.insert(agentLogs)
       .values({
         runId: state.runId,
@@ -137,7 +139,16 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
         createdAt: new Date().toISOString(),
       })
       .run();
-    return {};
+    const fallbackOutput: import("../insights/insights.schema.js").LlmOutput = {
+      decisions: state.holdings.map((h) => ({
+        symbol: h.trading_symbol,
+        action: "alert_only",
+        reasoning: "LLM analysis unavailable — manual review required.",
+        gttParams: null,
+      })),
+      portfolioSummary: "LLM analysis unavailable — all positions set to alert-only.",
+    };
+    return { llmOutput: fallbackOutput };
   }
 
   logger.info("llmAnalyse: complete", {
