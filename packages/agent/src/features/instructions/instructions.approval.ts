@@ -63,7 +63,10 @@ export async function sendApprovalCard(
         },
         { type: "mrkdwn", text: `*Targets:*\n${formatTargets(instruction)}` },
         { type: "mrkdwn", text: `*Suggested Qty:*\n${suggestedQty} shares` },
-        { type: "mrkdwn", text: `*Available Margin:*\n₹${availableMargin.toLocaleString("en-IN")}` },
+        {
+          type: "mrkdwn",
+          text: `*Available Margin:*\n₹${availableMargin.toLocaleString("en-IN")}`,
+        },
       ],
     },
     {

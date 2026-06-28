@@ -8,6 +8,7 @@ import { pushAlert } from "../alerts/alerts.slack.js";
 import { buildSlExitRequest } from "../gtt/gtt.service.js";
 import { cancelGTT, createGTT } from "../gtt/gtt.tools.js";
 import { analysePortfolio } from "../insights/insights.chain.js";
+import type { LlmOutput } from "../insights/insights.schema.js";
 import { updateHoldingsCache } from "../portfolio/portfolio.cache.js";
 import { fetchHoldings, fetchLTP } from "../portfolio/portfolio.tools.js";
 import { loadSlConfigs } from "../stopLoss/stopLoss.config.js";
@@ -139,7 +140,7 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
         createdAt: new Date().toISOString(),
       })
       .run();
-    const fallbackOutput: import("../insights/insights.schema.js").LlmOutput = {
+    const fallbackOutput: LlmOutput = {
       decisions: state.holdings.map((h) => ({
         symbol: h.trading_symbol,
         action: "alert_only",

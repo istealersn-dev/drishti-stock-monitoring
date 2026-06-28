@@ -4,7 +4,12 @@ const { mockChat } = vi.hoisted(() => ({ mockChat: vi.fn() }));
 
 vi.mock("../../llm/llmClient.js", () => ({ chat: mockChat }));
 vi.mock("../../shared/env.js", () => ({
-  env: { LM_STUDIO_BASE_URL: "http://localhost:1234", LM_MODEL: "test-model", UPSTOX_EXTENDED_TOKEN: "", UPSTOX_ACCESS_TOKEN: "" },
+  env: {
+    LM_STUDIO_BASE_URL: "http://localhost:1234",
+    LM_MODEL: "test-model",
+    UPSTOX_EXTENDED_TOKEN: "",
+    UPSTOX_ACCESS_TOKEN: "",
+  },
 }));
 
 import { calculateSuggestedQty } from "./instructions.executor.js";
