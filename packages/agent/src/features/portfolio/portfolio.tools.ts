@@ -12,7 +12,7 @@ import type { Holding, LtpData, MarginEquity } from "./portfolio.schema.js";
 const BASE_URL = "https://api.upstox.com";
 
 function readToken(): string {
-  return env.UPSTOX_EXTENDED_TOKEN || env.UPSTOX_ACCESS_TOKEN || "";
+  return env.UPSTOX_ACCESS_TOKEN || env.UPSTOX_EXTENDED_TOKEN || "";
 }
 
 function authHeaders(): HeadersInit {
@@ -24,7 +24,7 @@ function authHeaders(): HeadersInit {
 
 /**
  * Fetch all long-term holdings from Upstox.
- * Uses the extended (read-only) token when available, falls back to access token.
+ * Uses the daily access token, falls back to the extended (read-only) token when ACCESS_TOKEN is absent.
  * @returns A Result containing the holdings array or an UpstoxError
  */
 export async function fetchHoldings(): Promise<Result<Holding[], UpstoxError>> {
@@ -81,13 +81,17 @@ export async function fetchLTP(
  */
 export async function fetchMargins(): Promise<Result<MarginEquity, UpstoxError>> {
   const url = `${BASE_URL}/v2/user/get-funds-and-margin`;
-  const token = env.UPSTOX_ACCESS_TOKEN || env.UPSTOX_EXTENDED_TOKEN || "";
+  const token = env.UPSTOX_ACCESS_TOKEN;
+  if (!token) {
+    return err(
+      new UpstoxError(
+        "fetchMargins requires UPSTOX_ACCESS_TOKEN — the extended token is not accepted by this endpoint",
+      ),
+    );
+  }
   try {
     const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      },
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
     });
     if (!response.ok) {
       return err(new UpstoxError(`Margin request failed: ${response.statusText}`, response.status));

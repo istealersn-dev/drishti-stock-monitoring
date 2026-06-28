@@ -383,7 +383,8 @@ body {
   /* ── Login page ─────────────────────────────────────────────── */
 
   .login-left {
-    @apply relative flex flex-1 flex-col justify-between overflow-hidden border-r border-border-subtle;
+    @apply relative flex flex-col justify-between overflow-hidden border-r border-border-subtle;
+    flex: 0 0 50%;
     padding: 44px;
     background: linear-gradient(160deg, rgba(22, 22, 30, 0.55), rgba(11, 11, 13, 0.3));
   }
@@ -444,9 +445,9 @@ body {
 
   /* Right panel form */
   .login-right {
-    @apply flex flex-none items-center justify-center p-8;
-    width: 460px;
-    max-width: 100%;
+    @apply flex items-center justify-center p-8;
+    flex: 0 0 50%;
+    max-width: 50%;
   }
 
   .login-input {
