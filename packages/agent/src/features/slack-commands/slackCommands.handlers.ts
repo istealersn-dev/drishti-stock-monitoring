@@ -137,6 +137,7 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
     await say(
       `ℹ️ No SL/target config found for *${holding.trading_symbol}* — analysis will use price data only. Configure via the dashboard to enable full analysis.`,
     );
+    // intentional fall-through: analysis still runs with null SL/target fields
   }
 
   const pnlPct =

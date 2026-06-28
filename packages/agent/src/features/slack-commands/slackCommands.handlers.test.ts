@@ -17,6 +17,7 @@ vi.mock("../../db/db.js", () => ({
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
         orderBy: vi.fn().mockReturnValue({
+          get: vi.fn().mockReturnValue(undefined),
           limit: vi.fn().mockReturnValue({ all: vi.fn().mockReturnValue([]) }),
         }),
         where: vi.fn().mockReturnValue({ get: vi.fn().mockReturnValue(undefined) }),
@@ -38,7 +39,13 @@ import { listGTTs } from "../gtt/gtt.tools.js";
 import type { Holding } from "../portfolio/portfolio.schema.js";
 import { fetchHoldings } from "../portfolio/portfolio.tools.js";
 
-import { handleAnalyse, handleGtts, handleHoldings, handlePnl } from "./slackCommands.handlers.js";
+import {
+  handleAnalyse,
+  handleGtts,
+  handleHoldings,
+  handlePnl,
+  handleStatus,
+} from "./slackCommands.handlers.js";
 
 const mockFetchHoldings = vi.mocked(fetchHoldings);
 const mockListGTTs = vi.mocked(listGTTs);
@@ -62,6 +69,29 @@ const makeHolding = (): Holding => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+// ── handleStatus ─────────────────────────────────────────────────────────────
+
+describe("handleStatus", () => {
+  it("sends status message with no-runs state when agentRuns is empty", async () => {
+    const say = vi.fn().mockResolvedValue(undefined);
+    await handleStatus(say);
+    expect(say).toHaveBeenCalledWith(expect.stringContaining("Drishti Status"));
+    expect(say).toHaveBeenCalledWith(expect.stringContaining("No runs recorded yet"));
+  });
+
+  it("sends status message with last run details when a row exists", async () => {
+    const { db } = await import("../../db/db.js");
+    vi.mocked(db.select().from(expect.anything()).orderBy(expect.anything()).get).mockReturnValue({
+      startedAt: new Date(Date.now() - 2 * 60_000).toISOString(),
+      status: "completed",
+      summary: "5 holdings, 0 SL breaches",
+    } as never);
+    const say = vi.fn().mockResolvedValue(undefined);
+    await handleStatus(say);
+    expect(say).toHaveBeenCalledWith(expect.stringContaining("Drishti Status"));
+  });
 });
 
 // ── handlePnl ────────────────────────────────────────────────────────────────

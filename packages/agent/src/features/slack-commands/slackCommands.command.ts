@@ -2,7 +2,7 @@ const STATUS_PATTERN = /^!status\s*$/i;
 const PNL_PATTERN = /^!pnl\s*$/i;
 const HOLDINGS_PATTERN = /^!holdings\s*$/i;
 const GTTS_PATTERN = /^!gtts\s*$/i;
-const ANALYSE_PATTERN = /^!analyse\s+(.+)$/is;
+const ANALYSE_PATTERN = /^!analyse\s+(.+)$/i;
 
 /**
  * Parse a raw message text and return the matched command type and optional query.
