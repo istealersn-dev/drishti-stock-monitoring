@@ -98,7 +98,7 @@ async function main(): Promise<void> {
 
   startTimeoutPoller();
   startDigestCrons();
-  startApiServer();
+  await startApiServer();
 
   await tick();
   startCron(tick);

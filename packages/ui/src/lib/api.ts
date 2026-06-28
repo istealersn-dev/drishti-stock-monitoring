@@ -2,12 +2,14 @@ import { z } from "zod";
 
 import { clearKey, getStoredKey } from "./auth";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+
 async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
   const key = getStoredKey();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (key) headers["X-Access-Key"] = key;
 
-  const response = await fetch(path, { headers, ...init });
+  const response = await fetch(`${API_BASE}${path}`, { headers, ...init });
 
   if (response.status === 401) {
     clearKey();
@@ -42,7 +44,7 @@ async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestIni
  * @returns Resolves on success, throws on invalid key
  */
 export async function loginWithKey(key: string): Promise<void> {
-  const response = await fetch("/api/auth/login", {
+  const response = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key }),

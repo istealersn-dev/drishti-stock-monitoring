@@ -1,10 +1,8 @@
 import crypto from "node:crypto";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
+import cors from "@fastify/cors";
 import { desc, eq } from "drizzle-orm";
-import express from "express";
-import type { Express, NextFunction, Request, Response } from "express";
+import Fastify from "fastify";
 import { z } from "zod";
 
 import { db } from "../db/db.js";
@@ -120,88 +118,72 @@ export function queryApprovals(): unknown[] {
   });
 }
 
-// ── Express app ───────────────────────────────────────────────────────────────
+// ── Fastify app ───────────────────────────────────────────────────────────────
 
-function corsMiddleware(_request: Request, response: Response, next: NextFunction): void {
-  response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Access-Key");
-  if (_request.method === "OPTIONS") {
-    response.sendStatus(200);
-    return;
-  }
-  next();
-}
-
-function authMiddleware(request: Request, response: Response, next: NextFunction): void {
-  const key = request.headers["x-access-key"];
-  if (key !== env.DRISHTI_ACCESS_KEY) {
-    response.status(401).json({ ok: false, error: "Unauthorized" });
-    return;
-  }
-  next();
-}
+const HoldingConfigBodySchema = z.object({
+  slThreshold: z.number().positive(),
+  targetOne: z.number().positive().nullable(),
+  targetTwo: z.number().positive().nullable(),
+});
 
 /**
- * Build and return the configured Express app (without starting the server).
+ * Build and return the configured Fastify app (without starting the server).
  * Separated from startApiServer for testability.
- * @returns Configured Express application
+ * @returns Configured Fastify application
  */
-export function buildApiApp(): Express {
-  const app = express();
-  app.use(express.json());
-  app.use(corsMiddleware);
+export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
+  const app = Fastify({ logger: false });
 
-  // Login is the only public endpoint — all other /api/* require X-Access-Key
-  app.post("/api/auth/login", (request, response) => {
-    const raw: unknown = request.body;
-    const key =
-      typeof raw === "object" &&
-      raw !== null &&
-      "key" in raw &&
-      typeof (raw as Record<string, unknown>)["key"] === "string"
-        ? String((raw as Record<string, unknown>)["key"])
-        : "";
+  await app.register(cors, {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "X-Access-Key"],
+  });
+
+  // Auth hook: all /api/* except /api/auth/login requires X-Access-Key
+  app.addHook("preHandler", async (request, reply) => {
+    if (request.url === "/api/auth/login") return;
+    const key = request.headers["x-access-key"];
     if (key !== env.DRISHTI_ACCESS_KEY) {
-      response.status(401).json({ ok: false, error: "Invalid access key" });
-      return;
+      return reply.status(401).send({ ok: false, error: "Unauthorized" });
     }
-    response.json({ ok: true });
   });
 
-  app.use("/api", authMiddleware);
+  // ── Public ─────────────────────────────────────────────────────────────────
 
-  app.get("/api/runs", (_request, response) => {
-    response.json({ ok: true, data: queryRuns() });
+  app.post<{ Body: Record<string, unknown> }>("/api/auth/login", async (request, reply) => {
+    const key = typeof request.body["key"] === "string" ? request.body["key"] : "";
+    if (key !== env.DRISHTI_ACCESS_KEY) {
+      return reply.status(401).send({ ok: false, error: "Invalid access key" });
+    }
+    return reply.send({ ok: true });
   });
 
-  app.get("/api/holdings", (_request, response) => {
+  // ── Protected ──────────────────────────────────────────────────────────────
+
+  app.get("/api/runs", async (_request, reply) => {
+    return reply.send({ ok: true, data: queryRuns() });
+  });
+
+  app.get("/api/holdings", async (_request, reply) => {
     const { holdings, cachedAt } = getCachedHoldings();
-    response.json({ ok: true, data: holdings, cachedAt });
+    return reply.send({ ok: true, data: holdings, cachedAt });
   });
 
-  app.get("/api/gtt", (request, response) => {
-    const status =
-      typeof request.query["status"] === "string" ? request.query["status"] : undefined;
-    response.json({ ok: true, data: queryGttOrders(status) });
+  app.get<{ Querystring: { status?: string } }>("/api/gtt", async (request, reply) => {
+    return reply.send({ ok: true, data: queryGttOrders(request.query.status) });
   });
 
-  app.get("/api/logs", (request, response) => {
-    const runId = typeof request.query["runId"] === "string" ? request.query["runId"] : undefined;
-    response.json({ ok: true, data: queryLogs(runId) });
+  app.get<{ Querystring: { runId?: string } }>("/api/logs", async (request, reply) => {
+    return reply.send({ ok: true, data: queryLogs(request.query.runId) });
   });
 
-  app.get("/api/settings", (_request, response) => {
-    response.json({ ok: true, data: querySettings() });
+  app.get("/api/settings", async (_request, reply) => {
+    return reply.send({ ok: true, data: querySettings() });
   });
 
-  app.put("/api/settings", (request, response) => {
-    const raw: unknown = request.body;
-    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-      response.status(400).json({ ok: false, error: "Body must be a JSON object" });
-      return;
-    }
-    const body = raw as Record<string, unknown>;
+  app.put<{ Body: Record<string, unknown> }>("/api/settings", async (request, reply) => {
+    const body = request.body;
     const allowed = new Set(["dry_run", "pause_agent", "poll_interval_minutes"]);
     const now = new Date().toISOString();
 
@@ -219,51 +201,34 @@ export function buildApiApp(): Express {
       updated.push(key);
     }
 
-    response.json({ ok: true, updated });
+    return reply.send({ ok: true, updated });
   });
 
-  app.get("/api/approvals", (_request, response) => {
-    response.json({ ok: true, data: queryApprovals() });
+  app.get("/api/approvals", async (_request, reply) => {
+    return reply.send({ ok: true, data: queryApprovals() });
   });
 
-  app.post("/api/instructions", (request, response) => {
-    const raw: unknown = request.body;
-    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-      response.status(400).json({ ok: false, error: "Body must be a JSON object" });
-      return;
-    }
-    const body = raw as Record<string, unknown>;
-    const text = typeof body["text"] === "string" ? body["text"].trim() : "";
+  app.post<{ Body: Record<string, unknown> }>("/api/instructions", async (request, reply) => {
+    const text = typeof request.body["text"] === "string" ? request.body["text"].trim() : "";
     if (!text) {
-      response.status(400).json({ ok: false, error: "text is required" });
-      return;
+      return reply.status(400).send({ ok: false, error: "text is required" });
     }
 
-    submitBuyInstruction(text, "ui")
-      .then((result) => {
-        if (result.ok) {
-          response.json({ ok: true, approvalId: result.approvalId, symbol: result.symbol });
-        } else {
-          response.status(422).json({ ok: false, error: result.error });
-        }
-      })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        logger.error("POST /api/instructions failed", { error: message });
-        response.status(500).json({ ok: false, error: message });
-      });
+    const result = await submitBuyInstruction(text, "ui");
+    if (result.ok) {
+      return reply.send({ ok: true, approvalId: result.approvalId, symbol: result.symbol });
+    }
+    return reply.status(422).send({ ok: false, error: result.error });
   });
 
-  app.post("/api/approvals/:id/approve", (request, response) => {
-    const approvalId = request.params["id"] ?? "";
+  app.post<{ Params: { id: string } }>("/api/approvals/:id/approve", async (request, reply) => {
+    const approvalId = request.params.id;
     const approval = getApproval(approvalId);
     if (!approval) {
-      response.status(404).json({ ok: false, error: "Approval not found" });
-      return;
+      return reply.status(404).send({ ok: false, error: "Approval not found" });
     }
     if (approval.status !== "pending") {
-      response.status(409).json({ ok: false, error: `Already ${approval.status}` });
-      return;
+      return reply.status(409).send({ ok: false, error: `Already ${approval.status}` });
     }
 
     const runId = crypto.randomUUID();
@@ -271,46 +236,27 @@ export function buildApiApp(): Express {
       .values({ id: runId, startedAt: new Date().toISOString(), status: "running" })
       .run();
 
-    executeApprovedInstruction(approvalId, runId)
-      .then((result) => {
-        db.update(agentRuns)
-          .set({ completedAt: new Date().toISOString(), status: result.ok ? "success" : "error" })
-          .where(eq(agentRuns.id, runId))
-          .run();
-        if (result.ok) {
-          response.json({ ok: true });
-        } else {
-          response.status(422).json({ ok: false, error: result.error });
-        }
-      })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        logger.error("POST /api/approvals/:id/approve failed", { approvalId, error: message });
-        db.update(agentRuns)
-          .set({ completedAt: new Date().toISOString(), status: "error" })
-          .where(eq(agentRuns.id, runId))
-          .run();
-        response.status(500).json({ ok: false, error: message });
-      });
+    const result = await executeApprovedInstruction(approvalId, runId);
+    db.update(agentRuns)
+      .set({ completedAt: new Date().toISOString(), status: result.ok ? "success" : "error" })
+      .where(eq(agentRuns.id, runId))
+      .run();
+
+    if (result.ok) {
+      return reply.send({ ok: true });
+    }
+    return reply.status(422).send({ ok: false, error: result.error });
   });
 
-  /**
-   * Cancel an active GTT order. Dry-run logs and marks cancelled; live mode marks cancelled in DB
-   * (remote Upstox cancel requires an upstoxOrderId column — schema migration pending).
-   */
-  app.delete("/api/gtt/:id", (request, response) => {
-    const id = request.params["id"] ?? "";
+  app.delete<{ Params: { id: string } }>("/api/gtt/:id", async (request, reply) => {
+    const id = request.params.id;
     const row = db.select().from(gttOrders).where(eq(gttOrders.id, id)).get();
     if (!row) {
-      response.status(404).json({ ok: false, error: "GTT order not found" });
-      return;
+      return reply.status(404).send({ ok: false, error: "GTT order not found" });
     }
     if (row.status !== "active") {
-      response.status(409).json({ ok: false, error: `Order is already ${row.status}` });
-      return;
+      return reply.status(409).send({ ok: false, error: `Order is already ${row.status}` });
     }
-
-    const now = new Date().toISOString();
 
     if (env.DRISHTI_DRY_RUN) {
       logger.info("[DRY_RUN] would cancel GTT", { id, symbol: row.symbol });
@@ -322,119 +268,94 @@ export function buildApiApp(): Express {
     }
 
     db.update(gttOrders)
-      .set({ status: "cancelled", updatedAt: now })
+      .set({ status: "cancelled", updatedAt: new Date().toISOString() })
       .where(eq(gttOrders.id, id))
       .run();
-    response.json({ ok: true });
+    return reply.send({ ok: true });
   });
 
-  app.post("/api/approvals/:id/reject", (request, response) => {
-    const approvalId = request.params["id"] ?? "";
+  app.post<{ Params: { id: string } }>("/api/approvals/:id/reject", async (request, reply) => {
+    const approvalId = request.params.id;
     const approval = getApproval(approvalId);
     if (!approval) {
-      response.status(404).json({ ok: false, error: "Approval not found" });
-      return;
+      return reply.status(404).send({ ok: false, error: "Approval not found" });
     }
     if (approval.status !== "pending") {
-      response.status(409).json({ ok: false, error: `Already ${approval.status}` });
-      return;
+      return reply.status(409).send({ ok: false, error: `Already ${approval.status}` });
     }
 
     resolveApproval(approvalId, "rejected");
 
     if (approval.slackTs) {
-      updateApprovalCard(approval.slackTs, approval.symbol, "rejected")
-        .then((result) => {
-          if (!result.ok) {
-            logger.warn("Failed to update Slack card after UI rejection", {
-              approvalId,
-              error: result.error.message,
-            });
-          }
-        })
-        .catch((error: unknown) => {
-          logger.warn("Failed to update Slack card after UI rejection", {
-            approvalId,
-            error: error instanceof Error ? error.message : String(error),
-          });
+      updateApprovalCard(approval.slackTs, approval.symbol, "rejected").catch((error: unknown) => {
+        logger.warn("Failed to update Slack card after UI rejection", {
+          approvalId,
+          error: error instanceof Error ? error.message : String(error),
         });
+      });
     }
 
-    response.json({ ok: true });
-  });
-
-  const HoldingConfigBodySchema = z.object({
-    slThreshold: z.number().positive(),
-    targetOne: z.number().positive().nullable(),
-    targetTwo: z.number().positive().nullable(),
+    return reply.send({ ok: true });
   });
 
   /**
    * Update SL threshold and targets for a holding in stock_config.
    * Send null for targetOne/targetTwo to clear a previously set value.
    * Creates the row if it does not yet exist.
-   * @param request - Express request with symbol param and HoldingConfigBody
-   * @param response - Express response
+   * @param request - Fastify request with symbol param and HoldingConfigBody
+   * @param reply - Fastify reply
    * @returns JSON {ok: true} on success or {ok: false, error} on failure
    */
-  app.put("/api/holdings/:symbol/config", (request, response) => {
-    const symbol = request.params["symbol"] ?? "";
-    if (!symbol) {
-      response.status(400).json({ ok: false, error: "symbol required" });
-      return;
-    }
+  app.put<{ Params: { symbol: string }; Body: unknown }>(
+    "/api/holdings/:symbol/config",
+    async (request, reply) => {
+      const symbol = request.params.symbol;
 
-    const parsed = HoldingConfigBodySchema.safeParse(request.body);
-    if (!parsed.success) {
-      response
-        .status(400)
-        .json({ ok: false, error: parsed.error.issues.map((issue) => issue.message).join("; ") });
-      return;
-    }
-
-    const { slThreshold, targetOne, targetTwo } = parsed.data;
-    const now = new Date().toISOString();
-
-    try {
-      const existing = db.select().from(stockConfig).where(eq(stockConfig.symbol, symbol)).get();
-
-      if (existing) {
-        db.update(stockConfig)
-          .set({ slThreshold, targetOne, targetTwo, updatedAt: now })
-          .where(eq(stockConfig.symbol, symbol))
-          .run();
-      } else {
-        db.insert(stockConfig)
-          .values({ symbol, slThreshold, targetOne, targetTwo, updatedAt: now })
-          .run();
+      const parsed = HoldingConfigBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          ok: false,
+          error: parsed.error.issues.map((issue) => issue.message).join("; "),
+        });
       }
 
-      logger.info("stock_config updated via UI", { symbol, slThreshold, targetOne, targetTwo });
-      response.json({ ok: true });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error("PUT /api/holdings/:symbol/config failed", { symbol, error: message });
-      db.insert(agentLogs)
-        .values({
-          runId: "ui",
-          symbol,
-          action: "stock_config_update_failed",
-          reasoning: null,
-          dryRun: false,
-          error: message,
-          createdAt: now,
-        })
-        .run();
-      response.status(500).json({ ok: false, error: message });
-    }
-  });
+      const { slThreshold, targetOne, targetTwo } = parsed.data;
+      const now = new Date().toISOString();
 
-  const uiDistributionPath = join(dirname(fileURLToPath(import.meta.url)), "../../../ui/dist");
-  app.use(express.static(uiDistributionPath));
-  // SPA fallback — must come after all API routes so unmatched /api/* return 404, not index.html
-  app.get("*splat", (_request, response) => {
-    response.sendFile(join(uiDistributionPath, "index.html"));
-  });
+      try {
+        const existing = db.select().from(stockConfig).where(eq(stockConfig.symbol, symbol)).get();
+
+        if (existing) {
+          db.update(stockConfig)
+            .set({ slThreshold, targetOne, targetTwo, updatedAt: now })
+            .where(eq(stockConfig.symbol, symbol))
+            .run();
+        } else {
+          db.insert(stockConfig)
+            .values({ symbol, slThreshold, targetOne, targetTwo, updatedAt: now })
+            .run();
+        }
+
+        logger.info("stock_config updated via UI", { symbol, slThreshold, targetOne, targetTwo });
+        return reply.send({ ok: true });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error("PUT /api/holdings/:symbol/config failed", { symbol, error: message });
+        db.insert(agentLogs)
+          .values({
+            runId: "ui",
+            symbol,
+            action: "stock_config_update_failed",
+            reasoning: null,
+            dryRun: false,
+            error: message,
+            createdAt: now,
+          })
+          .run();
+        return reply.status(500).send({ ok: false, error: message });
+      }
+    },
+  );
 
   return app;
 }
@@ -443,9 +364,8 @@ export function buildApiApp(): Express {
  * Start the REST API server on AGENT_API_PORT.
  * Call once from main.ts after all other services are up.
  */
-export function startApiServer(): void {
-  const app = buildApiApp();
-  app.listen(env.AGENT_API_PORT, () => {
-    logger.info("REST API server started", { port: env.AGENT_API_PORT });
-  });
+export async function startApiServer(): Promise<void> {
+  const app = await buildApiApp();
+  await app.listen({ port: env.AGENT_API_PORT, host: "0.0.0.0" });
+  logger.info("REST API server started", { port: env.AGENT_API_PORT });
 }
