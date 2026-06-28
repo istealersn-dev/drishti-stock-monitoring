@@ -15,6 +15,8 @@ import { registerApprovalHandlers } from "./features/approval/approval.handler.j
 import { startTimeoutPoller } from "./features/approval/approval.timeout.js";
 import { startDigestCrons } from "./features/digest/digest.service.js";
 import { submitBuyInstruction } from "./features/instructions/instructions.pipeline.js";
+import { registerSlackCommands } from "./features/slack-commands/slackCommands.router.js";
+import { SlackMessageShape } from "./features/slack-commands/slackCommands.schema.js";
 import { startCron } from "./scheduler/cron.js";
 import { env } from "./shared/env.js";
 import { logger } from "./shared/logger.js";
@@ -77,15 +79,18 @@ async function main(): Promise<void> {
   });
 
   registerApprovalHandlers(boltApp);
+  registerSlackCommands(boltApp, env.SLACK_COMMAND_CHANNEL_ID);
 
   const buyChannels = new Set([env.SLACK_ALERT_CHANNEL_ID, env.SLACK_COMMAND_CHANNEL_ID]);
 
   boltApp.message(async ({ message, say: _say }) => {
     if (message.subtype) return;
-    const message_ = message as { channel?: string; text?: string };
-    if (!message_.channel || !buyChannels.has(message_.channel)) return;
-    if (!message_.text || !BUY_KEYWORD.test(message_.text)) return;
-    await submitBuyInstruction(message_.text, message_.channel ?? "slack");
+    const parsed = SlackMessageShape.safeParse(message);
+    if (!parsed.success) return;
+    const { channel, text } = parsed.data;
+    if (!channel || !buyChannels.has(channel)) return;
+    if (!text || /^!/.test(text) || !BUY_KEYWORD.test(text)) return;
+    await submitBuyInstruction(text, channel);
   });
 
   await boltApp.start();
