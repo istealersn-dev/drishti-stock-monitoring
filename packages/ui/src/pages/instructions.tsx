@@ -1,19 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useState } from "react";
 
-import { Badge } from "../components/ui/badge";
-import { Card } from "../components/ui/card";
 import { Spinner } from "../components/ui/spinner";
 import {
+  type Approval,
+  type ParsedInstruction,
   approveInstruction,
   fetchApprovals,
   rejectInstruction,
   submitInstruction,
-  type Approval,
-  type ParsedInstruction,
 } from "../lib/api";
 
-const PLACEHOLDER = "e.g. Ramco Systems Buy 560-580 SL 520 Tgt 680 800+";
+const EXAMPLE_CHIPS = [
+  "Ramco Systems Buy 560-580 SL 520 Tgt 680 800+",
+  "HDFC Bank Buy 1700 SL 1600 Tgt 1850 2000",
+  "Infosys Buy 1480-1510 SL 1420 Tgt 1620",
+] as const;
+
+function formatPrice(price: number | null): string {
+  if (price === null) return "—";
+  return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function elapsedLabel(createdAt: string): { text: string; cls: string } {
+  const diffMs = Date.now() - new Date(createdAt).getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 2) return { text: "just now", cls: "elapsed-fresh" };
+  if (diffMin < 10) return { text: `${diffMin}m ago`, cls: "elapsed-warning" };
+  return { text: `${diffMin}m ago`, cls: "elapsed-urgent" };
+}
 
 type ApprovalCardProperties = {
   approval: Approval;
@@ -33,89 +48,110 @@ function ApprovalCard({
   actionError,
 }: ApprovalCardProperties): React.ReactElement {
   const parsed: ParsedInstruction | null = approval.parsedInstruction;
+  const elapsed = elapsedLabel(approval.createdAt);
+  const isExpired = approval.status === "expired";
+  const isSettled = approval.status !== "pending";
+
+  const entryString =
+    parsed?.entryLow != null && parsed?.entryHigh != null
+      ? `${formatPrice(parsed.entryLow)}–${formatPrice(parsed.entryHigh)}`
+      : parsed?.entryLow != null
+        ? formatPrice(parsed.entryLow)
+        : "—";
+
+  const t1 = parsed?.targets[0];
+  const t2 = parsed?.targets[1];
+  const t1String = t1 != null ? `${formatPrice(t1.price)}${t1.isOpenEnded ? "+" : ""}` : "—";
+  const t2String = t2 != null ? `${formatPrice(t2.price)}${t2.isOpenEnded ? "+" : ""}` : "—";
 
   return (
-    <Card accent="warning" className="space-y-3">
-      <div className="flex items-start justify-between gap-2">
+    <div className={`approval-card ${isSettled ? "opacity-50" : ""}`}>
+      {/* Header */}
+      <div className="mb-[13px] flex items-start justify-between gap-[10px]">
         <div>
-          <p className="font-medium text-text-primary">{approval.symbol}</p>
-          <p className="mt-0.5 font-mono text-[11px] text-text-muted">
-            {new Date(approval.createdAt).toLocaleString("en-IN")}
-          </p>
+          <div className="text-[13.5px] font-semibold text-text-primary">{approval.symbol}</div>
+          <div className="mt-[2px] font-mono text-[11.5px] text-[#a5b4fc]">
+            #{approval.id.slice(0, 8)}
+          </div>
         </div>
-        <Badge variant="warning" dot>
-          pending
-        </Badge>
+        <span className="rounded-[5px] bg-[rgba(120,120,120,.1)] px-[9px] py-[3px] text-[11px] font-semibold text-text-tertiary">
+          {approval.status}
+        </span>
       </div>
 
-      {parsed && (
-        <div className="grid grid-cols-2 gap-2 rounded-lg border border-border-dim bg-bg-inset p-3 text-[12px]">
-          {(parsed.entryLow !== null || parsed.entryHigh !== null) && (
-            <div>
-              <span className="text-text-muted">Entry</span>
-              <p className="font-mono text-text-primary">
-                {parsed.entryLow !== null ? String(parsed.entryLow) : "?"}–
-                {parsed.entryHigh !== null ? String(parsed.entryHigh) : "?"}
-              </p>
+      {/* Detail fields */}
+      {parsed != null && (
+        <div className="mb-[13px] grid grid-cols-2 gap-[9px]">
+          <div className="approval-detail-field">
+            <div className="mb-[3px] text-[10px] text-text-dim">Entry</div>
+            <div className="font-mono text-[12.5px] text-[#e0e0e0]">{entryString}</div>
+          </div>
+          <div className="approval-detail-field">
+            <div className="mb-[3px] text-[10px] text-text-dim">Stop-loss</div>
+            <div className="font-mono text-[12.5px] text-[#f0a0a0]">
+              {formatPrice(parsed.stopLoss)}
             </div>
-          )}
-          {parsed.stopLoss !== null && (
-            <div>
-              <span className="text-text-muted">Stop Loss</span>
-              <p className="font-mono text-danger-text">{String(parsed.stopLoss)}</p>
-            </div>
-          )}
-          {parsed.targets.length > 0 && (
-            <div className="col-span-2">
-              <span className="text-text-muted">Targets</span>
-              <p className="font-mono text-success-text">
-                {parsed.targets
-                  .map((t) => (t.isOpenEnded ? `${String(t.price)}+` : String(t.price)))
-                  .join(", ")}
-              </p>
-            </div>
-          )}
-          <div>
-            <span className="text-text-muted">Suggested Qty</span>
-            <p className="font-mono text-text-primary">{approval.suggestedQty}</p>
+          </div>
+          <div className="approval-detail-field">
+            <div className="mb-[3px] text-[10px] text-text-dim">Target 1</div>
+            <div className="font-mono text-[12.5px] text-[#bdf0c8]">{t1String}</div>
+          </div>
+          <div className="approval-detail-field">
+            <div className="mb-[3px] text-[10px] text-text-dim">Target 2</div>
+            <div className="font-mono text-[12.5px] text-[#bdf0c8]">{t2String}</div>
           </div>
         </div>
       )}
 
-      {actionError && (
-        <p className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger-text">
+      {/* Qty + elapsed */}
+      <div className="mb-[13px] flex items-center justify-between font-mono text-[11.5px]">
+        <span className="text-text-tertiary">
+          Qty <span className="text-[#e0e0e0]">{approval.suggestedQty}</span>
+        </span>
+        <span className={elapsed.cls}>{elapsed.text}</span>
+      </div>
+
+      {/* Actions */}
+      {actionError != null && (
+        <div className="mb-2 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger-text">
           {actionError}
-        </p>
+        </div>
       )}
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="btn-primary flex-1"
-          onClick={() => {
-            onApprove(approval.id);
-          }}
-          disabled={approvePending || rejectPending}
-        >
-          {approvePending ? <Spinner size="sm" /> : "✓ Approve"}
-        </button>
-        <button
-          type="button"
-          className="btn-ghost flex-1"
-          onClick={() => {
-            onReject(approval.id);
-          }}
-          disabled={approvePending || rejectPending}
-        >
-          {rejectPending ? <Spinner size="sm" /> : "✕ Reject"}
-        </button>
-      </div>
-    </Card>
+      {isExpired ? (
+        <div className="rounded-lg bg-[#161616] py-2 text-center text-[12px] text-text-dim">
+          Expired — auto-rejected after timeout
+        </div>
+      ) : !isSettled ? (
+        <div className="flex gap-[9px]">
+          <button
+            type="button"
+            className="approval-approve-btn"
+            disabled={approvePending || rejectPending}
+            onClick={() => {
+              onApprove(approval.id);
+            }}
+          >
+            {approvePending ? <Spinner size="sm" /> : "Approve"}
+          </button>
+          <button
+            type="button"
+            className="approval-reject-btn"
+            disabled={approvePending || rejectPending}
+            onClick={() => {
+              onReject(approval.id);
+            }}
+          >
+            {rejectPending ? <Spinner size="sm" /> : "Reject"}
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 /**
- * Instructions page — buy instruction input and pending approvals list.
+ * Instructions page — buy instruction input, example chips, and pending approvals grid.
  * @returns Instructions page element
  */
 export function Instructions(): React.ReactElement {
@@ -134,6 +170,7 @@ export function Instructions(): React.ReactElement {
   } = useQuery({
     queryKey: ["approvals"],
     queryFn: fetchApprovals,
+    refetchInterval: 30_000,
   });
 
   const submitMutation = useMutation({
@@ -199,12 +236,6 @@ export function Instructions(): React.ReactElement {
     submitMutation.mutate(instructionText.trim());
   };
 
-  const handleTextChange = (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
-    setInstructionText(event.target.value);
-    setSubmitError(null);
-    setSubmitSuccess(null);
-  };
-
   const handleApprove = (id: string): void => {
     if (pendingApproveIds.has(id) || pendingRejectIds.has(id)) return;
     setActionErrors((previous) => {
@@ -227,74 +258,127 @@ export function Instructions(): React.ReactElement {
     rejectMutation.mutate(id);
   };
 
+  const pendingApprovals = approvals.filter((a) => a.status === "pending");
+
   return (
-    <div className="animate-fade-drk space-y-5">
-      <h1 className="text-[17px] font-semibold text-text-primary">Instructions</h1>
-
-      <Card accent="indigo">
-        <p className="mb-3 text-[13px] font-medium text-text-secondary">New Buy Instruction</p>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <textarea
-            value={instructionText}
-            onChange={handleTextChange}
-            placeholder={PLACEHOLDER}
-            rows={3}
-            className="w-full resize-none rounded-lg border border-border-default bg-bg-inset px-3 py-2 font-mono text-[13px] text-text-primary placeholder:text-text-dim focus:border-primary focus:outline-none"
-          />
-          {submitError && (
-            <p className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger-text">
-              {submitError}
-            </p>
-          )}
-          {submitSuccess && (
-            <p className="rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-[12px] text-success-text">
-              {submitSuccess}
-            </p>
-          )}
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={!instructionText.trim() || submitMutation.isPending}
-          >
-            {submitMutation.isPending ? <Spinner size="sm" /> : "Submit"}
-          </button>
-        </form>
-      </Card>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-[13px] font-semibold text-text-secondary">Pending Approvals</p>
-          {approvals.length > 0 && <Badge variant="warning">{approvals.length} pending</Badge>}
+    <div className="animate-fade-drk max-w-[940px] space-y-4">
+      {/* Send instruction card */}
+      <div className="settings-card">
+        <div className="mb-3 text-[13px] font-semibold text-text-primary">
+          Send a buy instruction
         </div>
+        <form onSubmit={handleSubmit}>
+          <div className="flex items-stretch gap-[10px]">
+            <input
+              type="text"
+              value={instructionText}
+              onChange={(event) => {
+                setInstructionText(event.target.value);
+                setSubmitError(null);
+                setSubmitSuccess(null);
+              }}
+              placeholder="Ramco Systems Buy 560-580 SL 520 Tgt 680 800+"
+              className="instr-input"
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              className="instr-send-btn"
+              disabled={!instructionText.trim() || submitMutation.isPending}
+            >
+              {submitMutation.isPending ? (
+                <Spinner size="sm" />
+              ) : (
+                <>
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                  Send
+                </>
+              )}
+            </button>
+          </div>
 
-        {approvalsError ? (
-          <div className="rounded-card border border-danger/30 bg-danger/5 p-4 text-[12px] text-danger-text">
-            Failed to load approvals. Is the agent running?
+          <div className="mt-[9px] font-mono text-[11.5px] text-text-dim">
+            Format: [Stock] Buy [entry or range] SL [price] Tgt [T1] [T2+]
           </div>
-        ) : isLoading ? (
-          <div className="flex h-24 items-center justify-center">
-            <Spinner />
-          </div>
-        ) : approvals.length === 0 ? (
-          <div className="flex h-24 items-center justify-center rounded-card border border-border-dim text-text-muted">
-            No pending approvals
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {approvals.map((approval: Approval) => (
-              <ApprovalCard
-                key={approval.id}
-                approval={approval}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                approvePending={pendingApproveIds.has(approval.id)}
-                rejectPending={pendingRejectIds.has(approval.id)}
-                actionError={actionErrors[approval.id] ?? null}
-              />
+
+          <div className="mt-[13px] flex flex-wrap gap-2">
+            {EXAMPLE_CHIPS.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                className="instr-example-chip"
+                onClick={() => {
+                  setInstructionText(chip);
+                }}
+              >
+                {chip}
+              </button>
             ))}
+          </div>
+        </form>
+
+        {submitError != null && (
+          <div className="mt-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger-text">
+            {submitError}
+          </div>
+        )}
+        {submitSuccess != null && (
+          <div className="mt-3 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-[12px] text-success-text">
+            {submitSuccess}
           </div>
         )}
       </div>
+
+      {/* Pending approvals section */}
+      <div className="flex items-center gap-[9px]">
+        <span className="text-[13px] font-semibold text-text-primary">Pending approvals</span>
+        {pendingApprovals.length > 0 && (
+          <span className="rounded-md bg-[rgba(245,158,11,.12)] px-[9px] py-[2px] font-mono text-[11px] text-warning">
+            {pendingApprovals.length}
+          </span>
+        )}
+      </div>
+
+      {approvalsError && approvals.length === 0 ? (
+        <div className="rounded-card border border-danger/30 bg-danger/5 p-4 text-[12px] text-danger-text">
+          Failed to load approvals. Is the agent running?
+        </div>
+      ) : isLoading ? (
+        <div className="flex h-24 items-center justify-center">
+          <Spinner />
+        </div>
+      ) : pendingApprovals.length === 0 ? (
+        <div className="settings-card py-[44px] text-center">
+          <div className="text-[13.5px] font-medium text-text-tertiary">No pending approvals</div>
+          <div className="mt-[6px] text-[12px] text-text-dim">Send a buy instruction above.</div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 items-start gap-3">
+          {pendingApprovals.map((approval: Approval) => (
+            <ApprovalCard
+              key={approval.id}
+              approval={approval}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              approvePending={pendingApproveIds.has(approval.id)}
+              rejectPending={pendingRejectIds.has(approval.id)}
+              actionError={actionErrors[approval.id] ?? null}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

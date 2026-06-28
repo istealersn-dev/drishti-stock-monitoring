@@ -7,7 +7,7 @@ import type {
 import { env } from "../shared/env.js";
 import { LlmError } from "../shared/errors.js";
 
-const MAX_CONTEXT_TOKENS = 8000;
+const MAX_CONTEXT_TOKENS = 2048;
 
 const client = new OpenAI({
   baseURL: env.LM_STUDIO_BASE_URL + "/v1",

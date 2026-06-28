@@ -2,8 +2,10 @@ import "dotenv/config";
 
 import crypto from "node:crypto";
 
-import { App } from "@slack/bolt";
+import bolt from "@slack/bolt";
 import { eq } from "drizzle-orm";
+
+const { App } = bolt;
 
 import { startApiServer } from "./api/api.server.js";
 import { db } from "./db/db.js";
