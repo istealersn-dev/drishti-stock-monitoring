@@ -27,12 +27,12 @@ type LmStudioParams = ChatCompletionCreateParamsNonStreaming & {
   chat_template_kwargs?: { thinking: boolean };
 };
 
-function baseParams(): Pick<LmStudioParams, "model" | "max_tokens" | "temperature" | "chat_template_kwargs" | "stream"> {
+function baseParams() {
   return {
     model: env.LM_MODEL,
     max_tokens: MAX_CONTEXT_TOKENS,
     temperature: 0.1,
-    stream: false,
+    stream: false as const,
     chat_template_kwargs: { thinking: false },
   };
 }
