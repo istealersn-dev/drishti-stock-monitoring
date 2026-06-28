@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 import type {
-  ChatCompletionCreateParamsNonStreaming,
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from "openai/resources/chat/completions.js";
@@ -19,32 +18,19 @@ const client = new OpenAI({
   maxRetries: 0,
 });
 
-// Extends the base params to carry LM Studio / Qwen3 specific fields.
-// chat_template_kwargs.thinking = false disables Qwen3's chain-of-thought mode;
-// without it the model emits only <think> tokens which LM Studio strips,
-// leaving an empty content string.
-type LmStudioParams = ChatCompletionCreateParamsNonStreaming & {
-  chat_template_kwargs?: { thinking: boolean };
-};
-
-function baseParams() {
-  return {
-    model: env.LM_MODEL,
-    max_tokens: MAX_CONTEXT_TOKENS,
-    temperature: 0.1,
-    stream: false as const,
-    chat_template_kwargs: { thinking: false },
-  };
-}
-
 /**
  * Send a chat completion request to LM Studio.
  * @param messages - The conversation messages
  * @returns The assistant's text response
  */
 export async function chat(messages: ChatCompletionMessageParam[]): Promise<string> {
-  const params: LmStudioParams = { ...baseParams(), messages };
-  const response = await client.chat.completions.create(params);
+  const response = await client.chat.completions.create({
+    model: env.LM_MODEL,
+    messages,
+    max_tokens: MAX_CONTEXT_TOKENS,
+    temperature: 0.1,
+    stream: false,
+  });
 
   const content = response.choices[0]?.message?.content;
   if (!content?.trim()) {
@@ -63,8 +49,14 @@ export async function chatWithTools(
   messages: ChatCompletionMessageParam[],
   tools: ChatCompletionTool[],
 ): Promise<OpenAI.Chat.Completions.ChatCompletionMessage> {
-  const params: LmStudioParams = { ...baseParams(), messages, tools };
-  const response = await client.chat.completions.create(params);
+  const response = await client.chat.completions.create({
+    model: env.LM_MODEL,
+    messages,
+    tools,
+    max_tokens: MAX_CONTEXT_TOKENS,
+    temperature: 0.1,
+    stream: false,
+  });
 
   const message = response.choices[0]?.message;
   if (message == null) {
