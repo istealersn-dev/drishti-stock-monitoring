@@ -180,7 +180,20 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logCommandError(CMD_ANALYSE_LLM, message, holding.trading_symbol);
-    await say(`⚠️ LLM analysis failed: ${message}`);
+
+    const isOffline =
+      message.includes("ECONNREFUSED") ||
+      message.includes("ECONNRESET") ||
+      message.includes("fetch failed") ||
+      message.includes("LM Studio returned an empty response");
+
+    if (isOffline) {
+      await say(
+        `⚠️ *LM Studio is offline.* Start it on the Mac Mini and load \`google/gemma-4-26b-a4b-qat\` before using \`analyse\`.`,
+      );
+    } else {
+      await say(`⚠️ LLM analysis failed: ${message}`);
+    }
   }
 }
 

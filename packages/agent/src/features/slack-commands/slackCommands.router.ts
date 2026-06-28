@@ -53,12 +53,11 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
     }
   });
 
-  // /drishti slash command — ephemeral responses visible only to the invoker
-  app.command("/drishti", async ({ command, ack, respond }) => {
+  // /drishti slash command — posts responses to the channel for full history
+  app.command("/drishti", async ({ command, ack, say }) => {
     await ack();
 
-    // respond() sends an ephemeral message visible only to the user who ran the command
-    const reply = (text: string): Promise<unknown> => respond({ text, response_type: "ephemeral" });
+    const reply = say;
 
     const sub = command.text.trim().toLowerCase();
     logger.info("Slash command received", { subcommand: sub || "help" });
