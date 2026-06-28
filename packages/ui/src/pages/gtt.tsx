@@ -1,79 +1,112 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useState } from "react";
+import React from "react";
 
-import { Badge } from "../components/ui/badge";
 import { Spinner } from "../components/ui/spinner";
-import { cancelGttOrder, fetchGttOrders, type GttOrder } from "../lib/api";
+import { type GttOrder, cancelGttOrder, fetchGttOrders } from "../lib/api";
 
-function formatInr(amount: number): string {
-  return `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+const TABLE_HEADERS = [
+  { label: "Symbol" },
+  { label: "Type" },
+  { label: "Trigger", right: true },
+  { label: "Limit", right: true },
+  { label: "Qty", right: true },
+  { label: "Status" },
+  { label: "Created", right: true },
+  { label: "Approval ID" },
+  { label: "Action", right: true },
+];
+
+function formatPrice(price: number): string {
+  return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function statusVariant(status: string): "success" | "danger" | "warning" | "default" | "primary" {
-  if (status === "active") return "success";
-  if (status === "triggered") return "primary";
-  if (status === "cancelled") return "danger";
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+}
+
+function resolveStatusVariant(status: string): string {
+  if (status === "active") return "active";
+  if (status === "triggered") return "triggered";
+  if (status === "cancelled") return "cancelled";
   return "default";
 }
 
 type GttRowProperties = {
   order: GttOrder;
-  onCancel: (id: string) => void;
-  cancelling: boolean;
-  cancelError: string | null;
 };
 
-function GttRow({
-  order,
-  onCancel,
-  cancelling,
-  cancelError,
-}: GttRowProperties): React.ReactElement {
+function GttRow({ order }: GttRowProperties): React.ReactElement {
+  const queryClientInstance = useQueryClient();
+  const statusVariant = resolveStatusVariant(order.status);
+  const isSlType = order.type.toLowerCase().includes("sl");
+  const approvalShort = order.approvalId != null ? order.approvalId.slice(0, 8) : "—";
+
+  const cancelMutation = useMutation({
+    mutationFn: cancelGttOrder,
+    onSuccess: () => {
+      void queryClientInstance.invalidateQueries({ queryKey: ["gtt"] });
+    },
+  });
+
   return (
-    <tr className="table-row-data bg-bg-card hover:bg-bg-hover">
-      <td className="px-4 font-medium text-text-primary">{order.symbol}</td>
-      <td className="px-4">
-        <Badge variant={order.type === "sl_exit" ? "danger" : "primary"}>{order.type}</Badge>
-      </td>
-      <td className="px-4 text-right font-mono">{formatInr(order.triggerPrice)}</td>
-      <td className="px-4 text-right font-mono">{formatInr(order.limitPrice)}</td>
-      <td className="px-4 text-right font-mono">{order.quantity}</td>
-      <td className="px-4">
-        <Badge variant={statusVariant(order.status)}>{order.status}</Badge>
-      </td>
-      <td className="px-4 font-mono text-[11px] text-text-muted">
-        {new Date(order.createdAt).toLocaleDateString("en-IN")}
-      </td>
-      <td className="px-4 text-right">
+    <div className="gtt-row">
+      <span className="font-mono text-[13px] font-semibold text-text-primary">{order.symbol}</span>
+      <span>
+        <span className={`gtt-type-badge ${isSlType ? "gtt-type-badge-sl" : "gtt-type-badge-buy"}`}>
+          {order.type.toUpperCase()}
+        </span>
+      </span>
+      <span className="text-right font-mono text-[12px] text-[#d8d8d8]">
+        {formatPrice(order.triggerPrice)}
+      </span>
+      <span className="text-right font-mono text-[12px] text-text-tertiary">
+        {formatPrice(order.limitPrice)}
+      </span>
+      <span className="text-right font-mono text-[12px] text-[#bcbcbc]">{order.quantity}</span>
+      <span>
+        <span className={`gtt-status-badge gtt-status-badge-${statusVariant}`}>
+          <span className={`gtt-status-dot gtt-status-dot-${statusVariant}`} />
+          {order.status}
+        </span>
+      </span>
+      <span className="text-right font-mono text-[11.5px] text-[#8a8a8a]">
+        {formatDate(order.createdAt)}
+      </span>
+      <span className="overflow-hidden text-ellipsis font-mono text-[11px] text-text-dim">
+        {approvalShort}
+      </span>
+      <span className="flex flex-col items-end gap-1 text-right">
         {order.status === "active" && (
-          <div className="flex flex-col items-end gap-1">
+          <>
             <button
               type="button"
-              className="btn-danger py-1 text-[11px]"
+              className="gtt-cancel-btn"
               onClick={() => {
-                onCancel(order.id);
+                cancelMutation.mutate(order.id);
               }}
-              disabled={cancelling}
+              disabled={cancelMutation.isPending}
             >
-              {cancelling ? <Spinner size="sm" /> : "Cancel"}
+              {cancelMutation.isPending ? <Spinner size="sm" /> : "Cancel"}
             </button>
-            {cancelError && <span className="text-[10px] text-danger-text">{cancelError}</span>}
-          </div>
+            {cancelMutation.isError && (
+              <span className="text-[10px] text-danger">
+                {cancelMutation.error instanceof Error
+                  ? cancelMutation.error.message
+                  : "Cancel failed"}
+              </span>
+            )}
+          </>
         )}
-      </td>
-    </tr>
+      </span>
+    </div>
   );
 }
 
 /**
- * GTT Orders page — lists all GTT orders with cancel button for active ones.
+ * GTT Orders page — lists all GTT orders with status badge and cancel action for active ones.
  * @returns Gtt page element
  */
 export function Gtt(): React.ReactElement {
-  const queryClientInstance = useQueryClient();
-  const [cancelErrors, setCancelErrors] = useState<Partial<Record<string, string>>>({});
-  const [cancellingIds, setCancellingIds] = useState<ReadonlySet<string>>(new Set());
-
   const {
     data: orders = [],
     isLoading,
@@ -82,42 +115,6 @@ export function Gtt(): React.ReactElement {
     queryKey: ["gtt"],
     queryFn: () => fetchGttOrders(),
   });
-
-  const cancelMutation = useMutation({
-    mutationFn: cancelGttOrder,
-    onSuccess: (_data, id) => {
-      setCancellingIds((previous) => {
-        const next = new Set(previous);
-        next.delete(id);
-        return next;
-      });
-      setCancelErrors((previous) => {
-        const next = { ...previous };
-        delete next[id];
-        return next;
-      });
-      void queryClientInstance.invalidateQueries({ queryKey: ["gtt"] });
-    },
-    onError: (error: Error, id: string) => {
-      setCancellingIds((previous) => {
-        const next = new Set(previous);
-        next.delete(id);
-        return next;
-      });
-      setCancelErrors((previous) => ({ ...previous, [id]: error.message }));
-    },
-  });
-
-  const handleCancel = (id: string): void => {
-    if (cancellingIds.has(id)) return;
-    setCancelErrors((previous) => {
-      const next = { ...previous };
-      delete next[id];
-      return next;
-    });
-    setCancellingIds((previous) => new Set(previous).add(id));
-    cancelMutation.mutate(id);
-  };
 
   if (isLoading) {
     return (
@@ -137,49 +134,49 @@ export function Gtt(): React.ReactElement {
 
   const active = orders.filter((o) => o.status === "active");
   const rest = orders.filter((o) => o.status !== "active");
+  const sorted = [...active, ...rest];
 
   return (
-    <div className="animate-fade-drk space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[17px] font-semibold text-text-primary">GTT Orders</h1>
-        <Badge variant="success" dot>
-          {active.length} active
-        </Badge>
-      </div>
+    <div className="animate-fade-drk">
+      <div className="holdings-card overflow-x-auto">
+        <div style={{ minWidth: 960 }}>
+          {/* Column headers */}
+          <div className="gtt-col-grid holdings-col-header">
+            {TABLE_HEADERS.map((col) => (
+              <span key={col.label} className={col.right === true ? "text-right" : ""}>
+                {col.label}
+              </span>
+            ))}
+          </div>
 
-      {orders.length === 0 ? (
-        <div className="flex h-48 items-center justify-center rounded-card border border-border-default text-text-muted">
-          No GTT orders found
+          {sorted.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-[54px] text-center">
+              <div className="mb-[14px] flex h-[46px] w-[46px] items-center justify-center rounded-xl border border-border-subtle bg-[#19191b]">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#5a5a5a"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                  <polyline points="2 17 12 22 22 17" />
+                  <polyline points="2 12 12 17 22 12" />
+                </svg>
+              </div>
+              <div className="text-[13.5px] font-medium text-text-tertiary">No active GTTs</div>
+              <div className="mx-auto mt-[5px] max-w-[380px] text-[12px] leading-relaxed text-text-dim">
+                The agent will create them automatically when SL or target conditions are met.
+              </div>
+            </div>
+          ) : (
+            sorted.map((order) => <GttRow key={order.id} order={order} />)
+          )}
         </div>
-      ) : (
-        <div className="overflow-x-auto rounded-card border border-border-default">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border-subtle bg-bg-surface">
-                <th className="table-row-header px-4">Symbol</th>
-                <th className="table-row-header px-4">Type</th>
-                <th className="table-row-header px-4 text-right">Trigger</th>
-                <th className="table-row-header px-4 text-right">Limit</th>
-                <th className="table-row-header px-4 text-right">Qty</th>
-                <th className="table-row-header px-4">Status</th>
-                <th className="table-row-header px-4">Created</th>
-                <th className="table-row-header px-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...active, ...rest].map((order) => (
-                <GttRow
-                  key={order.id}
-                  order={order}
-                  onCancel={handleCancel}
-                  cancelling={cancellingIds.has(order.id)}
-                  cancelError={cancelErrors[order.id] ?? null}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

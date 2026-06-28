@@ -33,7 +33,7 @@ export function Shell(): React.ReactElement {
 
   const dryRun = settings?.dryRun ?? false;
   const agentStatus = settingsError ? "error" : settings?.pauseAgent ? "unknown" : "live";
-  const pendingCount = approvals.length;
+  const pendingCount = approvals.filter((a) => a.status === "pending").length;
   const lastPollAt = runs[0]?.startedAt ?? null;
 
   const handleToggle = (): void => {
