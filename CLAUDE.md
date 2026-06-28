@@ -33,8 +33,8 @@ acts as a control panel.
   external data store.
 - **LM Studio must be the only LLM provider.** No calls to OpenAI, Anthropic, or
   any cloud API. The LLM runs locally via LM Studio at `http://localhost:1234`.
-  Model: `google/gemma-4-26b-a4b-qat` (QAT 4-bit, ~15GB, safe on 24GB M4 Pro).
-  Do NOT switch to the standard BF16 26B — it requires 28GB and will swap.
+  Model: `google/gemma-4-12b-it-qat` (QAT 4-bit, ~7GB, safe on 24GB M4 Pro).
+  Do NOT use the standard BF16 variant — it requires significantly more RAM.
   Cap context length at 8K for portfolio analysis prompts — the full 256K window
   is unnecessary and wastes RAM headroom.
 
