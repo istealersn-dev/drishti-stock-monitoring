@@ -53,38 +53,41 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
     }
   });
 
-  // /drishti slash command — routes subcommands or shows help
-  app.command("/drishti", async ({ command, ack, say }) => {
+  // /drishti slash command — ephemeral responses visible only to the invoker
+  app.command("/drishti", async ({ command, ack, respond }) => {
     await ack();
+
+    // respond() sends an ephemeral message visible only to the user who ran the command
+    const reply = (text: string): Promise<unknown> => respond({ text, response_type: "ephemeral" });
 
     const sub = command.text.trim().toLowerCase();
     logger.info("Slash command received", { subcommand: sub || "help" });
 
     try {
       if (sub === "" || sub === "help") {
-        await handleHelp(say);
+        await handleHelp(reply);
       } else if (sub === "status") {
-        await handleStatus(say);
+        await handleStatus(reply);
       } else if (sub === "pnl") {
-        await handlePnl(say);
+        await handlePnl(reply);
       } else if (sub === "holdings") {
-        await handleHoldings(say);
+        await handleHoldings(reply);
       } else if (sub === "gtts") {
-        await handleGtts(say);
+        await handleGtts(reply);
       } else if (sub.startsWith("analyse ")) {
         const query = sub.slice("analyse ".length).trim();
         if (query.length > 0) {
-          await handleAnalyse(query, say);
+          await handleAnalyse(query, reply);
         } else {
-          await say("Usage: `/drishti analyse <symbol or name>`");
+          await reply("Usage: `/drishti analyse <symbol or name>`");
         }
       } else {
-        await say(`Unknown subcommand \`${sub}\`. Try \`/drishti help\` for the full list.`);
+        await reply(`Unknown subcommand \`${sub}\`. Try \`/drishti help\` for the full list.`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error("Slash command handler threw", { subcommand: sub, error: errorMessage });
-      await say(`⚠️ Unexpected error handling \`/drishti ${sub}\`. Check agent logs.`);
+      await reply(`⚠️ Unexpected error handling \`/drishti ${sub}\`. Check agent logs.`);
     }
   });
 }
