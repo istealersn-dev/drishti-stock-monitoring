@@ -9,9 +9,13 @@ import { LlmError } from "../shared/errors.js";
 
 const MAX_CONTEXT_TOKENS = 2048;
 
+const LLM_TIMEOUT_MS = 120_000;
+
 const client = new OpenAI({
   baseURL: env.LM_STUDIO_BASE_URL + "/v1",
   apiKey: "lm-studio",
+  timeout: LLM_TIMEOUT_MS,
+  maxRetries: 0,
 });
 
 /**
