@@ -105,6 +105,66 @@ export async function handleGtts(say: SayFunction): Promise<void> {
  * @param say - Slack say function for the originating channel
  * @returns Resolved when message is sent
  */
+/** Strip spaces, hyphens, and dots for fuzzy name comparison. */
+function normalize(s: string): string {
+  return s.toLowerCase().replaceAll(/[\s\-_.]/g, "");
+}
+
+/**
+ * Resolve a free-text query to a holding via fuzzy match then LLM fallback.
+ * @param query - User-supplied stock name or symbol fragment
+ * @param holdings - Current portfolio holdings
+ * @returns Matched holding or null
+ */
+async function resolveHolding(
+  query: string,
+  holdings: import("../portfolio/portfolio.schema.js").Holding[],
+): Promise<import("../portfolio/portfolio.schema.js").Holding | null> {
+  const needle = query.toLowerCase().trim();
+  const normNeedle = normalize(query);
+
+  // 1. Exact symbol
+  const exact = holdings.find((h) => h.trading_symbol.toLowerCase() === needle);
+  if (exact) return exact;
+
+  // 2. Symbol contains query
+  const symbolContains = holdings.find((h) => h.trading_symbol.toLowerCase().includes(needle));
+  if (symbolContains) return symbolContains;
+
+  // 3. Normalized company name prefix (handles "federalbank" → "Federal Bank")
+  const normPrefix = holdings.find((h) => normalize(h.company_name).startsWith(normNeedle));
+  if (normPrefix) return normPrefix;
+
+  // 4. Normalized company name substring
+  const normContains = holdings.find((h) => normalize(h.company_name).includes(normNeedle));
+  if (normContains) return normContains;
+
+  // 5. LLM fallback — ask the model to pick the best match from the holdings list
+  const symbolList = holdings.map((h) => `${h.trading_symbol} (${h.company_name})`).join("\n");
+  try {
+    const response = await chat([
+      {
+        role: "system",
+        content:
+          "You are a stock symbol resolver. Given a user query and a list of holdings, return ONLY the exact trading symbol that best matches the query. If nothing matches, return the word NONE. No explanation.",
+      },
+      {
+        role: "user",
+        content: `Query: "${query}"\n\nHoldings:\n${symbolList}`,
+      },
+    ]);
+    const resolved = response.trim().toUpperCase().replaceAll(/[^A-Z0-9]/g, "");
+    if (resolved !== "NONE") {
+      const llmMatch = holdings.find((h) => h.trading_symbol === resolved);
+      if (llmMatch) return llmMatch;
+    }
+  } catch {
+    // LLM unavailable — fall through to null
+  }
+
+  return null;
+}
+
 export async function handleAnalyse(query: string, say: SayFunction): Promise<void> {
   const holdingsResult = await fetchHoldings();
   if (!holdingsResult.ok) {
@@ -113,14 +173,8 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
     return;
   }
 
-  const needle = query.toLowerCase().trim();
   const holdings = holdingsResult.value;
-  // Exact symbol match first, then company name prefix, then substring — avoids ambiguous results
-  // for common prefixes like "HDFC" when holding HDFC Bank, HDFC Life, and HDFC AMC.
-  const holding =
-    holdings.find((h) => h.trading_symbol.toLowerCase() === needle) ??
-    holdings.find((h) => h.company_name.toLowerCase().startsWith(needle)) ??
-    holdings.find((h) => h.company_name.toLowerCase().includes(needle));
+  const holding = await resolveHolding(query, holdings);
 
   if (holding == null) {
     await say(`🔍 No holding matched *${query}*. Use \`!holdings\` to see your current positions.`);
