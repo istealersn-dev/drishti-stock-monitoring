@@ -160,7 +160,10 @@ describe("buildAgentGraph", () => {
     const graph = buildAgentGraph();
     const final = await graph.run(makeInitialState());
 
-    expect(final.llmOutput).toBeNull();
+    expect(final.llmOutput).not.toBeNull();
+    expect(final.llmOutput?.decisions).toHaveLength(1);
+    expect(final.llmOutput?.decisions[0]?.action).toBe("alert_only");
+    expect(final.llmOutput?.portfolioSummary).toContain("unavailable");
     expect(final.errors).toHaveLength(0);
   });
 

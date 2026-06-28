@@ -69,6 +69,7 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     instruction,
     resolved.tradingSymbol,
     suggestedQty,
+    availableMargin,
   );
   if (!cardResult.ok) {
     logger.error("Failed to send approval card", { approvalId, error: cardResult.error.message });

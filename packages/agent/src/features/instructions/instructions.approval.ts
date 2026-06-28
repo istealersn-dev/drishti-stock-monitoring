@@ -34,6 +34,7 @@ function formatEntry(instruction: ParsedInstruction): string {
  * @param instruction - The parsed buy instruction
  * @param resolvedSymbol - The Upstox trading symbol (e.g. "RAMCOSYS-EQ")
  * @param suggestedQty - Agent-calculated suggested quantity
+ * @param availableMargin - Current available margin in rupees
  * @returns A Result containing the Slack message timestamp or a SlackError
  */
 export async function sendApprovalCard(
@@ -41,6 +42,7 @@ export async function sendApprovalCard(
   instruction: ParsedInstruction,
   resolvedSymbol: string,
   suggestedQty: number,
+  availableMargin: number,
 ): Promise<Result<string, SlackError>> {
   const timeoutMinutes = env.DRISHTI_APPROVAL_TIMEOUT_MINUTES;
 
@@ -61,6 +63,7 @@ export async function sendApprovalCard(
         },
         { type: "mrkdwn", text: `*Targets:*\n${formatTargets(instruction)}` },
         { type: "mrkdwn", text: `*Suggested Qty:*\n${suggestedQty} shares` },
+        { type: "mrkdwn", text: `*Available Margin:*\n₹${availableMargin.toLocaleString("en-IN")}` },
       ],
     },
     {
