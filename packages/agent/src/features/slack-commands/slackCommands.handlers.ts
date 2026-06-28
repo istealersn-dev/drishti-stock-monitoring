@@ -243,7 +243,7 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
 
     if (isOffline) {
       await say(
-        `⚠️ *LM Studio is offline.* Start it on the Mac Mini and load \`google/gemma-4-26b-a4b-qat\` before using \`analyse\`.`,
+        `⚠️ *LM Studio is offline.* Start it on the Mac Mini and load \`${env.LM_MODEL}\` before using \`analyse\`.`,
       );
     } else {
       await say(`⚠️ LLM analysis failed: ${message}`);
