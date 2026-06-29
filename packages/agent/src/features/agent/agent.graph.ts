@@ -15,6 +15,8 @@ import { detectBreaches } from "../stopLoss/stopLoss.detector.js";
 import { handleSlBreach } from "../stopLoss/stopLoss.handler.js";
 import { detectTargetHits, loadTargetConfigs } from "../targets/targets.detector.js";
 
+import { isMarketOpen } from "../../scheduler/cron.js";
+
 import { StateGraph } from "./agent.state.js";
 import type { AgentState } from "./agent.state.js";
 
@@ -119,9 +121,14 @@ async function checkTargetsNode(state: Readonly<AgentState>): Promise<Partial<Ag
   return { targetHits };
 }
 
-/** Run LLM analysis over portfolio state; falls back to empty decisions on error. */
+/** Run LLM analysis over portfolio state; skips outside market hours and on errors. */
 async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {
   if (state.holdings.length === 0 || state.errors.length > 0) return {};
+
+  if (!isMarketOpen()) {
+    logger.debug("llmAnalyse: market closed — skipping portfolio LLM");
+    return { llmOutput: null };
+  }
 
   const result = await analysePortfolio(state.holdings, state.ltpMap, state.slConfigs);
 

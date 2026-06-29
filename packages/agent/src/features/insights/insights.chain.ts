@@ -1,4 +1,4 @@
-import { chat, PORTFOLIO_MAX_TOKENS } from "../../llm/llmClient.js";
+import { chat, PORTFOLIO_LLM_TIMEOUT_MS, PORTFOLIO_MAX_TOKENS } from "../../llm/llmClient.js";
 import { LlmError, err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
@@ -79,6 +79,7 @@ export async function analysePortfolio(
         { role: "user", content: userPrompt },
       ],
       PORTFOLIO_MAX_TOKENS,
+      PORTFOLIO_LLM_TIMEOUT_MS,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

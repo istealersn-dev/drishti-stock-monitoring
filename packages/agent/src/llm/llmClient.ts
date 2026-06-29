@@ -8,12 +8,12 @@ import { env } from "../shared/env.js";
 import { LlmError } from "../shared/errors.js";
 
 const DEFAULT_MAX_TOKENS = 2048;
-
-// Portfolio analysis needs room for reasoning + JSON across all holdings.
-// ~400 reasoning tokens × 12 holdings + JSON output ≈ 6000+ tokens needed.
-export const PORTFOLIO_MAX_TOKENS = 8192;
-
 const LLM_TIMEOUT_MS = 120_000;
+
+// Portfolio analysis runs 12 holdings in one prompt — ~20s per holding on Gemma 4 12B.
+// Token budget and timeout are both elevated to accommodate reasoning overhead.
+export const PORTFOLIO_MAX_TOKENS = 8192;
+export const PORTFOLIO_LLM_TIMEOUT_MS = 300_000;
 
 const client = new OpenAI({
   baseURL: env.LM_STUDIO_BASE_URL + "/v1",
@@ -31,14 +31,18 @@ const client = new OpenAI({
 export async function chat(
   messages: ChatCompletionMessageParam[],
   maxTokens: number = DEFAULT_MAX_TOKENS,
+  timeoutMs: number = LLM_TIMEOUT_MS,
 ): Promise<string> {
-  const response = await client.chat.completions.create({
-    model: env.LM_MODEL,
-    messages,
-    max_tokens: maxTokens,
-    temperature: 0.1,
-    stream: false,
-  });
+  const response = await client.chat.completions.create(
+    {
+      model: env.LM_MODEL,
+      messages,
+      max_tokens: maxTokens,
+      temperature: 0.1,
+      stream: false,
+    },
+    { timeout: timeoutMs },
+  );
 
   const content = response.choices[0]?.message?.content;
   if (!content?.trim()) {

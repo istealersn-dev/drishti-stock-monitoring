@@ -241,13 +241,19 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
     const message = error instanceof Error ? error.message : String(error);
     logCommandError(CMD_ANALYSE_LLM, message, holding.trading_symbol);
 
+    const isTimeout = message.toLowerCase().includes("timed out") || message.includes("timeout");
     const isOffline =
-      message.includes("ECONNREFUSED") ||
-      message.includes("ECONNRESET") ||
-      message.includes("fetch failed") ||
-      message.includes("LM Studio returned an empty response");
+      !isTimeout &&
+      (message.includes("ECONNREFUSED") ||
+        message.includes("ECONNRESET") ||
+        message.includes("fetch failed") ||
+        message.includes("LM Studio returned an empty response"));
 
-    if (isOffline) {
+    if (isTimeout) {
+      await say(
+        `⏱️ *Analysis timed out.* LM Studio is busy — likely running a portfolio tick. Try again in ~30 seconds.`,
+      );
+    } else if (isOffline) {
       await say(
         `⚠️ *LM Studio is offline.* Start it on the Mac Mini and load \`${env.LM_MODEL}\` before using \`analyse\`.`,
       );
