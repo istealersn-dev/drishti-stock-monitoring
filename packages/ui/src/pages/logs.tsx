@@ -78,7 +78,9 @@ function LogRow({ log }: LogRowProperties): React.ReactElement {
 
         {/* Symbol + action + preview */}
         <div className="flex flex-wrap items-center gap-[9px]">
-          {log.symbol != null && <span className="log-symbol-chip">{log.symbol}</span>}
+          {log.symbol != null && log.symbol !== "__portfolio__" && (
+            <span className="log-symbol-chip">{log.symbol}</span>
+          )}
           <span className={`log-action-chip ${actionChipVariant}`}>{log.action}</span>
           {log.dryRun === 1 && (
             <span className="log-action-chip log-action-chip-warning">dry-run</span>

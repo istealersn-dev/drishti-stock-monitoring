@@ -294,6 +294,63 @@ describe("buildAgentGraph", () => {
     expect(writtenActions).not.toContain("alert_only");
   });
 
+  it("suppresses portfolio_summary Slack push when already sent this session", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [{ symbol: "AXISBANK-EQ", action: "hold", reasoning: "Fine.", gttParams: null }],
+        portfolioSummary: "Summary.",
+      },
+    });
+    // Simulate wasRecentlyAlerted returning a row for portfolio_summary
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          all: vi.fn().mockReturnValue([]),
+          get: vi.fn().mockReturnValue({ id: 1 }),
+        }),
+      }),
+    });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+
+    expect(mockPushAlert).not.toHaveBeenCalledWith(expect.stringContaining("Portfolio Update"));
+  });
+
+  it("does not write portfolio_summary dedup row when logAndAlert Slack push fails", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [{ symbol: "AXISBANK-EQ", action: "hold", reasoning: "Fine.", gttParams: null }],
+        portfolioSummary: "Summary.",
+      },
+    });
+    mockPushAlert.mockResolvedValue({ ok: false, error: new Error("Slack down") });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+
+    const writtenActions = mockDatabaseInsertValues.mock.calls.map(
+      (call: unknown[]) => (call[0] as { action?: string } | undefined)?.action,
+    );
+    expect(writtenActions).not.toContain("portfolio_summary");
+  });
+
   it("calls handleSlBreach for each detected breach", async () => {
     mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
     mockFetchLTP.mockResolvedValue({

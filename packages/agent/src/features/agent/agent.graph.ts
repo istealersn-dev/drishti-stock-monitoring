@@ -205,7 +205,7 @@ function findActiveGttId(symbol: string): string | null {
   const rows = db
     .select({ id: gttOrders.id })
     .from(gttOrders)
-    .where(eq(gttOrders.symbol, symbol))
+    .where(and(eq(gttOrders.symbol, symbol), eq(gttOrders.status, "active")))
     .all();
 
   return rows[0]?.id ?? null;
@@ -288,6 +288,24 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           reasoning: decision.reasoning,
           dryRun: env.DRISHTI_DRY_RUN,
           error: cancelResult.ok ? null : cancelResult.error.message,
+          createdAt: now,
+        })
+        .run();
+      continue;
+    }
+
+    if (decision.action === "gtt_modify" && !decision.gttParams) {
+      logger.warn("executeActions: gtt_modify decision missing gttParams — skipping", {
+        symbol: decision.symbol,
+      });
+      db.insert(agentLogs)
+        .values({
+          runId: state.runId,
+          symbol: decision.symbol,
+          action: "gtt_modify_failed",
+          reasoning: decision.reasoning,
+          dryRun: env.DRISHTI_DRY_RUN,
+          error: "gttParams missing in LLM decision",
           createdAt: now,
         })
         .run();
