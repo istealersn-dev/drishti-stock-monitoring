@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockChat, mockValues, mockInsert, mockFetchHoldings } = vi.hoisted(() => {
-  const values = vi.fn().mockResolvedValue(undefined);
+const { mockChat, mockRun, mockValues, mockInsert, mockFetchHoldings } = vi.hoisted(() => {
+  const run = vi.fn();
+  const values = vi.fn(() => ({ run }));
   const insert = vi.fn(() => ({ values }));
   return {
     mockChat: vi.fn(),
+    mockRun: run,
     mockValues: values,
     mockInsert: insert,
     mockFetchHoldings: vi.fn(),
@@ -47,7 +49,6 @@ const validSetup = JSON.stringify({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockValues.mockResolvedValue(undefined);
   mockInsert.mockReturnValue({ values: mockValues });
   mockFetchHoldings.mockResolvedValue(ok([]));
 });
@@ -56,14 +57,14 @@ describe("askAdvisor", () => {
   it("saves two rows to advisory_conversations", async () => {
     mockChat.mockResolvedValue("Hold for now; SL at 520.");
     await askAdvisor(request);
-    expect(mockValues).toHaveBeenCalledTimes(1);
-    const rows = mockValues.mock.calls[0]?.[0];
-    expect(Array.isArray(rows)).toBe(true);
-    expect(rows).toHaveLength(2);
-    expect(rows[0].role).toBe("user");
-    expect(rows[0].sessionId).toBe("session-1");
-    expect(rows[1].role).toBe("assistant");
-    expect(rows[1].sessionId).toBe("session-1");
+    expect(mockInsert).toHaveBeenCalledTimes(2);
+    expect(mockRun).toHaveBeenCalledTimes(2);
+    const userRow = mockValues.mock.calls[0]?.[0] as Record<string, string>;
+    const assistantRow = mockValues.mock.calls[1]?.[0] as Record<string, string>;
+    expect(userRow?.["role"]).toBe("user");
+    expect(userRow?.["sessionId"]).toBe("session-1");
+    expect(assistantRow?.["role"]).toBe("assistant");
+    expect(assistantRow?.["sessionId"]).toBe("session-1");
   });
 
   it("returns ok with the answer when chat succeeds", async () => {

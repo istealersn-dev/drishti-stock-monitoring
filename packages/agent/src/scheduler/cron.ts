@@ -3,9 +3,9 @@ import cron from "node-cron";
 import { pushAlert } from "../features/alerts/alerts.slack.js";
 import { computeHealthReport } from "../features/health/health.engine.js";
 import { formatHealthReport } from "../features/health/health.formatter.js";
+import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
-import { refreshLevels } from "../features/technicals/technicals.cache.js";
-import { getCachedLevels } from "../features/technicals/technicals.cache.js";
+import { getCachedLevels, refreshLevels } from "../features/technicals/technicals.cache.js";
 import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
 import { getWatchlist } from "../features/watchlist/watchlist.service.js";
 import { env } from "../shared/env.js";
@@ -87,6 +87,20 @@ export function startAdvisorCrons(): void {
         for (const h of holdings) {
           instrumentKeyMap[h.trading_symbol] = h.instrument_token;
         }
+        // Resolve instrument tokens for watchlist-only symbols (not in holdings)
+        const watchlistOnly = watchlistEntries
+          .map((w) => w.symbol)
+          .filter((s) => !(s in instrumentKeyMap));
+        await Promise.allSettled(
+          watchlistOnly.map(async (symbol) => {
+            const result = await resolveSymbol(symbol);
+            if (result.ok) {
+              instrumentKeyMap[symbol] = result.value.instrumentToken;
+            } else {
+              logger.warn("Could not resolve instrument token for watchlist symbol", { symbol });
+            }
+          }),
+        );
 
         await refreshLevels(allSymbols, instrumentKeyMap);
         logger.info("Technical levels refresh complete", { count: allSymbols.length });
@@ -133,12 +147,21 @@ export async function getWatchlistProximityAlerts(): Promise<string[]> {
     if (entries.length === 0) return [];
 
     const levelsBySymbol: Record<string, { dma200: number | null }> = {};
+    const instrumentKeyMap: Record<string, string> = {};
+    const { holdings } = getCachedHoldings();
+    for (const h of holdings) {
+      instrumentKeyMap[h.trading_symbol] = h.instrument_token;
+    }
     for (const entry of entries) {
       const cached = getCachedLevels(entry.symbol);
       levelsBySymbol[entry.symbol] = { dma200: cached?.dma200 ?? null };
+      if (!instrumentKeyMap[entry.symbol]) {
+        const resolved = await resolveSymbol(entry.symbol);
+        if (resolved.ok) instrumentKeyMap[entry.symbol] = resolved.value.instrumentToken;
+      }
     }
 
-    const alerts = await checkProximity(entries, levelsBySymbol);
+    const alerts = await checkProximity(entries, levelsBySymbol, instrumentKeyMap);
     return alerts.map(
       (a) =>
         `${a.displayName} is ${a.distancePct.toFixed(1)}% from 200 DMA (LTP ₹${a.ltp.toFixed(0)}, DMA ₹${a.dma200.toFixed(0)})`,

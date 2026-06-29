@@ -414,7 +414,7 @@ export type AdvisoryResponse = z.infer<typeof AdvisoryResponseSchema>;
  * @returns The advisory answer and echoed session id
  */
 export async function askAdvisor(question: string, sessionId: string): Promise<AdvisoryResponse> {
-  return apiFetch("/api/advisor", AdvisoryResponseSchema.and(z.object({ ok: z.boolean() })), {
+  return apiFetch("/api/advisor/ask", AdvisoryResponseSchema.and(z.object({ ok: z.boolean() })), {
     method: "POST",
     body: JSON.stringify({ question, sessionId, channel: "ui" }),
   });

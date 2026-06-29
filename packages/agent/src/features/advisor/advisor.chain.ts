@@ -36,25 +36,28 @@ export async function askAdvisor(
       { role: "user", content: context },
     ]);
 
-    const createdAt = new Date().toISOString();
-    await db.insert(advisoryConversations).values([
-      {
+    const userAt = new Date().toISOString();
+    const assistantAt = new Date().toISOString();
+    db.insert(advisoryConversations)
+      .values({
         id: randomUUID(),
         sessionId: request.sessionId,
         role: "user",
         content: request.question,
         channel: request.channel,
-        createdAt,
-      },
-      {
+        createdAt: userAt,
+      })
+      .run();
+    db.insert(advisoryConversations)
+      .values({
         id: randomUUID(),
         sessionId: request.sessionId,
         role: "assistant",
         content: answer,
         channel: request.channel,
-        createdAt,
-      },
-    ]);
+        createdAt: assistantAt,
+      })
+      .run();
 
     return ok({ answer, sessionId: request.sessionId });
   } catch (e) {

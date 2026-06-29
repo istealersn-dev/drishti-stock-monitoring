@@ -66,11 +66,13 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
   const availableMargin = marginResult.ok ? marginResult.value.available_margin : 0;
   const entryHigh = instruction.entryHigh ?? 0;
   const entryLow = instruction.entryLow ?? entryHigh;
+  // Use the best available price reference — point-entry instructions only set entryLow
+  const entryPrice = entryHigh > 0 ? entryHigh : entryLow;
   const suggestedQty =
-    entryHigh > 0 ? calculateSuggestedQty(availableMargin, entryHigh, entryLow) : 1;
+    entryPrice > 0 ? calculateSuggestedQty(availableMargin, entryPrice, entryLow) : 1;
 
-  if (entryHigh > 0 && suggestedQty > 0) {
-    const concentrationResult = await validateConcentration(suggestedQty, entryHigh);
+  if (entryPrice > 0 && suggestedQty > 0) {
+    const concentrationResult = await validateConcentration(suggestedQty, entryPrice);
     if (!concentrationResult.pass) {
       logger.warn("Trade rejected: concentration check failed", {
         symbol: resolved.tradingSymbol,

@@ -87,40 +87,43 @@ describe("checkProximity", () => {
     mockFetchLTP.mockReset();
   });
 
+  const RELIANCE_KEY = "NSE_EQ|INE002A01018";
+  const keyMap = { RELIANCE: RELIANCE_KEY };
+
   it("returns an alert when the LTP is within 2% of dma200", async () => {
     const ltpMap: Record<string, LtpData> = {
-      "NSE_EQ|RELIANCE": { last_price: 1010, instrument_token: "NSE_EQ|RELIANCE" },
+      [RELIANCE_KEY]: { last_price: 1010, instrument_token: RELIANCE_KEY },
     };
     mockFetchLTP.mockResolvedValue(ok(ltpMap));
-    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: 1000 } });
+    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: 1000 } }, keyMap);
     expect(alerts).toHaveLength(1);
     expect(alerts[0]?.distancePct).toBe(1);
   });
 
   it("returns no alert when the LTP is more than 2% from dma200", async () => {
     const ltpMap: Record<string, LtpData> = {
-      "NSE_EQ|RELIANCE": { last_price: 1100, instrument_token: "NSE_EQ|RELIANCE" },
+      [RELIANCE_KEY]: { last_price: 1100, instrument_token: RELIANCE_KEY },
     };
     mockFetchLTP.mockResolvedValue(ok(ltpMap));
-    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: 1000 } });
+    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: 1000 } }, keyMap);
     expect(alerts).toHaveLength(0);
   });
 
   it("skips entries when dma200 is null", async () => {
-    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: null } });
+    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: null } }, keyMap);
     expect(alerts).toHaveLength(0);
     expect(mockFetchLTP).not.toHaveBeenCalled();
   });
 
   it("skips a symbol when its LTP is missing from the response", async () => {
     mockFetchLTP.mockResolvedValue(ok({}));
-    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: 1000 } });
+    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: 1000 } }, keyMap);
     expect(alerts).toHaveLength(0);
   });
 
   it("returns no alerts when the LTP batch fetch fails", async () => {
     mockFetchLTP.mockResolvedValue(err(new UpstoxError("network down")));
-    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: 1000 } });
+    const alerts = await checkProximity([makeEntry()], { RELIANCE: { dma200: 1000 } }, keyMap);
     expect(alerts).toHaveLength(0);
   });
 });

@@ -1,3 +1,4 @@
+import { logger } from "../../shared/logger.js";
 import { fetchLTP } from "../portfolio/portfolio.tools.js";
 
 import type { ProximityAlert, WatchlistEntry } from "./watchlist.schema.js";
@@ -5,41 +6,35 @@ import type { ProximityAlert, WatchlistEntry } from "./watchlist.schema.js";
 const PROXIMITY_THRESHOLD_PCT = 2.0;
 
 /**
- * Build the best-effort instrument key for a watchlist symbol.
- * Watchlist rows store only a symbol, not an Upstox instrument token, so the
- * `NSE_EQ|{symbol}` form is used until real tokens are wired in.
- * @param symbol - The watchlist symbol
- * @returns The instrument key string
- */
-function instrumentKeyFor(symbol: string): string {
-  return `NSE_EQ|${symbol}`;
-}
-
-/**
  * Find watchlist symbols trading within 2% of their 200-day moving average.
  * @param entries - Watchlist entries to evaluate
  * @param levelsBySymbol - Technical levels keyed by symbol; only `dma200` is read
+ * @param instrumentKeyMap - Upstox instrument key for each symbol (e.g. NSE_EQ|INE002A01018)
  * @returns Proximity alerts for symbols within the threshold (empty when none qualify)
  */
 export async function checkProximity(
   entries: WatchlistEntry[],
   levelsBySymbol: Record<string, { dma200: number | null }>,
+  instrumentKeyMap: Record<string, string> = {},
 ): Promise<ProximityAlert[]> {
   const candidates = entries.filter((entry) => {
     const dma200 = levelsBySymbol[entry.symbol]?.dma200;
-    return dma200 != null;
+    return dma200 != null && instrumentKeyMap[entry.symbol] != null;
   });
 
   if (candidates.length === 0) {
     return [];
   }
 
-  const instrumentKeys = candidates.map((entry) => instrumentKeyFor(entry.symbol)).join(",");
+  const instrumentKeys = candidates
+    .map((entry) => instrumentKeyMap[entry.symbol])
+    .filter(Boolean)
+    .join(",");
   const ltpResult = await fetchLTP(instrumentKeys);
   if (!ltpResult.ok) {
-    console.warn(
-      `Watchlist proximity check skipped — LTP fetch failed: ${ltpResult.error.message}`,
-    );
+    logger.error("Watchlist proximity check failed — LTP fetch error", {
+      error: ltpResult.error.message,
+    });
     return [];
   }
   const ltpMap = ltpResult.value;
@@ -50,9 +45,12 @@ export async function checkProximity(
     if (dma200 == null || dma200 === 0) {
       continue;
     }
-    const ltpData = ltpMap[instrumentKeyFor(entry.symbol)];
+    const key = instrumentKeyMap[entry.symbol];
+    const ltpData = key ? ltpMap[key] : undefined;
     if (ltpData == null) {
-      console.warn(`Watchlist proximity check skipped ${entry.symbol} — no LTP in response`);
+      logger.warn("Watchlist proximity check: no LTP returned for symbol", {
+        symbol: entry.symbol,
+      });
       continue;
     }
     const ltp = ltpData.last_price;

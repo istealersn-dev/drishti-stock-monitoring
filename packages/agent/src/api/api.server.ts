@@ -28,6 +28,7 @@ import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
 import { saveLevels } from "../features/technicals/technicals.cache.js";
 import { getCachedLevels } from "../features/technicals/technicals.cache.js";
 import { fetchOHLCV, computeLevels } from "../features/technicals/technicals.service.js";
+import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
 import {
   addToWatchlist,
   getWatchlist,
@@ -374,7 +375,16 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
 
   app.get("/api/watchlist", async (_request, reply) => {
     const entries = getWatchlist();
-    return reply.send({ ok: true, data: { entries, proximityAlerts: [] } });
+    const levelsBySymbol: Record<string, { dma200: number | null }> = {};
+    const instrumentKeyMap: Record<string, string> = {};
+    for (const entry of entries) {
+      const levels = getCachedLevels(entry.symbol);
+      if (levels) levelsBySymbol[entry.symbol] = { dma200: levels.dma200 };
+      const resolved = await resolveSymbol(entry.symbol);
+      if (resolved.ok) instrumentKeyMap[entry.symbol] = resolved.value.instrumentToken;
+    }
+    const proximityAlerts = await checkProximity(entries, levelsBySymbol, instrumentKeyMap);
+    return reply.send({ ok: true, data: { entries, proximityAlerts } });
   });
 
   app.post<{ Body: unknown }>("/api/watchlist", async (request, reply) => {
@@ -405,7 +415,11 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   // ── Phase 7: Portfolio Health ─────────────────────────────────────────────
 
   app.get("/api/health", async (_request, reply) => {
-    return reply.send({ ok: true, data: null });
+    const result = await computeHealthReport();
+    if (!result.ok) {
+      return reply.status(500).send({ ok: false, error: result.error.message });
+    }
+    return reply.send({ ok: true, data: result.value });
   });
 
   app.post("/api/health/run", async (_request, reply) => {
