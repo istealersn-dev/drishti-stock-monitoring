@@ -80,11 +80,14 @@ const mockHolding = {
 };
 
 describe("buildAgentGraph", () => {
+  let mockDatabaseInsertValues: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
     const innerRun = vi.fn();
     const innerAll = vi.fn().mockReturnValue([]);
-    mockDbInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ run: innerRun }) });
+    mockDatabaseInsertValues = vi.fn().mockReturnValue({ run: innerRun });
+    mockDbInsert.mockReturnValue({ values: mockDatabaseInsertValues });
     mockDbUpdate.mockReturnValue({
       set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ run: innerRun }) }),
     });
@@ -283,13 +286,12 @@ describe("buildAgentGraph", () => {
     const graph = buildAgentGraph();
     await graph.run(makeInitialState());
 
-    // No dedup row — the alert failed so the next tick should retry
-    const insertCalls = (mockDbInsert as ReturnType<typeof vi.fn>).mock.calls;
-    const alertOnlyInsert = insertCalls.find((call: unknown[]) => {
-      const values = (call[0] as { action?: string } | undefined)?.action;
-      return values === "alert_only";
-    });
-    expect(alertOnlyInsert).toBeUndefined();
+    // No dedup row — the alert failed so the next tick should retry.
+    // Inspect the .values() mock (not db.insert() itself, which only receives the table arg).
+    const writtenActions = mockDatabaseInsertValues.mock.calls.map(
+      (call: unknown[]) => (call[0] as { action?: string } | undefined)?.action,
+    );
+    expect(writtenActions).not.toContain("alert_only");
   });
 
   it("calls handleSlBreach for each detected breach", async () => {

@@ -23,14 +23,14 @@ const GTT_LIMIT_BUFFER = 0.995;
 
 const ALERT_ONLY_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour between repeated alert_only alerts
 const TRADING_DAY_MS = 8 * 60 * 60 * 1000; // 8 h window — covers one full market session
+const PORTFOLIO_SENTINEL = "__portfolio__"; // symbol key for portfolio-level agent_logs rows
 
 /**
  * Returns true if an agent_log row with the given action+symbol already exists
- * within the cooldown window, meaning we should skip re-alerting.
- * Only writes the dedup row on successful alert delivery — pass alertOk=true after
- * confirming Slack received the message.
+ * within the cooldown window. Read-only — callers are responsible for writing the
+ * dedup row (with the same action+symbol) only after confirming alert delivery.
  * @param action - The agent_logs action string to check
- * @param symbol - The trading symbol (must be a non-empty string)
+ * @param symbol - The trading symbol, or PORTFOLIO_SENTINEL for portfolio-level events
  * @param windowMs - Cooldown duration in milliseconds
  * @returns true if a matching log row exists within the window
  */
@@ -383,39 +383,29 @@ async function logAndAlertNode(state: Readonly<AgentState>): Promise<Partial<Age
   const summary = state.llmOutput.portfolioSummary ?? "Portfolio analysed — no LLM summary.";
 
   // Suppress repeated summaries within the same trading session — one push per 8h window.
-  // Uses a sentinel symbol "__portfolio__" since portfolio_summary has no per-stock symbol.
-  const PORTFOLIO_SENTINEL = "__portfolio__";
-  if (!wasRecentlyAlerted("portfolio_summary", PORTFOLIO_SENTINEL, TRADING_DAY_MS)) {
-    const alertResult = await pushAlert(`📊 *Portfolio Update*\n${summary}`);
-    if (alertResult.ok) {
-      db.insert(agentLogs)
-        .values({
-          runId: state.runId,
-          symbol: PORTFOLIO_SENTINEL,
-          action: "portfolio_summary",
-          reasoning: summary,
-          dryRun: env.DRISHTI_DRY_RUN,
-          error: null,
-          createdAt: new Date().toISOString(),
-        })
-        .run();
-    } else {
-      logger.warn("logAndAlert: Slack push failed", { error: alertResult.error.message });
-    }
-  } else {
-    // Still log to DB for audit; symbol null indicates no per-stock context
-    db.insert(agentLogs)
-      .values({
-        runId: state.runId,
-        symbol: null,
-        action: "portfolio_summary",
-        reasoning: summary,
-        dryRun: env.DRISHTI_DRY_RUN,
-        error: null,
-        createdAt: new Date().toISOString(),
-      })
-      .run();
+  // PORTFOLIO_SENTINEL is the symbol key used in agent_logs for portfolio-level events.
+  if (wasRecentlyAlerted("portfolio_summary", PORTFOLIO_SENTINEL, TRADING_DAY_MS)) {
+    logger.debug("logAndAlert: portfolio summary already pushed this session — skipping");
+    return {};
   }
+
+  const alertResult = await pushAlert(`📊 *Portfolio Update*\n${summary}`);
+  if (!alertResult.ok) {
+    logger.warn("logAndAlert: Slack push failed", { error: alertResult.error.message });
+    return {};
+  }
+
+  db.insert(agentLogs)
+    .values({
+      runId: state.runId,
+      symbol: PORTFOLIO_SENTINEL,
+      action: "portfolio_summary",
+      reasoning: summary,
+      dryRun: env.DRISHTI_DRY_RUN,
+      error: null,
+      createdAt: new Date().toISOString(),
+    })
+    .run();
 
   return {};
 }
