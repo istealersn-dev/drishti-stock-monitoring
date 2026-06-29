@@ -155,11 +155,14 @@ export async function getWatchlistProximityAlerts(): Promise<string[]> {
     for (const entry of entries) {
       const cached = getCachedLevels(entry.symbol);
       levelsBySymbol[entry.symbol] = { dma200: cached?.dma200 ?? null };
-      if (!instrumentKeyMap[entry.symbol]) {
+    }
+    const unresolved = entries.filter((entry) => !instrumentKeyMap[entry.symbol]);
+    await Promise.allSettled(
+      unresolved.map(async (entry) => {
         const resolved = await resolveSymbol(entry.symbol);
         if (resolved.ok) instrumentKeyMap[entry.symbol] = resolved.value.instrumentToken;
-      }
-    }
+      }),
+    );
 
     const alerts = await checkProximity(entries, levelsBySymbol, instrumentKeyMap);
     return alerts.map(

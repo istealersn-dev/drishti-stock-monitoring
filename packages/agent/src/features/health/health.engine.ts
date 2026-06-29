@@ -23,16 +23,19 @@ type StockConfigRow = {
 };
 
 /**
- * Compute capital at risk for a single position relative to its stop-loss threshold.
+ * Compute capital at risk for a single position: the loss if stopped out at the SL price.
+ * For positions below SL (already breached), uses full downside from current price to SL.
  * @param holding - The portfolio holding
  * @param slThreshold - The stop-loss threshold price, or null/undefined when unconfigured
- * @returns Capital at risk in rupees (0 when no threshold is known)
+ * @returns Capital at risk in rupees (0 when no threshold is known or position is above entry with no stop)
  */
 function capitalAtRiskFor(holding: Holding, slThreshold: number | null | undefined): number {
   if (slThreshold == null || slThreshold === 0) {
     return 0;
   }
-  return Math.max(0, (holding.last_price - slThreshold) * holding.quantity);
+  // Risk = (current price - SL) * qty; negative when already below SL (breach)
+  const riskPerUnit = holding.last_price - slThreshold;
+  return Math.abs(riskPerUnit) * holding.quantity;
 }
 
 /**

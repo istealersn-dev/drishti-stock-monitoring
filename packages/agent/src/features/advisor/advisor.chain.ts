@@ -5,6 +5,7 @@ import { advisoryConversations } from "../../db/schema.js";
 import { chat } from "../../llm/llmClient.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
+import { logger } from "../../shared/logger.js";
 import { fetchHoldings } from "../portfolio/portfolio.tools.js";
 
 import {
@@ -28,6 +29,11 @@ export async function askAdvisor(
 ): Promise<Result<AdvisoryResponse, Error>> {
   try {
     const holdingsResult = await fetchHoldings();
+    if (!holdingsResult.ok) {
+      logger.warn("askAdvisor: holdings unavailable — answering without portfolio context", {
+        error: holdingsResult.error.message,
+      });
+    }
     const holdings = holdingsResult.ok ? holdingsResult.value : [];
 
     const userAt = new Date().toISOString();
@@ -37,26 +43,28 @@ export async function askAdvisor(
       { role: "user", content: context },
     ]);
     const assistantAt = new Date().toISOString();
-    db.insert(advisoryConversations)
-      .values({
-        id: randomUUID(),
-        sessionId: request.sessionId,
-        role: "user",
-        content: request.question,
-        channel: request.channel,
-        createdAt: userAt,
-      })
-      .run();
-    db.insert(advisoryConversations)
-      .values({
-        id: randomUUID(),
-        sessionId: request.sessionId,
-        role: "assistant",
-        content: answer,
-        channel: request.channel,
-        createdAt: assistantAt,
-      })
-      .run();
+    db.transaction((tx) => {
+      tx.insert(advisoryConversations)
+        .values({
+          id: randomUUID(),
+          sessionId: request.sessionId,
+          role: "user",
+          content: request.question,
+          channel: request.channel,
+          createdAt: userAt,
+        })
+        .run();
+      tx.insert(advisoryConversations)
+        .values({
+          id: randomUUID(),
+          sessionId: request.sessionId,
+          role: "assistant",
+          content: answer,
+          channel: request.channel,
+          createdAt: assistantAt,
+        })
+        .run();
+    });
 
     return ok({ answer, sessionId: request.sessionId });
   } catch (e) {

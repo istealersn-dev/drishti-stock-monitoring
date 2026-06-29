@@ -19,6 +19,7 @@ import { askAdvisor } from "../features/advisor/advisor.chain.js";
 import { generateTradeSetup } from "../features/advisor/advisor.chain.js";
 import { getApproval, resolveApproval } from "../features/approval/approval.store.js";
 import { computeHealthReport } from "../features/health/health.engine.js";
+import type { PortfolioHealthReport } from "../features/health/health.schema.js";
 import { updateApprovalCard } from "../features/instructions/instructions.approval.js";
 import { executeApprovedInstruction } from "../features/instructions/instructions.executor.js";
 import { submitBuyInstruction } from "../features/instructions/instructions.pipeline.js";
@@ -39,6 +40,10 @@ import { logger } from "../shared/logger.js";
 
 const API_RUNS_LIMIT = 20;
 const API_LOGS_LIMIT = 100;
+
+// In-process cache for the last computed health report.
+// GET /api/health returns the cache (fast); POST /api/health/run recomputes and updates it.
+let lastHealthReport: PortfolioHealthReport | null = null;
 
 // ── Query helpers (exported for unit tests) ───────────────────────────────────
 
@@ -419,18 +424,22 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   // ── Phase 7: Portfolio Health ─────────────────────────────────────────────
 
   app.get("/api/health", async (_request, reply) => {
-    const result = await computeHealthReport();
-    if (!result.ok) {
-      return reply.status(500).send({ ok: false, error: result.error.message });
+    if (lastHealthReport) {
+      return reply.send({ ok: true, data: lastHealthReport });
     }
-    return reply.send({ ok: true, data: result.value });
+    return reply.status(503).send({
+      ok: false,
+      error: "Health report not yet computed. POST /api/health/run to generate.",
+    });
   });
 
   app.post("/api/health/run", async (_request, reply) => {
     const result = await computeHealthReport();
     if (!result.ok) {
+      logger.error("Health report computation failed", { error: result.error.message });
       return reply.status(500).send({ ok: false, error: result.error.message });
     }
+    lastHealthReport = result.value;
     return reply.send({ ok: true, data: result.value });
   });
 
@@ -447,14 +456,17 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   });
 
   app.post<{ Body: unknown }>("/api/advisor/ask", async (request, reply) => {
-    const BodySchema = z.object({ question: z.string().min(1) });
+    const BodySchema = z.object({
+      question: z.string().min(1),
+      sessionId: z.string().uuid().optional(),
+    });
     const parsed = BodySchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({ ok: false, error: parsed.error.issues[0]?.message });
     }
     const result = await askAdvisor({
       question: parsed.data.question,
-      sessionId: crypto.randomUUID(),
+      sessionId: parsed.data.sessionId ?? crypto.randomUUID(),
       channel: "ui",
     });
     if (!result.ok) {

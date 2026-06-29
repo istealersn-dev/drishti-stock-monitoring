@@ -1,24 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockChat, mockRun, mockValues, mockInsert, mockFetchHoldings } = vi.hoisted(() => {
-  const run = vi.fn();
-  const values = vi.fn(() => ({ run }));
-  const insert = vi.fn(() => ({ values }));
-  return {
-    mockChat: vi.fn(),
-    mockRun: run,
-    mockValues: values,
-    mockInsert: insert,
-    mockFetchHoldings: vi.fn(),
-  };
-});
+const { mockChat, mockRun, mockValues, mockInsert, mockTransaction, mockFetchHoldings } =
+  vi.hoisted(() => {
+    const run = vi.fn();
+    const values = vi.fn(() => ({ run }));
+    const insert = vi.fn(() => ({ values }));
+    const transaction = vi.fn((callback: (tx: { insert: typeof insert }) => void) => {
+      callback({ insert });
+    });
+    return {
+      mockChat: vi.fn(),
+      mockRun: run,
+      mockValues: values,
+      mockInsert: insert,
+      mockTransaction: transaction,
+      mockFetchHoldings: vi.fn(),
+    };
+  });
 
 vi.mock("../../llm/llmClient.js", () => ({
   chat: mockChat,
 }));
 
 vi.mock("../../db/db.js", () => ({
-  db: { insert: mockInsert },
+  db: { insert: mockInsert, transaction: mockTransaction },
+}));
+
+vi.mock("../../shared/logger.js", () => ({
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
 vi.mock("../portfolio/portfolio.tools.js", () => ({
@@ -50,13 +59,17 @@ const validSetup = JSON.stringify({
 beforeEach(() => {
   vi.clearAllMocks();
   mockInsert.mockReturnValue({ values: mockValues });
+  mockTransaction.mockImplementation((callback: (tx: { insert: typeof mockInsert }) => void) => {
+    callback({ insert: mockInsert });
+  });
   mockFetchHoldings.mockResolvedValue(ok([]));
 });
 
 describe("askAdvisor", () => {
-  it("saves two rows to advisory_conversations", async () => {
+  it("saves two rows in a single transaction", async () => {
     mockChat.mockResolvedValue("Hold for now; SL at 520.");
     await askAdvisor(request);
+    expect(mockTransaction).toHaveBeenCalledOnce();
     expect(mockInsert).toHaveBeenCalledTimes(2);
     expect(mockRun).toHaveBeenCalledTimes(2);
     const userRow = (mockValues.mock.calls as unknown as [Record<string, string>][])[0]?.[0];
