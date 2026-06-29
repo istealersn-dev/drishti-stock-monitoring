@@ -1,6 +1,7 @@
 import type { App } from "@slack/bolt";
 
 import { submitBuyInstruction } from "../instructions/instructions.pipeline.js";
+import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 
 import { routeCommand } from "./slackCommands.command.js";
@@ -91,7 +92,7 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
         if (!result.ok) {
           await reply(`⚠️ Could not process instruction: ${result.error}`);
         } else {
-          await reply(`✅ Approval card sent for *${result.symbol}* — check #drishti-alerts to approve.`);
+          await reply(`✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`);
         }
       } else {
         await reply(`Unknown subcommand \`${sub}\`. Try \`/drishti help\` for the full list.`);
