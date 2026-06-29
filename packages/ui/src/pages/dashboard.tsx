@@ -9,10 +9,11 @@ const MTF_ANNUAL_INTEREST_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
 
 function formatInr(amount: number): string {
-  if (Math.abs(amount) >= ONE_LAKH) {
-    return `₹${(amount / ONE_LAKH).toFixed(1)}L`;
+  const abs = Math.abs(amount);
+  if (abs >= ONE_LAKH) {
+    return `₹${(abs / ONE_LAKH).toFixed(1)}L`;
   }
-  return `₹${Math.abs(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  return `₹${abs.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
 function formatPrice(price: number): string {
@@ -134,7 +135,7 @@ export function Dashboard(): React.ReactElement {
   return (
     <div className="animate-fade-drk space-y-[14px]">
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-[14px]">
+      <div className="grid grid-cols-2 gap-[14px] sm:grid-cols-4">
         <StatCard
           label="Total portfolio value"
           accent="indigo"
@@ -195,68 +196,78 @@ export function Dashboard(): React.ReactElement {
           </span>
         </div>
 
-        {/* Column headers */}
-        <div className="holdings-col-grid holdings-col-header">
-          {TABLE_HEADERS.map((col) => (
-            <span key={col.label} className={col.right === true ? "text-right" : ""}>
-              {col.label}
-            </span>
-          ))}
-        </div>
+        <div className="scroll-x-touch">
+          <div className="holdings-table-inner">
+            {/* Column headers */}
+            <div className="holdings-col-grid holdings-col-header">
+              {TABLE_HEADERS.map((col) => (
+                <span key={col.label} className={col.right === true ? "text-right" : ""}>
+                  {col.label}
+                </span>
+              ))}
+            </div>
 
-        {holdings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-1.5 py-10">
-            <p className="text-[13.5px] font-medium text-text-tertiary">No positions</p>
-            <p className="text-[12px] text-text-dim">Holdings will appear once data is synced.</p>
-          </div>
-        ) : (
-          holdings.map((holding) => {
-            const status = resolveHoldingStatus(holding, slMap);
-            const sl = slMap.get(holding.trading_symbol);
-            const pnlColor = holding.pnl >= 0 ? "text-success" : "text-danger";
-            const ltpColor =
-              holding.last_price >= holding.close_price ? "text-success" : "text-danger";
-            const pnlPct =
-              holding.average_price > 0
-                ? (holding.pnl / (holding.quantity * holding.average_price)) * 100
-                : 0;
-
-            return (
-              <div key={holding.isin} className="holdings-col-grid holdings-data-row">
-                <span className="font-mono text-[13px] font-semibold text-text-primary">
-                  {holding.trading_symbol}
-                </span>
-                <span className="text-[11.5px] text-text-tertiary">{holding.exchange}</span>
-                <span className="text-right font-mono text-[12px] text-[#bcbcbc]">
-                  {holding.quantity}
-                </span>
-                <span className="text-right font-mono text-[12px] text-[#bcbcbc]">
-                  {formatPrice(holding.average_price)}
-                </span>
-                <span className={`text-right font-mono text-[12px] ${ltpColor}`}>
-                  {formatPrice(holding.last_price)}
-                </span>
-                <span className={`text-right font-mono text-[12px] ${pnlColor}`}>
-                  {holding.pnl >= 0 ? "+" : "−"}
-                  {formatInr(Math.abs(holding.pnl))}
-                </span>
-                <span className={`text-right font-mono text-[12px] font-semibold ${pnlColor}`}>
-                  {pnlPct >= 0 ? "+" : ""}
-                  {pnlPct.toFixed(2)}%
-                </span>
-                <span className="text-right font-mono text-[12px] text-text-tertiary">
-                  {sl !== undefined ? formatPrice(sl) : "—"}
-                </span>
-                <span className="flex justify-end">
-                  <span className={`holding-status-badge holding-status-badge-${status.variant}`}>
-                    <span className={`holding-status-dot holding-status-dot-${status.variant}`} />
-                    {status.label}
-                  </span>
-                </span>
+            {holdings.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-1.5 py-10">
+                <p className="text-[13.5px] font-medium text-text-tertiary">No positions</p>
+                <p className="text-[12px] text-text-dim">
+                  Holdings will appear once data is synced.
+                </p>
               </div>
-            );
-          })
-        )}
+            ) : (
+              holdings.map((holding) => {
+                const status = resolveHoldingStatus(holding, slMap);
+                const sl = slMap.get(holding.trading_symbol);
+                const pnlColor = holding.pnl >= 0 ? "text-success" : "text-danger";
+                const ltpColor =
+                  holding.last_price >= holding.close_price ? "text-success" : "text-danger";
+                const pnlPct =
+                  holding.average_price > 0
+                    ? (holding.pnl / (holding.quantity * holding.average_price)) * 100
+                    : 0;
+
+                return (
+                  <div key={holding.isin} className="holdings-col-grid holdings-data-row">
+                    <span className="font-mono text-[13px] font-semibold text-text-primary">
+                      {holding.trading_symbol}
+                    </span>
+                    <span className="text-[11.5px] text-text-tertiary">{holding.exchange}</span>
+                    <span className="text-right font-mono text-[12px] text-[#bcbcbc]">
+                      {holding.quantity}
+                    </span>
+                    <span className="text-right font-mono text-[12px] text-[#bcbcbc]">
+                      {formatPrice(holding.average_price)}
+                    </span>
+                    <span className={`text-right font-mono text-[12px] ${ltpColor}`}>
+                      {formatPrice(holding.last_price)}
+                    </span>
+                    <span className={`text-right font-mono text-[12px] ${pnlColor}`}>
+                      {holding.pnl >= 0 ? "+" : "−"}
+                      {formatInr(Math.abs(holding.pnl))}
+                    </span>
+                    <span className={`text-right font-mono text-[12px] font-semibold ${pnlColor}`}>
+                      {pnlPct >= 0 ? "+" : ""}
+                      {pnlPct.toFixed(2)}%
+                    </span>
+                    <span className="text-right font-mono text-[12px] text-text-tertiary">
+                      {sl !== undefined ? formatPrice(sl) : "—"}
+                    </span>
+                    <span className="flex justify-end">
+                      <span
+                        className={`holding-status-badge holding-status-badge-${status.variant}`}
+                      >
+                        <span
+                          className={`holding-status-dot holding-status-dot-${status.variant}`}
+                        />
+                        {status.label}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
       {holdingData?.cachedAt != null && (

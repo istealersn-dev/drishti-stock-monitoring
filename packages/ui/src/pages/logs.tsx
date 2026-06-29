@@ -67,7 +67,7 @@ function LogRow({ log }: LogRowProperties): React.ReactElement {
         }}
       >
         {/* Timestamp + runId */}
-        <div style={{ lineHeight: 1.35 }}>
+        <div className="leading-[1.35]">
           <div className="font-mono text-[12.5px] text-[#d0d0d0]">
             {formatLogTime(log.createdAt)}
           </div>
@@ -103,15 +103,14 @@ function LogRow({ log }: LogRowProperties): React.ReactElement {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="justify-self-end transition-transform duration-150"
-          style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+          className={`justify-self-end transition-transform duration-150 ${expanded ? "rotate-180" : "rotate-0"}`}
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
       {expanded && (
-        <div className="animate-fade-drk space-y-3 px-4 pb-[14px] pl-[166px]">
+        <div className="animate-fade-drk space-y-3 px-4 pb-[14px] sm:pl-[166px]">
           {log.reasoning != null && (
             <div>
               <div className="mb-[6px] text-[10px] uppercase tracking-[0.05em] text-text-dim">
@@ -154,7 +153,7 @@ export function Logs(): React.ReactElement {
   return (
     <div className="animate-fade-drk space-y-[14px]">
       {/* Filter tabs */}
-      <div className="filter-tabs">
+      <div className="filter-tabs max-w-full overflow-x-auto">
         {FILTER_TABS.map(({ key, label }) => (
           <button
             key={key}

@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 const APP_VERSION = "1.4";
 
@@ -11,6 +11,8 @@ type TopbarProperties = {
   pendingCount: number;
   lastPollAt: string | null;
   onRefresh: () => void;
+  navOpen: boolean;
+  onMobileMenuToggle: () => void;
 };
 
 /** Format an ISO timestamp to HH:MM:SS in local time, or "--:--:--" if null. */
@@ -45,6 +47,8 @@ function resolveStatus(
  * @param props.pendingCount - Number of pending buy approvals
  * @param props.lastPollAt - ISO timestamp of the last agent run start
  * @param props.onRefresh - Callback to invalidate all queries
+ * @param props.navOpen - Whether the mobile nav drawer is currently open
+ * @param props.onMobileMenuToggle - Callback to toggle the mobile nav drawer open/closed
  * @returns Topbar element
  */
 export function Topbar({
@@ -53,27 +57,78 @@ export function Topbar({
   pendingCount,
   lastPollAt,
   onRefresh,
+  navOpen,
+  onMobileMenuToggle,
 }: TopbarProperties): React.ReactElement {
   const navigate = useNavigate();
   const [spinning, setSpinning] = useState(false);
+  const spinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return (): void => {
+      if (spinTimerRef.current !== null) clearTimeout(spinTimerRef.current);
+    };
+  }, []);
 
   const { variant, label } = resolveStatus(dryRun, agentStatus);
 
   const handleRefresh = (): void => {
+    if (spinTimerRef.current !== null) clearTimeout(spinTimerRef.current);
     setSpinning(true);
     onRefresh();
-    setTimeout(() => {
+    spinTimerRef.current = setTimeout(() => {
       setSpinning(false);
     }, 800);
   };
 
   return (
     <header className="topbar">
+      {/* Mobile hamburger */}
+      <button
+        type="button"
+        className="topbar-icon-btn mr-1 flex-none sm:hidden"
+        aria-label={navOpen ? "Close navigation" : "Open navigation"}
+        aria-expanded={navOpen}
+        aria-controls="nav-sidebar"
+        onClick={onMobileMenuToggle}
+      >
+        {navOpen ? (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        ) : (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        )}
+      </button>
+
       {/* Left: wordmark + version */}
-      <div className="flex min-w-[160px] items-baseline gap-2">
+      <div className="flex min-w-0 items-baseline gap-2 sm:min-w-[160px]">
         <span className="text-[16px] font-bold tracking-[-0.02em] text-text-primary">Drishti</span>
-        <span className="text-[13px] font-medium text-text-faint">दृष्टि</span>
-        <span className="ml-[2px] font-mono text-[10.5px] tracking-[0.04em] text-text-dim">
+        <span className="hidden text-[13px] font-medium text-text-faint sm:block">दृष्टि</span>
+        <span className="ml-[2px] hidden font-mono text-[10.5px] tracking-[0.04em] text-text-dim sm:block">
           v{APP_VERSION}
         </span>
       </div>
@@ -85,8 +140,8 @@ export function Topbar({
       </div>
 
       {/* Right: last poll + pending + refresh */}
-      <div className="flex min-w-[160px] items-center justify-end gap-3">
-        <div className="flex flex-col items-end leading-tight">
+      <div className="flex min-w-0 items-center justify-end gap-2 sm:min-w-[160px] sm:gap-3">
+        <div className="hidden flex-col items-end leading-tight sm:flex">
           <span className="text-[9.5px] uppercase tracking-[0.05em] text-text-dim">Last poll</span>
           <span className="font-mono text-[12px] text-text-tertiary">
             {formatPollTime(lastPollAt)}
@@ -115,13 +170,14 @@ export function Topbar({
               <circle cx="12" cy="12" r="9" />
               <polyline points="12 7 12 12 15 14" />
             </svg>
-            {pendingCount} pending
+            {pendingCount}
+            <span className="hidden sm:inline"> pending</span>
           </button>
         )}
 
         <button
           type="button"
-          className="topbar-refresh-btn"
+          className="topbar-icon-btn"
           title="Refresh data (R)"
           onClick={handleRefresh}
         >

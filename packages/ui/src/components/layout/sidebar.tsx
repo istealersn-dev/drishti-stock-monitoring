@@ -142,35 +142,78 @@ type SidebarProperties = {
   pendingApprovals: number;
   collapsed: boolean;
   onToggle: () => void;
+  mobileOpen: boolean;
+  sidebarHidden: boolean;
+  onMobileClose: () => void;
 };
 
 /**
  * Full-height collapsible sidebar with logo header, SVG nav icons, and pending badge.
+ * On mobile renders as a fixed overlay drawer controlled by mobileOpen.
  * @param props.pendingApprovals - Count of pending approvals for Instructions badge
- * @param props.collapsed - Whether the sidebar is collapsed
- * @param props.onToggle - Toggle collapsed state callback
+ * @param props.collapsed - Whether the sidebar is collapsed (desktop only)
+ * @param props.onToggle - Toggle collapsed state callback (desktop only)
+ * @param props.mobileOpen - Whether mobile drawer is open
+ * @param props.sidebarHidden - True when sidebar is off-screen and must be removed from the accessibility tree
+ * @param props.onMobileClose - Close mobile drawer callback
  * @returns Sidebar element
  */
 export function Sidebar({
   pendingApprovals,
   collapsed,
   onToggle,
+  mobileOpen,
+  sidebarHidden,
+  onMobileClose,
 }: SidebarProperties): React.ReactElement {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
 
   return (
     <aside
-      className={`z-20 flex h-full flex-none flex-col border-r border-border-subtle bg-bg-sidebar transition-all duration-200 ${collapsed ? "w-[52px]" : "w-[238px]"}`}
+      id="nav-sidebar"
+      aria-hidden={sidebarHidden || undefined}
+      inert={sidebarHidden || undefined}
+      className={[
+        "flex h-full flex-col border-r border-border-subtle bg-bg-sidebar transition-all duration-200",
+        // Mobile: fixed overlay drawer
+        "fixed inset-y-0 left-0 z-40 w-[238px]",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+        // Desktop: revert to static sidebar in flow; aria-hidden/inert reset below via CSS sm: override
+        "sm:relative sm:inset-y-auto sm:left-auto sm:z-20 sm:flex-none sm:translate-x-0",
+        collapsed ? "sm:w-[52px]" : "sm:w-[238px]",
+      ].join(" ")}
     >
       {/* Logo header — same height as topbar */}
       <div className="sidebar-header">
         <div className="sidebar-logo">दृ</div>
-        {!collapsed && (
-          <span className="whitespace-nowrap text-[15px] font-semibold tracking-[-0.01em] text-text-primary">
-            Drishti
-          </span>
-        )}
+        <span
+          className={`whitespace-nowrap text-[15px] font-semibold tracking-[-0.01em] text-text-primary ${collapsed ? "sm:hidden" : ""}`}
+        >
+          Drishti
+        </span>
+
+        {/* Mobile close button */}
+        <button
+          type="button"
+          className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg text-text-dim transition-colors hover:text-text-secondary sm:hidden"
+          onClick={onMobileClose}
+          aria-label="Close menu"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       </div>
 
       {/* Nav */}
@@ -186,19 +229,20 @@ export function Sidebar({
               to={item.path}
               title={item.label}
               className={`nav-item ${isActive ? "active" : ""}`}
+              onClick={onMobileClose}
             >
               <span className="flex-none">{item.icon}</span>
-              {!collapsed && <span className="flex-1">{item.label}</span>}
+              <span className={`flex-1 ${collapsed ? "sm:hidden" : ""}`}>{item.label}</span>
               {hasBadge && <span className="nav-pending-dot" />}
             </Link>
           );
         })}
       </nav>
 
-      {/* Collapse toggle */}
+      {/* Collapse toggle — desktop only */}
       <button
         type="button"
-        className="sidebar-collapse-btn border-t"
+        className="sidebar-collapse-btn hidden border-t sm:flex"
         onClick={onToggle}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
@@ -211,8 +255,7 @@ export function Sidebar({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="transition-transform duration-200"
-          style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
+          className={`transition-transform duration-200 ${collapsed ? "rotate-180" : "rotate-0"}`}
         >
           <polyline points="15 18 9 12 15 6" />
         </svg>

@@ -288,13 +288,14 @@ body {
   }
 
   /* Topbar right-side buttons */
-  .topbar-refresh-btn {
+  /* Icon button used for both the nav hamburger and the refresh button in the topbar */
+  .topbar-icon-btn {
     @apply flex cursor-pointer items-center justify-center rounded-xl border border-border-default text-text-secondary transition-colors;
     width: 34px;
     height: 34px;
     background: #1a1a1a;
   }
-  .topbar-refresh-btn:hover {
+  .topbar-icon-btn:hover {
     border-color: var(--color-primary);
     color: var(--color-primary-text);
     background: #181826;
@@ -446,8 +447,6 @@ body {
   /* Right panel form */
   .login-right {
     @apply flex items-center justify-center p-8;
-    flex: 0 0 50%;
-    max-width: 50%;
   }
 
   .login-input {
@@ -544,6 +543,20 @@ body {
     overflow: hidden;
   }
 
+  /* Horizontal scroll wrapper with iOS momentum scroll.
+     Required because .holdings-card has overflow:hidden + border-radius, which
+     suppresses touch-momentum scroll on overflow-x:auto children on iOS Safari. */
+  .scroll-x-touch {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Inner width = sum of holdings-col-grid columns (790px) + 2×16px h-padding = 822px.
+     If you change grid-template-columns above, recalculate and update this value too. */
+  .holdings-table-inner {
+    min-width: 822px;
+  }
+
   .holdings-col-grid {
     display: grid;
     grid-template-columns: 118px 60px 52px 92px 92px 110px 84px 90px 92px;
@@ -614,6 +627,13 @@ body {
   }
 
   /* ── Holdings page ── */
+  /* Inner width = sum of hp-col-grid columns (858px) + 2×16px h-padding = ~890px.
+     Kept at 1020px to provide breathing room for the actions column.
+     If you change grid-template-columns above, update this value too. */
+  .hp-inner {
+    min-width: 1020px;
+  }
+
   .hp-col-grid {
     display: grid;
     grid-template-columns: 118px 62px 64px 50px 92px 100px 132px 104px 104px 132px;

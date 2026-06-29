@@ -48,11 +48,11 @@ export function Login(): React.ReactElement {
   return (
     <div className="relative flex h-screen w-full overflow-hidden bg-bg-root text-text-primary">
       {/* Ambient orbs */}
-      <div className="orb-indigo pointer-events-none absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full animate-[drk-float_22s_ease-in-out_infinite] blur-[36px]" />
-      <div className="orb-green pointer-events-none absolute -bottom-32 right-20 h-[480px] w-[480px] rounded-full animate-[drk-float2_26s_ease-in-out_infinite] blur-[40px]" />
+      <div className="orb-indigo pointer-events-none absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full animate-float-drk blur-[36px]" />
+      <div className="orb-green pointer-events-none absolute -bottom-32 right-20 h-[480px] w-[480px] rounded-full animate-float2-drk blur-[40px]" />
 
-      {/* ── Left marketing panel ── */}
-      <div className="login-left">
+      {/* ── Left marketing panel — hidden on mobile ── */}
+      <div className="login-left hidden sm:flex">
         <div className="login-left-overlay" />
         <div className="login-halftone-purple-bl" />
         <div className="login-halftone-purple-tr" />
@@ -93,7 +93,7 @@ export function Login(): React.ReactElement {
       </div>
 
       {/* ── Right form panel ── */}
-      <div className="login-right">
+      <div className="login-right flex-1 max-w-full sm:flex-[0_0_50%] sm:max-w-[50%]">
         <div className="w-full max-w-[320px]">
           <h1 className="mb-1.5 text-[20px] font-semibold tracking-[-0.01em] text-text-primary">
             Welcome back

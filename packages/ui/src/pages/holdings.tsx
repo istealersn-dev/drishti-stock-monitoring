@@ -224,7 +224,7 @@ export function Holdings(): React.ReactElement {
           />
         </div>
 
-        <div className="filter-tabs">
+        <div className="filter-tabs max-w-full overflow-x-auto">
           {FILTER_TABS.map((tab) => (
             <button
               key={tab}
@@ -242,7 +242,7 @@ export function Holdings(): React.ReactElement {
 
       {/* Table */}
       <div className="holdings-card overflow-x-auto">
-        <div style={{ minWidth: 1020 }}>
+        <div className="hp-inner">
           {/* Column headers */}
           <div className="hp-col-grid holdings-col-header">
             {TABLE_HEADERS.map((col) => (
