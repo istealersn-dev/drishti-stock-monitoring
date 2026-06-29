@@ -166,6 +166,25 @@ describe("buildAgentGraph", () => {
     expect(final.errors).toHaveLength(0);
   });
 
+  it("skips LLM analysis when market is closed", async () => {
+    const { isMarketOpen } = await import("../../scheduler/cron.js");
+    vi.mocked(isMarketOpen).mockReturnValueOnce(false);
+
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+
+    const graph = buildAgentGraph();
+    const final = await graph.run(makeInitialState());
+
+    expect(mockAnalysePortfolio).not.toHaveBeenCalled();
+    expect(final.llmOutput).toBeNull();
+  });
+
   it("calls handleSlBreach for each detected breach", async () => {
     mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
     mockFetchLTP.mockResolvedValue({
