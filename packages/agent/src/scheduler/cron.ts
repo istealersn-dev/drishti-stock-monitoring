@@ -1,5 +1,13 @@
 import cron from "node-cron";
 
+import { pushAlert } from "../features/alerts/alerts.slack.js";
+import { computeHealthReport } from "../features/health/health.engine.js";
+import { formatHealthReport } from "../features/health/health.formatter.js";
+import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
+import { refreshLevels } from "../features/technicals/technicals.cache.js";
+import { getCachedLevels } from "../features/technicals/technicals.cache.js";
+import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
+import { getWatchlist } from "../features/watchlist/watchlist.service.js";
 import { env } from "../shared/env.js";
 import { logger } from "../shared/logger.js";
 
@@ -52,4 +60,93 @@ export function startCron(tick: () => Promise<void>): void {
     marketOpen: env.DRISHTI_MARKET_OPEN,
     marketClose: env.DRISHTI_MARKET_CLOSE,
   });
+}
+
+/**
+ * Start Phase 7 advisor cron jobs:
+ * - Daily at 16:00 IST (weekdays): refresh technical levels for all active holdings + watchlist
+ * - Every Sunday at 10:00 IST: compute portfolio health report and post to Slack
+ */
+export function startAdvisorCrons(): void {
+  // Daily technical levels refresh — runs at 16:00 on Mon–Fri (after market close)
+  cron.schedule("0 16 * * 1-5", () => {
+    void (async (): Promise<void> => {
+      logger.info("Starting daily technical levels refresh");
+      try {
+        const { holdings } = getCachedHoldings();
+        const watchlistEntries = getWatchlist();
+
+        const allSymbols = [
+          ...new Set([
+            ...holdings.map((h) => h.trading_symbol),
+            ...watchlistEntries.map((w) => w.symbol),
+          ]),
+        ];
+
+        const instrumentKeyMap: Record<string, string> = {};
+        for (const h of holdings) {
+          instrumentKeyMap[h.trading_symbol] = h.instrument_token;
+        }
+
+        await refreshLevels(allSymbols, instrumentKeyMap);
+        logger.info("Technical levels refresh complete", { count: allSymbols.length });
+      } catch (error) {
+        logger.error("Technical levels refresh failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+  });
+
+  // Weekly health report — runs every Sunday at 10:00
+  cron.schedule("0 10 * * 0", () => {
+    void (async (): Promise<void> => {
+      logger.info("Starting weekly portfolio health report");
+      try {
+        const result = await computeHealthReport();
+        if (!result.ok) {
+          logger.error("Health report failed", { error: result.error.message });
+          await pushAlert(`⚠️ *Weekly health report failed:* ${result.error.message}`);
+          return;
+        }
+        await pushAlert(formatHealthReport(result.value));
+        logger.info("Weekly health report posted to Slack");
+      } catch (error) {
+        logger.error("Health report cron threw", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+  });
+
+  logger.info("Advisor crons started (technicals @16:00 weekdays, health @10:00 Sundays)");
+}
+
+/**
+ * Fetch proximity alerts for all watchlist stocks using cached technical levels.
+ * Used by the morning digest to flag watchlist stocks near DMA200 support.
+ * @returns Array of human-readable proximity alert strings
+ */
+export async function getWatchlistProximityAlerts(): Promise<string[]> {
+  try {
+    const entries = getWatchlist();
+    if (entries.length === 0) return [];
+
+    const levelsBySymbol: Record<string, { dma200: number | null }> = {};
+    for (const entry of entries) {
+      const cached = getCachedLevels(entry.symbol);
+      levelsBySymbol[entry.symbol] = { dma200: cached?.dma200 ?? null };
+    }
+
+    const alerts = await checkProximity(entries, levelsBySymbol);
+    return alerts.map(
+      (a) =>
+        `${a.displayName} is ${a.distancePct.toFixed(1)}% from 200 DMA (LTP ₹${a.ltp.toFixed(0)}, DMA ₹${a.dma200.toFixed(0)})`,
+    );
+  } catch (error) {
+    logger.error("Watchlist proximity check failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
 }

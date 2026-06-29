@@ -8,13 +8,16 @@ import {
 
 import { Shell } from "./components/layout/shell";
 import { isAuthenticated } from "./lib/auth";
+import { Advisor } from "./pages/advisor";
 import { Dashboard } from "./pages/dashboard";
 import { Gtt } from "./pages/gtt";
+import { Health } from "./pages/health";
 import { Holdings } from "./pages/holdings";
 import { Instructions } from "./pages/instructions";
 import { Login } from "./pages/login";
 import { Logs } from "./pages/logs";
 import { Settings } from "./pages/settings";
+import { Watchlist } from "./pages/watchlist";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
@@ -61,6 +64,24 @@ const gttRoute = createRoute({
   component: Gtt,
 });
 
+const watchlistRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/watchlist",
+  component: Watchlist,
+});
+
+const healthRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/health",
+  component: Health,
+});
+
+const advisorRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/advisor",
+  component: Advisor,
+});
+
 const logsRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/logs",
@@ -80,6 +101,9 @@ const routeTree = rootRoute.addChildren([
     holdingsRoute,
     instructionsRoute,
     gttRoute,
+    watchlistRoute,
+    healthRoute,
+    advisorRoute,
     logsRoute,
     settingsRoute,
   ]),

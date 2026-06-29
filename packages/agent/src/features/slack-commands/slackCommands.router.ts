@@ -1,17 +1,23 @@
 import type { App } from "@slack/bolt";
 
-import { submitBuyInstruction } from "../instructions/instructions.pipeline.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
+import { submitBuyInstruction } from "../instructions/instructions.pipeline.js";
 
 import { routeCommand } from "./slackCommands.command.js";
 import {
   handleAnalyse,
+  handleAsk,
   handleGtts,
+  handleHealth,
   handleHelp,
   handleHoldings,
   handlePnl,
+  handleSetup,
   handleStatus,
+  handleWatchlistAdd,
+  handleWatchlistList,
+  handleWatchlistRemove,
 } from "./slackCommands.handlers.js";
 import { SlackMessageShape } from "./slackCommands.schema.js";
 
@@ -86,13 +92,39 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
         } else {
           await reply("Usage: `/drishti analyse <symbol or name>`");
         }
+      } else if (sub.startsWith("ask ")) {
+        const question = command.text.trim().slice("ask ".length).trim();
+        if (question.length > 0) {
+          await handleAsk(question, reply);
+        } else {
+          await reply("Usage: `/drishti ask <your question>`");
+        }
+      } else if (sub.startsWith("setup ")) {
+        const stockName = command.text.trim().slice("setup ".length).trim();
+        if (stockName.length > 0) {
+          await handleSetup(stockName, reply);
+        } else {
+          await reply("Usage: `/drishti setup <stock name or symbol>`");
+        }
+      } else if (sub === "health") {
+        await handleHealth(reply);
+      } else if (sub === "watchlist" || sub === "watchlist list") {
+        await handleWatchlistList(reply);
+      } else if (sub.startsWith("watchlist add ")) {
+        const arguments_ = command.text.trim().slice("watchlist add ".length);
+        await handleWatchlistAdd(arguments_, reply);
+      } else if (sub.startsWith("watchlist remove ")) {
+        const symbol = command.text.trim().slice("watchlist remove ".length).trim();
+        await handleWatchlistRemove(symbol, reply);
       } else if (BUY_INSTRUCTION.test(sub)) {
         await reply("📥 Received buy instruction — parsing…");
         const result = await submitBuyInstruction(command.text.trim(), command.channel_id);
         if (!result.ok) {
           await reply(`⚠️ Could not process instruction: ${result.error}`);
         } else {
-          await reply(`✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`);
+          await reply(
+            `✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`,
+          );
         }
       } else {
         await reply(`Unknown subcommand \`${sub}\`. Try \`/drishti help\` for the full list.`);

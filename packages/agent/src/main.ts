@@ -17,7 +17,7 @@ import { startDigestCrons } from "./features/digest/digest.service.js";
 import { submitBuyInstruction } from "./features/instructions/instructions.pipeline.js";
 import { registerSlackCommands } from "./features/slack-commands/slackCommands.router.js";
 import { SlackMessageShape } from "./features/slack-commands/slackCommands.schema.js";
-import { startCron } from "./scheduler/cron.js";
+import { startAdvisorCrons, startCron } from "./scheduler/cron.js";
 import { env } from "./shared/env.js";
 import { logger } from "./shared/logger.js";
 
@@ -98,6 +98,7 @@ async function main(): Promise<void> {
 
   startTimeoutPoller();
   startDigestCrons();
+  startAdvisorCrons();
   await startApiServer();
 
   await tick();

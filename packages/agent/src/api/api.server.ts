@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { db } from "../db/db.js";
 import {
+  advisoryConversations,
   agentLogs,
   agentRuns,
   agentSettings,
@@ -14,12 +15,24 @@ import {
   pendingApprovals,
   stockConfig,
 } from "../db/schema.js";
+import { askAdvisor } from "../features/advisor/advisor.chain.js";
+import { generateTradeSetup } from "../features/advisor/advisor.chain.js";
 import { getApproval, resolveApproval } from "../features/approval/approval.store.js";
+import { computeHealthReport } from "../features/health/health.engine.js";
 import { updateApprovalCard } from "../features/instructions/instructions.approval.js";
 import { executeApprovedInstruction } from "../features/instructions/instructions.executor.js";
 import { submitBuyInstruction } from "../features/instructions/instructions.pipeline.js";
+import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { ParsedInstructionSchema } from "../features/instructions/instructions.schema.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
+import { saveLevels } from "../features/technicals/technicals.cache.js";
+import { getCachedLevels } from "../features/technicals/technicals.cache.js";
+import { fetchOHLCV, computeLevels } from "../features/technicals/technicals.service.js";
+import {
+  addToWatchlist,
+  getWatchlist,
+  removeFromWatchlist,
+} from "../features/watchlist/watchlist.service.js";
 import { env } from "../shared/env.js";
 import { logger } from "../shared/logger.js";
 
@@ -356,6 +369,108 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
       }
     },
   );
+
+  // ── Phase 7: Watchlist ────────────────────────────────────────────────────
+
+  app.get("/api/watchlist", async (_request, reply) => {
+    const entries = getWatchlist();
+    return reply.send({ ok: true, data: { entries, proximityAlerts: [] } });
+  });
+
+  app.post<{ Body: unknown }>("/api/watchlist", async (request, reply) => {
+    const BodySchema = z.object({
+      symbol: z.string().min(1),
+      displayName: z.string().min(1),
+      notes: z.string().optional(),
+    });
+    const parsed = BodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, error: parsed.error.issues[0]?.message });
+    }
+    const result = addToWatchlist(parsed.data.symbol, parsed.data.displayName, parsed.data.notes);
+    if (!result.ok) {
+      return reply.status(409).send({ ok: false, error: result.error.message });
+    }
+    return reply.send({ ok: true });
+  });
+
+  app.delete<{ Params: { symbol: string } }>("/api/watchlist/:symbol", async (request, reply) => {
+    const result = removeFromWatchlist(request.params.symbol);
+    if (!result.ok) {
+      return reply.status(500).send({ ok: false, error: result.error.message });
+    }
+    return reply.send({ ok: true });
+  });
+
+  // ── Phase 7: Portfolio Health ─────────────────────────────────────────────
+
+  app.get("/api/health", async (_request, reply) => {
+    return reply.send({ ok: true, data: null });
+  });
+
+  app.post("/api/health/run", async (_request, reply) => {
+    const result = await computeHealthReport();
+    if (!result.ok) {
+      return reply.status(500).send({ ok: false, error: result.error.message });
+    }
+    return reply.send({ ok: true, data: result.value });
+  });
+
+  // ── Phase 7: Advisor ──────────────────────────────────────────────────────
+
+  app.get("/api/advisor/conversations", async (_request, reply) => {
+    const rows = db
+      .select()
+      .from(advisoryConversations)
+      .orderBy(desc(advisoryConversations.createdAt))
+      .limit(100)
+      .all();
+    return reply.send({ ok: true, data: rows });
+  });
+
+  app.post<{ Body: unknown }>("/api/advisor/ask", async (request, reply) => {
+    const BodySchema = z.object({ question: z.string().min(1) });
+    const parsed = BodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, error: parsed.error.issues[0]?.message });
+    }
+    const result = await askAdvisor({
+      question: parsed.data.question,
+      sessionId: crypto.randomUUID(),
+      channel: "ui",
+    });
+    if (!result.ok) {
+      return reply.status(500).send({ ok: false, error: result.error.message });
+    }
+    return reply.send({ ok: true, answer: result.value.answer, sessionId: result.value.sessionId });
+  });
+
+  app.get<{ Params: { symbol: string } }>("/api/advisor/setup/:symbol", async (request, reply) => {
+    const { symbol } = request.params;
+    const resolveResult = await resolveSymbol(symbol);
+    if (!resolveResult.ok) {
+      return reply
+        .status(404)
+        .send({ ok: false, error: `Symbol not found: ${resolveResult.error.message}` });
+    }
+    const { tradingSymbol, instrumentToken } = resolveResult.value;
+
+    let levels = getCachedLevels(tradingSymbol);
+    if (!levels) {
+      const ohlcvResult = await fetchOHLCV(instrumentToken, 260);
+      if (!ohlcvResult.ok) {
+        return reply.status(502).send({ ok: false, error: ohlcvResult.error.message });
+      }
+      levels = computeLevels(tradingSymbol, ohlcvResult.value);
+      saveLevels(levels);
+    }
+
+    const setupResult = await generateTradeSetup(tradingSymbol, JSON.stringify(levels));
+    if (!setupResult.ok) {
+      return reply.status(500).send({ ok: false, error: setupResult.error.message });
+    }
+    return reply.send({ ok: true, data: setupResult.value });
+  });
 
   return app;
 }
