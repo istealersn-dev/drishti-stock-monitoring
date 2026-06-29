@@ -351,6 +351,34 @@ describe("buildAgentGraph", () => {
     expect(writtenActions).not.toContain("portfolio_summary");
   });
 
+  it("writes gtt_modify_failed row when gtt_modify decision has null gttParams", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [
+          { symbol: "AXISBANK-EQ", action: "gtt_modify", reasoning: "Adjust SL.", gttParams: null },
+        ],
+        portfolioSummary: "Adjust needed.",
+      },
+    });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+
+    const writtenActions = mockDatabaseInsertValues.mock.calls.map(
+      (call: unknown[]) => (call[0] as { action?: string } | undefined)?.action,
+    );
+    expect(writtenActions).toContain("gtt_modify_failed");
+    expect(mockPushAlert).not.toHaveBeenCalledWith(expect.stringContaining("Adjust SL."));
+  });
+
   it("calls handleSlBreach for each detected breach", async () => {
     mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
     mockFetchLTP.mockResolvedValue({
