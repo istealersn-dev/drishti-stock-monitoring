@@ -324,6 +324,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
 /** Push portfolio summary to Slack and log it. */
 async function logAndAlertNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {
   if (state.holdings.length === 0) return {};
+  if (!state.llmOutput) return {};
 
   const summary = state.llmOutput?.portfolioSummary ?? "Portfolio analysed — no LLM summary.";
   const alertResult = await pushAlert(`📊 *Portfolio Update*\n${summary}`);

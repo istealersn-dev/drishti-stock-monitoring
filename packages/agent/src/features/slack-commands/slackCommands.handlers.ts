@@ -241,7 +241,8 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
     const message = error instanceof Error ? error.message : String(error);
     logCommandError(CMD_ANALYSE_LLM, message, holding.trading_symbol);
 
-    const isTimeout = message.toLowerCase().includes("timed out") || message.includes("timeout");
+    const lowerMessage = message.toLowerCase();
+    const isTimeout = lowerMessage.includes("timed out") || lowerMessage.includes("timeout");
     const isOffline =
       !isTimeout &&
       (message.includes("ECONNREFUSED") ||
