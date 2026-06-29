@@ -2,7 +2,11 @@ import { describe, it, expect, vi } from "vitest";
 
 const { mockChat } = vi.hoisted(() => ({ mockChat: vi.fn() }));
 
-vi.mock("../../llm/llmClient.js", () => ({ chat: mockChat }));
+vi.mock("../../llm/llmClient.js", () => ({
+  chat: mockChat,
+  PORTFOLIO_MAX_TOKENS: 8192,
+  PORTFOLIO_LLM_TIMEOUT_MS: 300_000,
+}));
 
 import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 
