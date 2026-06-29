@@ -73,6 +73,9 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
   );
   if (!cardResult.ok) {
     logger.error("Failed to send approval card", { approvalId, error: cardResult.error.message });
+    await pushAlert(
+      `⚠️ Failed to post approval card for *${resolved.tradingSymbol}*: ${cardResult.error.message}`,
+    );
     return { ok: false, error: cardResult.error.message };
   }
 

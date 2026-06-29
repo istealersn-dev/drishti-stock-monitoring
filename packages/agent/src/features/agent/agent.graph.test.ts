@@ -35,6 +35,7 @@ vi.mock("../targets/targets.detector.js", () => ({
   detectTargetHits: vi.fn().mockReturnValue([]),
 }));
 vi.mock("../insights/insights.chain.js", () => ({ analysePortfolio: mockAnalysePortfolio }));
+vi.mock("../../scheduler/cron.js", () => ({ isMarketOpen: vi.fn().mockReturnValue(true) }));
 vi.mock("../../shared/env.js", () => ({ env: { DRISHTI_DRY_RUN: false } }));
 vi.mock("../../db/db.js", () => ({
   db: {
@@ -160,11 +161,28 @@ describe("buildAgentGraph", () => {
     const graph = buildAgentGraph();
     const final = await graph.run(makeInitialState());
 
-    expect(final.llmOutput).not.toBeNull();
-    expect(final.llmOutput?.decisions).toHaveLength(1);
-    expect(final.llmOutput?.decisions[0]?.action).toBe("alert_only");
-    expect(final.llmOutput?.portfolioSummary).toContain("unavailable");
+    // LLM failure → null output so logAndAlertNode stays silent (no Slack spam)
+    expect(final.llmOutput).toBeNull();
     expect(final.errors).toHaveLength(0);
+  });
+
+  it("skips LLM analysis when market is closed", async () => {
+    const { isMarketOpen } = await import("../../scheduler/cron.js");
+    vi.mocked(isMarketOpen).mockReturnValueOnce(false);
+
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+
+    const graph = buildAgentGraph();
+    const final = await graph.run(makeInitialState());
+
+    expect(mockAnalysePortfolio).not.toHaveBeenCalled();
+    expect(final.llmOutput).toBeNull();
   });
 
   it("calls handleSlBreach for each detected breach", async () => {
