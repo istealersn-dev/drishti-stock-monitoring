@@ -365,7 +365,7 @@ export function Instructions(): React.ReactElement {
           <div className="mt-[6px] text-[12px] text-text-dim">Send a buy instruction above.</div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 items-start gap-3">
+        <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
           {pendingApprovals.map((approval: Approval) => (
             <ApprovalCard
               key={approval.id}

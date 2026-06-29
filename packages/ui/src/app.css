@@ -446,8 +446,6 @@ body {
   /* Right panel form */
   .login-right {
     @apply flex items-center justify-center p-8;
-    flex: 0 0 50%;
-    max-width: 50%;
   }
 
   .login-input {

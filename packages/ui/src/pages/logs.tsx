@@ -111,7 +111,7 @@ function LogRow({ log }: LogRowProperties): React.ReactElement {
       </button>
 
       {expanded && (
-        <div className="animate-fade-drk space-y-3 px-4 pb-[14px] pl-[166px]">
+        <div className="animate-fade-drk space-y-3 px-4 pb-[14px] pl-4 sm:pl-[166px]">
           {log.reasoning != null && (
             <div>
               <div className="mb-[6px] text-[10px] uppercase tracking-[0.05em] text-text-dim">
@@ -154,7 +154,7 @@ export function Logs(): React.ReactElement {
   return (
     <div className="animate-fade-drk space-y-[14px]">
       {/* Filter tabs */}
-      <div className="filter-tabs">
+      <div className="filter-tabs max-w-full overflow-x-auto">
         {FILTER_TABS.map(({ key, label }) => (
           <button
             key={key}
