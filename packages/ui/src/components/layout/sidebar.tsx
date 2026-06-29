@@ -143,6 +143,7 @@ type SidebarProperties = {
   collapsed: boolean;
   onToggle: () => void;
   mobileOpen: boolean;
+  sidebarHidden: boolean;
   onMobileClose: () => void;
 };
 
@@ -153,6 +154,7 @@ type SidebarProperties = {
  * @param props.collapsed - Whether the sidebar is collapsed (desktop only)
  * @param props.onToggle - Toggle collapsed state callback (desktop only)
  * @param props.mobileOpen - Whether mobile drawer is open
+ * @param props.sidebarHidden - True when sidebar is off-screen and must be removed from the accessibility tree
  * @param props.onMobileClose - Close mobile drawer callback
  * @returns Sidebar element
  */
@@ -161,6 +163,7 @@ export function Sidebar({
   collapsed,
   onToggle,
   mobileOpen,
+  sidebarHidden,
   onMobileClose,
 }: SidebarProperties): React.ReactElement {
   const routerState = useRouterState();
@@ -172,12 +175,15 @@ export function Sidebar({
 
   return (
     <aside
+      id="nav-sidebar"
+      aria-hidden={sidebarHidden || undefined}
+      inert={sidebarHidden || undefined}
       className={[
         "flex h-full flex-col border-r border-border-subtle bg-bg-sidebar transition-all duration-200",
         // Mobile: fixed overlay drawer
         "fixed inset-y-0 left-0 z-40 w-[238px]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        // Desktop: revert to static sidebar in flow
+        // Desktop: revert to static sidebar in flow; aria-hidden/inert reset below via CSS sm: override
         "sm:relative sm:inset-y-auto sm:left-auto sm:z-20 sm:flex-none sm:translate-x-0",
         collapsed ? "sm:w-[52px]" : "sm:w-[238px]",
       ].join(" ")}

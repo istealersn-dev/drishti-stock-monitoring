@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Outlet } from "@tanstack/react-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { fetchApprovals, fetchRuns, fetchSettings } from "../../lib/api";
 
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+
+const DESKTOP_MQ = "(min-width: 640px)";
 
 /**
  * Root layout shell: full-height flex row with sidebar + topbar + main content.
@@ -15,6 +17,9 @@ import { Topbar } from "./topbar";
 export function Shell(): React.ReactElement {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(DESKTOP_MQ).matches,
+  );
   const queryClient = useQueryClient();
 
   const { data: settings, isError: settingsError } = useQuery({
@@ -31,6 +36,25 @@ export function Shell(): React.ReactElement {
     queryKey: ["runs"],
     queryFn: fetchRuns,
   });
+
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_MQ);
+    const handleChange = (event: MediaQueryListEvent): void => {
+      setIsDesktop(event.matches);
+      if (event.matches) setMobileMenuOpen(false);
+    };
+    mq.addEventListener("change", handleChange);
+    return (): void => {
+      mq.removeEventListener("change", handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    return (): void => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
 
   const dryRun = settings?.dryRun ?? false;
   const agentStatus = settingsError ? "error" : settings?.pauseAgent ? "unknown" : "live";
@@ -53,6 +77,8 @@ export function Shell(): React.ReactElement {
     setMobileMenuOpen(true);
   };
 
+  const sidebarHidden = !isDesktop && !mobileMenuOpen;
+
   return (
     <div className="relative flex h-screen overflow-hidden bg-bg-root">
       {/* Ambient gradient orbs */}
@@ -73,6 +99,7 @@ export function Shell(): React.ReactElement {
         collapsed={collapsed}
         onToggle={handleToggle}
         mobileOpen={mobileMenuOpen}
+        sidebarHidden={sidebarHidden}
         onMobileClose={handleMobileClose}
       />
 
@@ -83,6 +110,7 @@ export function Shell(): React.ReactElement {
           pendingCount={pendingCount}
           lastPollAt={lastPollAt}
           onRefresh={handleRefresh}
+          navOpen={mobileMenuOpen}
           onMobileMenuOpen={handleMobileOpen}
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-5">

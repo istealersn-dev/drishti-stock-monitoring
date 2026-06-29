@@ -224,7 +224,7 @@ export function Holdings(): React.ReactElement {
           />
         </div>
 
-        <div className="filter-tabs">
+        <div className="filter-tabs max-w-full overflow-x-auto">
           {FILTER_TABS.map((tab) => (
             <button
               key={tab}

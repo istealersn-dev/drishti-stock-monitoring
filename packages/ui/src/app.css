@@ -288,13 +288,14 @@ body {
   }
 
   /* Topbar right-side buttons */
-  .topbar-refresh-btn {
+  /* Icon button used for both the nav hamburger and the refresh button in the topbar */
+  .topbar-icon-btn {
     @apply flex cursor-pointer items-center justify-center rounded-xl border border-border-default text-text-secondary transition-colors;
     width: 34px;
     height: 34px;
     background: #1a1a1a;
   }
-  .topbar-refresh-btn:hover {
+  .topbar-icon-btn:hover {
     border-color: var(--color-primary);
     color: var(--color-primary-text);
     background: #181826;

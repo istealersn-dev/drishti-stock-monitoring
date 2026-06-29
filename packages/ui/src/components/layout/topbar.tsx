@@ -11,6 +11,7 @@ type TopbarProperties = {
   pendingCount: number;
   lastPollAt: string | null;
   onRefresh: () => void;
+  navOpen: boolean;
   onMobileMenuOpen: () => void;
 };
 
@@ -46,6 +47,8 @@ function resolveStatus(
  * @param props.pendingCount - Number of pending buy approvals
  * @param props.lastPollAt - ISO timestamp of the last agent run start
  * @param props.onRefresh - Callback to invalidate all queries
+ * @param props.navOpen - Whether the mobile nav drawer is currently open
+ * @param props.onMobileMenuOpen - Callback to open the mobile nav drawer
  * @returns Topbar element
  */
 export function Topbar({
@@ -54,6 +57,7 @@ export function Topbar({
   pendingCount,
   lastPollAt,
   onRefresh,
+  navOpen,
   onMobileMenuOpen,
 }: TopbarProperties): React.ReactElement {
   const navigate = useNavigate();
@@ -74,8 +78,10 @@ export function Topbar({
       {/* Mobile hamburger */}
       <button
         type="button"
-        className="topbar-refresh-btn mr-1 flex-none sm:hidden"
-        aria-label="Open navigation"
+        className="topbar-icon-btn mr-1 flex-none sm:hidden"
+        aria-label={navOpen ? "Close navigation" : "Open navigation"}
+        aria-expanded={navOpen}
+        aria-controls="nav-sidebar"
         onClick={onMobileMenuOpen}
       >
         <svg
@@ -147,7 +153,7 @@ export function Topbar({
 
         <button
           type="button"
-          className="topbar-refresh-btn"
+          className="topbar-icon-btn"
           title="Refresh data (R)"
           onClick={handleRefresh}
         >
