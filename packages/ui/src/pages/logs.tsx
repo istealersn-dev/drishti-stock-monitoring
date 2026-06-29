@@ -67,7 +67,7 @@ function LogRow({ log }: LogRowProperties): React.ReactElement {
         }}
       >
         {/* Timestamp + runId */}
-        <div style={{ lineHeight: 1.35 }}>
+        <div className="leading-[1.35]">
           <div className="font-mono text-[12.5px] text-[#d0d0d0]">
             {formatLogTime(log.createdAt)}
           </div>
@@ -103,8 +103,7 @@ function LogRow({ log }: LogRowProperties): React.ReactElement {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="justify-self-end transition-transform duration-150"
-          style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+          className={`justify-self-end transition-transform duration-150 ${expanded ? "rotate-180" : "rotate-0"}`}
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>

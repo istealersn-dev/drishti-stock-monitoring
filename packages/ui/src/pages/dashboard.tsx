@@ -9,10 +9,11 @@ const MTF_ANNUAL_INTEREST_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
 
 function formatInr(amount: number): string {
-  if (Math.abs(amount) >= ONE_LAKH) {
-    return `₹${(amount / ONE_LAKH).toFixed(1)}L`;
+  const abs = Math.abs(amount);
+  if (abs >= ONE_LAKH) {
+    return `₹${(abs / ONE_LAKH).toFixed(1)}L`;
   }
-  return `₹${Math.abs(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  return `₹${abs.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
 function formatPrice(price: number): string {

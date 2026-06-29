@@ -255,8 +255,7 @@ export function Sidebar({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="transition-transform duration-200"
-          style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
+          className={`transition-transform duration-200 ${collapsed ? "rotate-180" : "rotate-0"}`}
         >
           <polyline points="15 18 9 12 15 6" />
         </svg>
