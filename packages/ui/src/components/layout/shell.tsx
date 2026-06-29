@@ -7,6 +7,8 @@ import { fetchApprovals, fetchRuns, fetchSettings } from "../../lib/api";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
+// Must match Tailwind's `sm:` breakpoint (screens.sm in tailwind.config.ts).
+// Update both if the breakpoint ever changes.
 const DESKTOP_MQ = "(min-width: 640px)";
 
 /**
@@ -18,7 +20,10 @@ export function Shell(): React.ReactElement {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(DESKTOP_MQ).matches,
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(DESKTOP_MQ).matches,
   );
   const queryClient = useQueryClient();
 

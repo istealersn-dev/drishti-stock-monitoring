@@ -73,6 +73,7 @@ export function Topbar({
   const { variant, label } = resolveStatus(dryRun, agentStatus);
 
   const handleRefresh = (): void => {
+    if (spinTimerRef.current !== null) clearTimeout(spinTimerRef.current);
     setSpinning(true);
     onRefresh();
     spinTimerRef.current = setTimeout(() => {
@@ -91,20 +92,36 @@ export function Topbar({
         aria-controls="nav-sidebar"
         onClick={onMobileMenuToggle}
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
+        {navOpen ? (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        ) : (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        )}
       </button>
 
       {/* Left: wordmark + version */}
@@ -153,8 +170,8 @@ export function Topbar({
               <circle cx="12" cy="12" r="9" />
               <polyline points="12 7 12 12 15 14" />
             </svg>
-            <span className="hidden sm:inline">{pendingCount} pending</span>
-            <span className="sm:hidden">{pendingCount}</span>
+            {pendingCount}
+            <span className="hidden sm:inline"> pending</span>
           </button>
         )}
 

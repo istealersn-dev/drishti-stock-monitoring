@@ -111,7 +111,7 @@ function LogRow({ log }: LogRowProperties): React.ReactElement {
       </button>
 
       {expanded && (
-        <div className="animate-fade-drk space-y-3 px-4 pb-[14px] pl-4 sm:pl-[166px]">
+        <div className="animate-fade-drk space-y-3 px-4 pb-[14px] sm:pl-[166px]">
           {log.reasoning != null && (
             <div>
               <div className="mb-[6px] text-[10px] uppercase tracking-[0.05em] text-text-dim">

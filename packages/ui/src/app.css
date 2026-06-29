@@ -551,7 +551,8 @@ body {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Inner width = sum of holdings-col-grid columns (790px) + 2×16px h-padding */
+  /* Inner width = sum of holdings-col-grid columns (790px) + 2×16px h-padding = 822px.
+     If you change grid-template-columns above, recalculate and update this value too. */
   .holdings-table-inner {
     min-width: 822px;
   }
