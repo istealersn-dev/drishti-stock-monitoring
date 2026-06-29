@@ -15,20 +15,18 @@ import {
   pendingApprovals,
   stockConfig,
 } from "../db/schema.js";
-import { askAdvisor } from "../features/advisor/advisor.chain.js";
-import { generateTradeSetup } from "../features/advisor/advisor.chain.js";
+import { askAdvisor, generateTradeSetup } from "../features/advisor/advisor.chain.js";
 import { getApproval, resolveApproval } from "../features/approval/approval.store.js";
+import { getLastHealthReport, setLastHealthReport } from "../features/health/health.cache.js";
 import { computeHealthReport } from "../features/health/health.engine.js";
-import type { PortfolioHealthReport } from "../features/health/health.schema.js";
 import { updateApprovalCard } from "../features/instructions/instructions.approval.js";
 import { executeApprovedInstruction } from "../features/instructions/instructions.executor.js";
 import { submitBuyInstruction } from "../features/instructions/instructions.pipeline.js";
 import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { ParsedInstructionSchema } from "../features/instructions/instructions.schema.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
-import { saveLevels } from "../features/technicals/technicals.cache.js";
-import { getCachedLevels } from "../features/technicals/technicals.cache.js";
-import { fetchOHLCV, computeLevels } from "../features/technicals/technicals.service.js";
+import { getCachedLevels, saveLevels } from "../features/technicals/technicals.cache.js";
+import { computeLevels, fetchOHLCV } from "../features/technicals/technicals.service.js";
 import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
 import {
   addToWatchlist,
@@ -40,10 +38,6 @@ import { logger } from "../shared/logger.js";
 
 const API_RUNS_LIMIT = 20;
 const API_LOGS_LIMIT = 100;
-
-// In-process cache for the last computed health report.
-// GET /api/health returns the cache (fast); POST /api/health/run recomputes and updates it.
-let lastHealthReport: PortfolioHealthReport | null = null;
 
 // ── Query helpers (exported for unit tests) ───────────────────────────────────
 
@@ -389,7 +383,14 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
     await Promise.allSettled(
       entries.map(async (entry) => {
         const resolved = await resolveSymbol(entry.symbol);
-        if (resolved.ok) instrumentKeyMap[entry.symbol] = resolved.value.instrumentToken;
+        if (resolved.ok) {
+          instrumentKeyMap[entry.symbol] = resolved.value.instrumentToken;
+        } else {
+          logger.warn("GET /api/watchlist: resolveSymbol failed", {
+            symbol: entry.symbol,
+            error: resolved.error.message,
+          });
+        }
       }),
     );
     const proximityAlerts = await checkProximity(entries, levelsBySymbol, instrumentKeyMap);
@@ -424,8 +425,9 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   // ── Phase 7: Portfolio Health ─────────────────────────────────────────────
 
   app.get("/api/health", async (_request, reply) => {
-    if (lastHealthReport) {
-      return reply.send({ ok: true, data: lastHealthReport });
+    const cached = getLastHealthReport();
+    if (cached) {
+      return reply.send({ ok: true, data: cached });
     }
     return reply.status(503).send({
       ok: false,
@@ -439,7 +441,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
       logger.error("Health report computation failed", { error: result.error.message });
       return reply.status(500).send({ ok: false, error: result.error.message });
     }
-    lastHealthReport = result.value;
+    setLastHealthReport(result.value);
     return reply.send({ ok: true, data: result.value });
   });
 

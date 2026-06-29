@@ -1,6 +1,7 @@
 import cron from "node-cron";
 
 import { pushAlert } from "../features/alerts/alerts.slack.js";
+import { setLastHealthReport } from "../features/health/health.cache.js";
 import { computeHealthReport } from "../features/health/health.engine.js";
 import { formatHealthReport } from "../features/health/health.formatter.js";
 import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
@@ -123,6 +124,7 @@ export function startAdvisorCrons(): void {
           await pushAlert(`⚠️ *Weekly health report failed:* ${result.error.message}`);
           return;
         }
+        setLastHealthReport(result.value);
         await pushAlert(formatHealthReport(result.value));
         logger.info("Weekly health report posted to Slack");
       } catch (error) {

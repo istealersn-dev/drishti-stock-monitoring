@@ -3,6 +3,7 @@ import { stockConfig } from "../../db/schema.js";
 import { chat } from "../../llm/llmClient.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
+import { logger } from "../../shared/logger.js";
 import type { Holding } from "../portfolio/portfolio.schema.js";
 import { fetchHoldings } from "../portfolio/portfolio.tools.js";
 
@@ -23,19 +24,19 @@ type StockConfigRow = {
 };
 
 /**
- * Compute capital at risk for a single position: the loss if stopped out at the SL price.
- * For positions below SL (already breached), uses full downside from current price to SL.
+ * Compute capital at risk for a single position: the absolute distance from the current price
+ * to the SL threshold, multiplied by quantity. For positions above SL this is potential future
+ * loss; for positions below SL (breach) this is the additional downside if not yet exited.
+ * Both cases represent real open exposure that the operator must act on.
  * @param holding - The portfolio holding
  * @param slThreshold - The stop-loss threshold price, or null/undefined when unconfigured
- * @returns Capital at risk in rupees (0 when no threshold is known or position is above entry with no stop)
+ * @returns Capital at risk in rupees (0 when no SL is configured)
  */
 function capitalAtRiskFor(holding: Holding, slThreshold: number | null | undefined): number {
   if (slThreshold == null || slThreshold === 0) {
     return 0;
   }
-  // Risk = (current price - SL) * qty; negative when already below SL (breach)
-  const riskPerUnit = holding.last_price - slThreshold;
-  return Math.abs(riskPerUnit) * holding.quantity;
+  return Math.abs(holding.last_price - slThreshold) * holding.quantity;
 }
 
 /**
@@ -79,9 +80,15 @@ export async function computeHealthReport(): Promise<Result<PortfolioHealthRepor
       pctDown: Number((((h.average_price - h.last_price) / h.average_price) * 100).toFixed(2)),
     }));
 
-  const overdueForReview = configRows
+  // Positions with a config row but no SL set
+  const configuredWithoutSl = configRows
     .filter((row) => row.isActive === true && (row.slThreshold == null || row.slThreshold === 0))
     .map((row) => row.symbol);
+  // Active holdings with no stock_config row at all (never configured)
+  const neverConfigured = holdings
+    .filter((h) => !slBySymbol.has(h.trading_symbol))
+    .map((h) => h.trading_symbol);
+  const overdueForReview = [...new Set([...configuredWithoutSl, ...neverConfigured])];
 
   const metrics = {
     generatedAt: new Date().toISOString(),
@@ -102,7 +109,10 @@ export async function computeHealthReport(): Promise<Result<PortfolioHealthRepor
     ]);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    return err(new Error(`Failed to generate health narrative: ${message}`));
+    logger.warn("Health narrative unavailable — returning metrics without LLM commentary", {
+      error: message,
+    });
+    llmNarrative = "Narrative unavailable (LM Studio unreachable).";
   }
 
   return ok({ ...metrics, llmNarrative });

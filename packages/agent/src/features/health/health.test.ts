@@ -11,6 +11,10 @@ const { mockChat, mockFetchHoldings, mockConfigAll } = vi.hoisted(() => ({
 
 vi.mock("../../llm/llmClient.js", () => ({ chat: mockChat }));
 
+vi.mock("../../shared/logger.js", () => ({
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}));
+
 vi.mock("../portfolio/portfolio.tools.js", () => ({
   fetchHoldings: mockFetchHoldings,
 }));
@@ -91,6 +95,33 @@ describe("computeHealthReport", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain("network down");
+  });
+
+  it("returns ok with fallback narrative when LLM throws", async () => {
+    mockFetchHoldings.mockResolvedValue(ok([makeHolding()]));
+    mockConfigAll.mockReturnValue([{ symbol: "AXISBANK", slThreshold: 1000, isActive: true }]);
+    mockChat.mockRejectedValue(new Error("LM Studio unreachable"));
+
+    const result = await computeHealthReport();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.llmNarrative).toContain("Narrative unavailable");
+  });
+
+  it("flags holdings with no stock_config row in overdueForReview", async () => {
+    mockFetchHoldings.mockResolvedValue(
+      ok([
+        makeHolding({ trading_symbol: "AXISBANK" }),
+        makeHolding({ trading_symbol: "NEWSTOCK", isin: "INE999" }),
+      ]),
+    );
+    // Only AXISBANK has a config row; NEWSTOCK has never been configured
+    mockConfigAll.mockReturnValue([{ symbol: "AXISBANK", slThreshold: 1000, isActive: true }]);
+
+    const result = await computeHealthReport();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.overdueForReview).toContain("NEWSTOCK");
   });
 });
 
