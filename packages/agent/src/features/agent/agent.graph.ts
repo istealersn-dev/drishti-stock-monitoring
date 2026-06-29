@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
+import { isMarketOpen } from "../../scheduler/cron.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
@@ -15,12 +16,30 @@ import { detectBreaches } from "../stopLoss/stopLoss.detector.js";
 import { handleSlBreach } from "../stopLoss/stopLoss.handler.js";
 import { detectTargetHits, loadTargetConfigs } from "../targets/targets.detector.js";
 
-import { isMarketOpen } from "../../scheduler/cron.js";
-
 import { StateGraph } from "./agent.state.js";
 import type { AgentState } from "./agent.state.js";
 
 const GTT_LIMIT_BUFFER = 0.995;
+
+const ALERT_ONLY_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour between repeated alert_only alerts
+
+/**
+ * Returns true if an agent_log row with the given action+symbol already exists
+ * within the cooldown window, meaning we should skip re-alerting.
+ */
+function wasRecentlyAlerted(action: string, symbol: string | null, windowMs: number): boolean {
+  const since = new Date(Date.now() - windowMs).toISOString();
+  const conditions =
+    symbol !== null
+      ? and(
+          eq(agentLogs.action, action),
+          eq(agentLogs.symbol, symbol),
+          gte(agentLogs.createdAt, since),
+        )
+      : and(eq(agentLogs.action, action), gte(agentLogs.createdAt, since));
+  const row = db.select({ id: agentLogs.id }).from(agentLogs).where(conditions).get();
+  return row !== undefined;
+}
 
 /** Fetch holdings and LTP; populate state or append to errors on failure. */
 async function fetchPortfolioNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {
@@ -88,8 +107,20 @@ async function checkTargetsNode(state: Readonly<AgentState>): Promise<Partial<Ag
   const configs = loadTargetConfigs();
   const targetHits = detectTargetHits(state.holdings, state.ltpMap, configs);
 
+  const TRADING_DAY_MS = 8 * 60 * 60 * 1000; // 8 h — enough to cover one market session
+
   for (const hit of targetHits) {
     const label = hit.targetLevel === 1 ? "T1" : "T2";
+    const action = `target_${label.toLowerCase()}_hit`;
+
+    if (wasRecentlyAlerted(action, hit.symbol, TRADING_DAY_MS)) {
+      logger.debug("checkTargets: suppressing duplicate alert", {
+        symbol: hit.symbol,
+        label,
+      });
+      continue;
+    }
+
     const alertResult = await pushAlert(
       `🎯 *${hit.companyName}* (${hit.symbol}) hit ${label} target ₹${hit.targetPrice}. LTP: ₹${hit.currentPrice}. Review position.`,
     );
@@ -104,7 +135,7 @@ async function checkTargetsNode(state: Readonly<AgentState>): Promise<Partial<Ag
       .values({
         runId: state.runId,
         symbol: hit.symbol,
-        action: `target_${label.toLowerCase()}_hit`,
+        action,
         reasoning: `${label} target ₹${hit.targetPrice} reached at LTP ₹${hit.currentPrice}`,
         dryRun: env.DRISHTI_DRY_RUN,
         error: null,
@@ -195,6 +226,13 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
     }
 
     if (decision.action === "alert_only") {
+      if (wasRecentlyAlerted("alert_only", decision.symbol, ALERT_ONLY_COOLDOWN_MS)) {
+        logger.debug("executeActions: suppressing duplicate alert_only", {
+          symbol: decision.symbol,
+        });
+        continue;
+      }
+
       const alertResult = await pushAlert(`👁 *${decision.symbol}*: ${decision.reasoning}`);
       db.insert(agentLogs)
         .values({
@@ -321,17 +359,12 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
   return {};
 }
 
-/** Push portfolio summary to Slack and log it. */
+/** Log portfolio summary to DB only; Slack push is handled by the digest (09:15/15:30). */
 async function logAndAlertNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {
   if (state.holdings.length === 0) return {};
   if (!state.llmOutput) return {};
 
-  const summary = state.llmOutput?.portfolioSummary ?? "Portfolio analysed — no LLM summary.";
-  const alertResult = await pushAlert(`📊 *Portfolio Update*\n${summary}`);
-
-  if (!alertResult.ok) {
-    logger.error("logAndAlert: Slack push failed", { error: alertResult.error.message });
-  }
+  const summary = state.llmOutput.portfolioSummary ?? "Portfolio analysed — no LLM summary.";
 
   db.insert(agentLogs)
     .values({
@@ -339,7 +372,7 @@ async function logAndAlertNode(state: Readonly<AgentState>): Promise<Partial<Age
       action: "portfolio_summary",
       reasoning: summary,
       dryRun: env.DRISHTI_DRY_RUN,
-      error: alertResult.ok ? null : alertResult.error.message,
+      error: null,
       createdAt: new Date().toISOString(),
     })
     .run();

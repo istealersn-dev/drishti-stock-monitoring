@@ -139,7 +139,8 @@ describe("buildAgentGraph", () => {
 
     expect(final.holdings).toHaveLength(1);
     expect(final.llmOutput?.portfolioSummary).toBe("All good.");
-    expect(mockPushAlert).toHaveBeenCalledWith(expect.stringContaining("All good."));
+    // Portfolio summary is logged to DB only — Slack push is the digest's responsibility
+    expect(mockPushAlert).not.toHaveBeenCalledWith(expect.stringContaining("All good."));
   });
 
   it("continues without LLM output when analysePortfolio fails", async () => {
