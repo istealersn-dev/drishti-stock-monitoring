@@ -195,8 +195,8 @@ export function Dashboard(): React.ReactElement {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <div style={{ minWidth: 822 }}>
+        <div className="scroll-x-touch">
+          <div className="holdings-table-inner">
             {/* Column headers */}
             <div className="holdings-col-grid holdings-col-header">
               {TABLE_HEADERS.map((col) => (

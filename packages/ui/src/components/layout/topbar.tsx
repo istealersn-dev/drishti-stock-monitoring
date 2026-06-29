@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 const APP_VERSION = "1.4";
 
@@ -12,7 +12,7 @@ type TopbarProperties = {
   lastPollAt: string | null;
   onRefresh: () => void;
   navOpen: boolean;
-  onMobileMenuOpen: () => void;
+  onMobileMenuToggle: () => void;
 };
 
 /** Format an ISO timestamp to HH:MM:SS in local time, or "--:--:--" if null. */
@@ -48,7 +48,7 @@ function resolveStatus(
  * @param props.lastPollAt - ISO timestamp of the last agent run start
  * @param props.onRefresh - Callback to invalidate all queries
  * @param props.navOpen - Whether the mobile nav drawer is currently open
- * @param props.onMobileMenuOpen - Callback to open the mobile nav drawer
+ * @param props.onMobileMenuToggle - Callback to toggle the mobile nav drawer open/closed
  * @returns Topbar element
  */
 export function Topbar({
@@ -58,17 +58,24 @@ export function Topbar({
   lastPollAt,
   onRefresh,
   navOpen,
-  onMobileMenuOpen,
+  onMobileMenuToggle,
 }: TopbarProperties): React.ReactElement {
   const navigate = useNavigate();
   const [spinning, setSpinning] = useState(false);
+  const spinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return (): void => {
+      if (spinTimerRef.current !== null) clearTimeout(spinTimerRef.current);
+    };
+  }, []);
 
   const { variant, label } = resolveStatus(dryRun, agentStatus);
 
   const handleRefresh = (): void => {
     setSpinning(true);
     onRefresh();
-    setTimeout(() => {
+    spinTimerRef.current = setTimeout(() => {
       setSpinning(false);
     }, 800);
   };
@@ -82,7 +89,7 @@ export function Topbar({
         aria-label={navOpen ? "Close navigation" : "Open navigation"}
         aria-expanded={navOpen}
         aria-controls="nav-sidebar"
-        onClick={onMobileMenuOpen}
+        onClick={onMobileMenuToggle}
       >
         <svg
           width="16"

@@ -38,6 +38,8 @@ export function Shell(): React.ReactElement {
   });
 
   useEffect(() => {
+    // matchMedia is not available in jsdom/SSR; guard before calling
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia(DESKTOP_MQ);
     const handleChange = (event: MediaQueryListEvent): void => {
       setIsDesktop(event.matches);
@@ -50,6 +52,9 @@ export function Shell(): React.ReactElement {
   }, []);
 
   useEffect(() => {
+    // overflow:hidden on body does NOT prevent scroll on iOS Safari — the
+    // position:fixed+scrollY pattern is more reliable but adds complexity
+    // this local-only dashboard doesn't yet need.
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
     return (): void => {
       document.body.style.overflow = "";
@@ -73,8 +78,8 @@ export function Shell(): React.ReactElement {
     setMobileMenuOpen(false);
   };
 
-  const handleMobileOpen = (): void => {
-    setMobileMenuOpen(true);
+  const handleMobileToggle = (): void => {
+    setMobileMenuOpen((previous) => !previous);
   };
 
   const sidebarHidden = !isDesktop && !mobileMenuOpen;
@@ -111,7 +116,7 @@ export function Shell(): React.ReactElement {
           lastPollAt={lastPollAt}
           onRefresh={handleRefresh}
           navOpen={mobileMenuOpen}
-          onMobileMenuOpen={handleMobileOpen}
+          onMobileMenuToggle={handleMobileToggle}
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-5">
           <Outlet />

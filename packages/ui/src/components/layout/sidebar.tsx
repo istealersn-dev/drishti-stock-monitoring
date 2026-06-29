@@ -169,10 +169,6 @@ export function Sidebar({
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
 
-  const handleNavClick = (): void => {
-    onMobileClose();
-  };
-
   return (
     <aside
       id="nav-sidebar"
@@ -233,7 +229,7 @@ export function Sidebar({
               to={item.path}
               title={item.label}
               className={`nav-item ${isActive ? "active" : ""}`}
-              onClick={handleNavClick}
+              onClick={onMobileClose}
             >
               <span className="flex-none">{item.icon}</span>
               <span className={`flex-1 ${collapsed ? "sm:hidden" : ""}`}>{item.label}</span>

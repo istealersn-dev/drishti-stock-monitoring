@@ -543,6 +543,19 @@ body {
     overflow: hidden;
   }
 
+  /* Horizontal scroll wrapper with iOS momentum scroll.
+     Required because .holdings-card has overflow:hidden + border-radius, which
+     suppresses touch-momentum scroll on overflow-x:auto children on iOS Safari. */
+  .scroll-x-touch {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Inner width = sum of holdings-col-grid columns (790px) + 2×16px h-padding */
+  .holdings-table-inner {
+    min-width: 822px;
+  }
+
   .holdings-col-grid {
     display: grid;
     grid-template-columns: 118px 60px 52px 92px 92px 110px 84px 90px 92px;
