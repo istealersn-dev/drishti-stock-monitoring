@@ -242,7 +242,7 @@ export function Holdings(): React.ReactElement {
 
       {/* Table */}
       <div className="holdings-card overflow-x-auto">
-        <div style={{ minWidth: 1020 }}>
+        <div className="hp-inner">
           {/* Column headers */}
           <div className="hp-col-grid holdings-col-header">
             {TABLE_HEADERS.map((col) => (
