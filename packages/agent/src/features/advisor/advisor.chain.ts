@@ -30,13 +30,12 @@ export async function askAdvisor(
     const holdingsResult = await fetchHoldings();
     const holdings = holdingsResult.ok ? holdingsResult.value : [];
 
+    const userAt = new Date().toISOString();
     const context = buildAdvisoryContext(holdings, request.question);
     const answer = await chat([
       { role: "system", content: SEBI_ADVISOR_SYSTEM_PROMPT },
       { role: "user", content: context },
     ]);
-
-    const userAt = new Date().toISOString();
     const assistantAt = new Date().toISOString();
     db.insert(advisoryConversations)
       .values({

@@ -380,9 +380,13 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
     for (const entry of entries) {
       const levels = getCachedLevels(entry.symbol);
       if (levels) levelsBySymbol[entry.symbol] = { dma200: levels.dma200 };
-      const resolved = await resolveSymbol(entry.symbol);
-      if (resolved.ok) instrumentKeyMap[entry.symbol] = resolved.value.instrumentToken;
     }
+    await Promise.allSettled(
+      entries.map(async (entry) => {
+        const resolved = await resolveSymbol(entry.symbol);
+        if (resolved.ok) instrumentKeyMap[entry.symbol] = resolved.value.instrumentToken;
+      }),
+    );
     const proximityAlerts = await checkProximity(entries, levelsBySymbol, instrumentKeyMap);
     return reply.send({ ok: true, data: { entries, proximityAlerts } });
   });

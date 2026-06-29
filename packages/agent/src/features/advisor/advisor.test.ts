@@ -59,8 +59,8 @@ describe("askAdvisor", () => {
     await askAdvisor(request);
     expect(mockInsert).toHaveBeenCalledTimes(2);
     expect(mockRun).toHaveBeenCalledTimes(2);
-    const userRow = mockValues.mock.calls[0]?.[0] as Record<string, string>;
-    const assistantRow = mockValues.mock.calls[1]?.[0] as Record<string, string>;
+    const userRow = (mockValues.mock.calls as unknown as [Record<string, string>][])[0]?.[0];
+    const assistantRow = (mockValues.mock.calls as unknown as [Record<string, string>][])[1]?.[0];
     expect(userRow?.["role"]).toBe("user");
     expect(userRow?.["sessionId"]).toBe("session-1");
     expect(assistantRow?.["role"]).toBe("assistant");
