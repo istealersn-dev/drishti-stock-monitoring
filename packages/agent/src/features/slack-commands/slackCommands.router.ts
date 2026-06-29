@@ -14,7 +14,9 @@ import {
 } from "./slackCommands.handlers.js";
 import { SlackMessageShape } from "./slackCommands.schema.js";
 
-const BUY_KEYWORD = /\bbuy\b/i;
+// Requires "buy" as a word AND at least one digit (price), so phrases like
+// "cancel my buy for RELIANCE" (no price) don't accidentally match.
+const BUY_INSTRUCTION = /\bbuy\b.*\d/i;
 
 /**
  * Register the Slack command message listener on the Bolt app.
@@ -83,11 +85,13 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
         } else {
           await reply("Usage: `/drishti analyse <symbol or name>`");
         }
-      } else if (BUY_KEYWORD.test(sub)) {
+      } else if (BUY_INSTRUCTION.test(sub)) {
         await reply("📥 Received buy instruction — parsing…");
         const result = await submitBuyInstruction(command.text.trim(), command.channel_id);
         if (!result.ok) {
           await reply(`⚠️ Could not process instruction: ${result.error}`);
+        } else {
+          await reply(`✅ Approval card sent for *${result.symbol}* — check #drishti-alerts to approve.`);
         }
       } else {
         await reply(`Unknown subcommand \`${sub}\`. Try \`/drishti help\` for the full list.`);
