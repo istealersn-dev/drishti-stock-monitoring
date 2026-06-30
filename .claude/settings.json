@@ -18,11 +18,11 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write\\(packages/.*\\.tsx?\\)|Edit\\(packages/.*\\.tsx?\\)",
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/stanleynadar/Documents/Engineering/drishti-stock-monitoring && pnpm typecheck 2>&1 | tail -20 && pnpm lint 2>&1 | tail -20"
+            "command": "cd $(git rev-parse --show-toplevel) && pnpm typecheck 2>&1 | head -40; pnpm lint 2>&1 | head -40"
           }
         ]
       }

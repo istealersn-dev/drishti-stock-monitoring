@@ -5,20 +5,19 @@ paths:
 
 # Agent Package Rules
 
-## Non-negotiables (enforced at call site)
-- Never place a market order. GTT orders only. No market order function should exist anywhere.
-- Never place a new buy GTT without user approval via Slack interactive buttons.
-- `DRISHTI_DRY_RUN` must be checked at the call site of every Upstox write call, not at the top of the file.
-- LM Studio is the only LLM provider (`http://localhost:1234`). No calls to OpenAI, Anthropic, or any cloud API.
-- Cap LM Studio context length at 8K for portfolio analysis prompts.
-- SQLite is the only database. Do not introduce Postgres, Redis, or any external data store.
+The root `CLAUDE.md` is the single source of truth for all non-negotiables,
+architecture rules, and testing requirements. The rules below are agent-specific
+reminders — they do not supersede or replace CLAUDE.md.
 
-## Architecture
-- All Upstox API, Slack, LM Studio, and SQLite I/O must go through a dedicated tool/service file. No inline fetch calls in agent logic.
-- Zod schemas define the shape of every external API response. Parse, never cast.
-- Errors from external services must be caught, logged to the `agent_logs` SQLite table, and never silently swallowed.
+## Quick-reference (authoritative version in CLAUDE.md)
 
-## Testing
-- Every tool function must have at least one unit test.
-- Agent decision logic must be tested with mocked tool responses.
-- No test should make a real network call. Mock Upstox, LM Studio, and Slack at the boundary.
+- **No market orders.** GTT orders only.
+- **No auto-buy.** Slack approval required before any buy GTT.
+- **`DRISHTI_DRY_RUN` at the call site.** Check it where the Upstox write happens, not at the top of the file.
+- **LM Studio only** (`http://localhost:1234`). No OpenAI, Anthropic, or any cloud LLM.
+- **8K context cap** for portfolio analysis prompts.
+- **SQLite only.** No Postgres, Redis, or external data stores.
+- **All external I/O** (Upstox, Slack, LM Studio, SQLite) through a dedicated service file. No inline fetch in agent logic.
+- **Zod schemas** for every external API response. Parse, never cast.
+- **Log errors** to `agent_logs`. Never swallow silently.
+- **Unit tests** for every tool function. No real network calls in tests.
