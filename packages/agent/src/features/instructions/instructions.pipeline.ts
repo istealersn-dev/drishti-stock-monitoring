@@ -4,6 +4,8 @@ import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
 import { createApproval, setApprovalSlackTs } from "../approval/approval.store.js";
 import { fetchMargins } from "../portfolio/portfolio.tools.js";
+import { validateConcentration } from "../validator/validator.concentration.js";
+import { validateRiskReward } from "../validator/validator.rr.js";
 
 import { sendApprovalCard } from "./instructions.approval.js";
 import { calculateSuggestedQty } from "./instructions.executor.js";
@@ -48,12 +50,40 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
 
   const resolved = resolveResult.value;
 
+  const rrResult = validateRiskReward(instruction);
+  if (!rrResult.pass) {
+    logger.warn("Trade rejected: R:R check failed", {
+      symbol: resolved.tradingSymbol,
+      reason: rrResult.reason,
+    });
+    await pushAlert(
+      `❌ *Trade Rejected — R:R check failed*\n\nStock: *${resolved.tradingSymbol}*\nReason: ${rrResult.reason}`,
+    );
+    return { ok: false, error: rrResult.reason };
+  }
+
   const marginResult = await fetchMargins();
   const availableMargin = marginResult.ok ? marginResult.value.available_margin : 0;
   const entryHigh = instruction.entryHigh ?? 0;
   const entryLow = instruction.entryLow ?? entryHigh;
+  // Use the best available price reference — point-entry instructions only set entryLow
+  const entryPrice = entryHigh > 0 ? entryHigh : entryLow;
   const suggestedQty =
-    entryHigh > 0 ? calculateSuggestedQty(availableMargin, entryHigh, entryLow) : 1;
+    entryPrice > 0 ? calculateSuggestedQty(availableMargin, entryPrice, entryLow) : 1;
+
+  if (entryPrice > 0 && suggestedQty > 0) {
+    const concentrationResult = await validateConcentration(suggestedQty, entryPrice);
+    if (!concentrationResult.pass) {
+      logger.warn("Trade rejected: concentration check failed", {
+        symbol: resolved.tradingSymbol,
+        reason: concentrationResult.reason,
+      });
+      await pushAlert(
+        `❌ *Trade Rejected — Position size check failed*\n\nStock: *${resolved.tradingSymbol}*\nReason: ${concentrationResult.reason}`,
+      );
+      return { ok: false, error: concentrationResult.reason };
+    }
+  }
 
   const approvalId = crypto.randomUUID();
 

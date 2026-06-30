@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
+import { isMarketOpen } from "../../scheduler/cron.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
@@ -14,8 +15,6 @@ import { loadSlConfigs } from "../stopLoss/stopLoss.config.js";
 import { detectBreaches } from "../stopLoss/stopLoss.detector.js";
 import { handleSlBreach } from "../stopLoss/stopLoss.handler.js";
 import { detectTargetHits, loadTargetConfigs } from "../targets/targets.detector.js";
-
-import { isMarketOpen } from "../../scheduler/cron.js";
 
 import { StateGraph } from "./agent.state.js";
 import type { AgentState } from "./agent.state.js";

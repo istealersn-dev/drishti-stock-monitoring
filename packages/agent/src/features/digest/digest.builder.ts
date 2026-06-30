@@ -12,6 +12,7 @@ export type DigestInput = {
   todayTargetHitCount: number;
   todayDecisionCount: number;
   type: "morning" | "closing";
+  watchlistProximityAlerts?: string[];
 };
 
 /**
@@ -82,6 +83,14 @@ export function buildMorningDigest(input: DigestInput): string {
 
   if (input.pendingApprovalCount > 0) {
     lines.push(`🔔 *Pending approvals* — ${input.pendingApprovalCount} awaiting action`);
+  }
+
+  const alerts = input.watchlistProximityAlerts;
+  if (alerts && alerts.length > 0) {
+    lines.push("", "📍 *Watchlist — Near Entry*");
+    for (const alert of alerts) {
+      lines.push(`  • ${alert}`);
+    }
   }
 
   lines.push("", "Market opens at 09:15. Good luck. 🟢");

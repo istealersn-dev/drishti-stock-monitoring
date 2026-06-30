@@ -6,8 +6,25 @@ import { db } from "../../db/db.js";
 import { agentLogs, agentRuns, stockConfig } from "../../db/schema.js";
 import { chat } from "../../llm/llmClient.js";
 import { env } from "../../shared/env.js";
+import { err, ok } from "../../shared/errors.js";
+import type { Result } from "../../shared/errors.js";
+import { askAdvisor } from "../advisor/advisor.chain.js";
+import { generateTradeSetup } from "../advisor/advisor.chain.js";
 import { listGTTs } from "../gtt/gtt.tools.js";
+import { computeHealthReport } from "../health/health.engine.js";
+import { formatHealthReport } from "../health/health.formatter.js";
+import { resolveSymbol } from "../instructions/instructions.resolver.js";
+import type { Holding } from "../portfolio/portfolio.schema.js";
 import { fetchHoldings } from "../portfolio/portfolio.tools.js";
+import { getCachedLevels } from "../technicals/technicals.cache.js";
+import { saveLevels } from "../technicals/technicals.cache.js";
+import type { TechnicalLevels } from "../technicals/technicals.schema.js";
+import { fetchOHLCV, computeLevels } from "../technicals/technicals.service.js";
+import {
+  addToWatchlist,
+  getWatchlist,
+  removeFromWatchlist,
+} from "../watchlist/watchlist.service.js";
 
 import {
   formatAnalysis,
@@ -122,10 +139,7 @@ function normalize(s: string): string {
  * @param holdings - Current portfolio holdings
  * @returns Matched holding or null
  */
-async function resolveHolding(
-  query: string,
-  holdings: import("../portfolio/portfolio.schema.js").Holding[],
-): Promise<import("../portfolio/portfolio.schema.js").Holding | null> {
+async function resolveHolding(query: string, holdings: Holding[]): Promise<Holding | null> {
   const needle = query.toLowerCase().trim();
   const normNeedle = normalize(query);
 
@@ -159,7 +173,10 @@ async function resolveHolding(
         content: `Query: "${query}"\n\nHoldings:\n${symbolList}`,
       },
     ]);
-    const resolved = response.trim().toUpperCase().replaceAll(/[^A-Z0-9]/g, "");
+    const resolved = response
+      .trim()
+      .toUpperCase()
+      .replaceAll(/[^A-Z0-9]/g, "");
     if (resolved !== "NONE") {
       const llmMatch = holdings.find((h) => h.trading_symbol === resolved);
       if (llmMatch) return llmMatch;
@@ -271,6 +288,185 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
  */
 export async function handleHelp(say: SayFunction): Promise<void> {
   await say(formatHelp());
+}
+
+const SETUP_HISTORY_DAYS = 260;
+
+/**
+ * Handle `/drishti ask <question>` — routes question to the SEBI advisor chain.
+ * @param question - The advisory question from the user
+ * @param say - Slack say function
+ * @returns Resolved when response is posted
+ */
+export async function handleAsk(question: string, say: SayFunction): Promise<void> {
+  await say("🤔 Thinking…");
+  const result = await askAdvisor({
+    question,
+    sessionId: crypto.randomUUID(),
+    channel: "slack",
+  });
+  if (!result.ok) {
+    logCommandError("advisor_ask", result.error.message);
+    await say(`⚠️ Advisory query failed: ${result.error.message}`);
+    return;
+  }
+  await say(result.value.answer);
+}
+
+/**
+ * Fetch or compute technical levels for a symbol, caching the result.
+ * @param symbol - Trading symbol
+ * @param instrumentKey - Upstox instrument key
+ * @returns Result with technical levels or an Error
+ */
+async function fetchOrComputeLevels(
+  symbol: string,
+  instrumentKey: string,
+): Promise<Result<TechnicalLevels, Error>> {
+  const cached = getCachedLevels(symbol);
+  if (cached) return ok(cached);
+
+  const ohlcvResult = await fetchOHLCV(instrumentKey, SETUP_HISTORY_DAYS);
+  if (!ohlcvResult.ok) {
+    return err(new Error(`Could not fetch price history: ${ohlcvResult.error.message}`));
+  }
+  const levels = computeLevels(symbol, ohlcvResult.value);
+  saveLevels(levels);
+  return ok(levels);
+}
+
+/**
+ * Handle `/drishti setup <stock>` — generates a trade setup using technical levels.
+ * @param stockName - Free-text stock name or symbol
+ * @param say - Slack say function
+ * @returns Resolved when setup card is posted
+ */
+export async function handleSetup(stockName: string, say: SayFunction): Promise<void> {
+  await say(`📊 Generating trade setup for *${stockName}*…`);
+
+  const resolveResult = await resolveSymbol(stockName);
+  if (!resolveResult.ok) {
+    await say(`⚠️ Could not resolve symbol for *${stockName}*: ${resolveResult.error.message}`);
+    return;
+  }
+  const { tradingSymbol, instrumentToken } = resolveResult.value;
+
+  const levelsResult = await fetchOrComputeLevels(tradingSymbol, instrumentToken);
+  if (!levelsResult.ok) {
+    await say(`⚠️ ${levelsResult.error.message}`);
+    return;
+  }
+
+  const setupResult = await generateTradeSetup(tradingSymbol, JSON.stringify(levelsResult.value));
+  if (!setupResult.ok) {
+    logCommandError("advisor_setup", setupResult.error.message, tradingSymbol);
+    await say(`⚠️ Trade setup generation failed: ${setupResult.error.message}`);
+    return;
+  }
+  const setup = setupResult.value;
+
+  const t1 = setup.targets[0];
+  const t2 = setup.targets[1];
+  const targetString = [
+    t1 ? `T1 ₹${t1.price}${t1.isOpenEnded ? "+" : ""}` : null,
+    t2 ? `T2 ₹${t2.price}${t2.isOpenEnded ? "+" : ""}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const tgtPrices = setup.targets.map((t) => `${t.price}${t.isOpenEnded ? "+" : ""}`).join(" ");
+  const buyInstructionText = `${tradingSymbol} Buy ${setup.entryLow}-${setup.entryHigh} SL ${setup.stopLoss} Tgt ${tgtPrices}`;
+
+  await say(
+    [
+      `📈 *Trade Setup — ${tradingSymbol}*`,
+      "",
+      `*Entry Range:* ₹${setup.entryLow} – ₹${setup.entryHigh}`,
+      `*Stop Loss:* ₹${setup.stopLoss}`,
+      `*Targets:* ${targetString}`,
+      "",
+      `*Rationale:* ${setup.rationale}`,
+      "",
+      "To submit as a buy instruction:",
+      `\`${buyInstructionText}\``,
+    ].join("\n"),
+  );
+}
+
+/**
+ * Handle `/drishti health` — compute and post the portfolio health report.
+ * @param say - Slack say function
+ * @returns Resolved when report is posted
+ */
+export async function handleHealth(say: SayFunction): Promise<void> {
+  await say("🔍 Computing portfolio health…");
+  const result = await computeHealthReport();
+  if (!result.ok) {
+    logCommandError("health_report", result.error.message);
+    await say(`⚠️ Health report failed: ${result.error.message}`);
+    return;
+  }
+  await say(formatHealthReport(result.value));
+}
+
+/**
+ * Handle `/drishti watchlist` — list all watchlist stocks.
+ * @param say - Slack say function
+ * @returns Resolved when list is posted
+ */
+export async function handleWatchlistList(say: SayFunction): Promise<void> {
+  const entries = getWatchlist();
+  if (entries.length === 0) {
+    await say(
+      "📋 Watchlist is empty. Add stocks with `/drishti watchlist add SYMBOL Display Name`",
+    );
+    return;
+  }
+  const lines = entries.map(
+    (e) => `• *${e.symbol}* — ${e.displayName}${e.notes ? ` (${e.notes})` : ""}`,
+  );
+  await say(`📋 *Watchlist (${entries.length})*\n\n${lines.join("\n")}`);
+}
+
+/**
+ * Handle `/drishti watchlist add SYMBOL Display Name` — add a stock to the watchlist.
+ * @param args - Remaining text after "watchlist add " (symbol followed by display name)
+ * @param say - Slack say function
+ * @returns Resolved when confirmation is posted
+ */
+export async function handleWatchlistAdd(arguments_: string, say: SayFunction): Promise<void> {
+  const parts = arguments_.trim().split(/\s+/);
+  const symbol = parts[0];
+  const displayName = parts.slice(1).join(" ");
+
+  if (!symbol || !displayName) {
+    await say(
+      "Usage: `/drishti watchlist add SYMBOL Display Name`\nExample: `/drishti watchlist add HDFCBANK HDFC Bank`",
+    );
+    return;
+  }
+
+  const result = addToWatchlist(symbol.toUpperCase(), displayName);
+  if (!result.ok) {
+    await say(`⚠️ ${result.error.message}`);
+    return;
+  }
+  await say(`✅ Added *${symbol.toUpperCase()}* to watchlist.`);
+}
+
+/**
+ * Handle `/drishti watchlist remove SYMBOL` — remove a stock from the watchlist.
+ * @param symbol - The symbol to remove
+ * @param say - Slack say function
+ * @returns Resolved when confirmation is posted
+ */
+export async function handleWatchlistRemove(symbol: string, say: SayFunction): Promise<void> {
+  const result = removeFromWatchlist(symbol.trim().toUpperCase());
+  if (!result.ok) {
+    await say(`⚠️ ${result.error.message}`);
+    return;
+  }
+  await say(`✅ Removed *${symbol.trim().toUpperCase()}* from watchlist.`);
 }
 
 function logCommandError(action: string, error: string, symbol?: string): void {

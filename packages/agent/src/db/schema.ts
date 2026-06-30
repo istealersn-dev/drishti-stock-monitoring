@@ -1,4 +1,4 @@
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const stockConfig = sqliteTable("stock_config", {
   symbol: text("symbol").primaryKey(),
@@ -60,4 +60,37 @@ export const agentSettings = sqliteTable("agent_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
   updatedAt: text("updated_at").notNull(),
+});
+
+export const technicalLevels = sqliteTable(
+  "technical_levels",
+  {
+    symbol: text("symbol").notNull(),
+    date: text("date").notNull(),
+    dma50: real("dma50"),
+    dma200: real("dma200"),
+    weekHigh52: real("week_high_52"),
+    weekLow52: real("week_low_52"),
+    swingHigh: real("swing_high"),
+    swingLow: real("swing_low"),
+    avgVolume20: real("avg_volume_20"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.symbol, t.date] }) }),
+);
+
+export const watchlist = sqliteTable("watchlist", {
+  symbol: text("symbol").primaryKey(),
+  displayName: text("display_name").notNull(),
+  notes: text("notes"),
+  addedAt: text("added_at").notNull(),
+});
+
+export const advisoryConversations = sqliteTable("advisory_conversations", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  role: text("role").notNull(),
+  content: text("content").notNull(),
+  channel: text("channel").notNull(),
+  createdAt: text("created_at").notNull(),
 });

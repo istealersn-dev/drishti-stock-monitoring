@@ -297,3 +297,152 @@ export async function cancelGttOrder(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+// ── Phase 7: Health ───────────────────────────────────────────────────────
+
+export const UnderperformerSchema = z.object({
+  symbol: z.string(),
+  companyName: z.string(),
+  buyPrice: z.number(),
+  currentLtp: z.number(),
+  pctDown: z.number(),
+});
+export type Underperformer = z.infer<typeof UnderperformerSchema>;
+
+export const PortfolioHealthReportSchema = z.object({
+  generatedAt: z.string(),
+  totalPortfolioValue: z.number(),
+  totalCapitalAtRisk: z.number(),
+  capitalAtRiskPct: z.number(),
+  mtfBurnRateMonthly: z.number(),
+  activePositionCount: z.number(),
+  underperformers: z.array(UnderperformerSchema),
+  overdueForReview: z.array(z.string()),
+  llmNarrative: z.string(),
+});
+export type PortfolioHealthReport = z.infer<typeof PortfolioHealthReportSchema>;
+
+const HealthResponseSchema = z.object({ ok: z.boolean(), data: PortfolioHealthReportSchema });
+
+/**
+ * Fetch the current portfolio health report.
+ * @returns Portfolio health report with risk metrics, underperformers, and LLM narrative
+ */
+export async function fetchHealth(): Promise<PortfolioHealthReport> {
+  const response = await apiFetch("/api/health", HealthResponseSchema);
+  return response.data;
+}
+
+// ── Phase 7: Watchlist ────────────────────────────────────────────────────
+
+export const WatchlistEntrySchema = z.object({
+  symbol: z.string(),
+  displayName: z.string(),
+  notes: z.string().nullable(),
+  addedAt: z.string(),
+});
+export type WatchlistEntry = z.infer<typeof WatchlistEntrySchema>;
+
+export const ProximityAlertSchema = z.object({
+  symbol: z.string(),
+  displayName: z.string(),
+  ltp: z.number(),
+  dma200: z.number(),
+  distancePct: z.number(),
+});
+export type ProximityAlert = z.infer<typeof ProximityAlertSchema>;
+
+const WatchlistResponseSchema = z.object({
+  ok: z.boolean(),
+  data: z.object({
+    entries: z.array(WatchlistEntrySchema),
+    proximityAlerts: z.array(ProximityAlertSchema),
+  }),
+});
+
+/**
+ * Fetch watchlist entries together with current 200-DMA proximity alerts.
+ * @returns Watchlist entries and proximity alerts
+ */
+export async function fetchWatchlist(): Promise<{
+  entries: WatchlistEntry[];
+  proximityAlerts: ProximityAlert[];
+}> {
+  const response = await apiFetch("/api/watchlist", WatchlistResponseSchema);
+  return response.data;
+}
+
+/**
+ * Add a stock to the watchlist.
+ * @param entry - Symbol, display name, and optional notes
+ * @returns Resolves on success, throws on HTTP error
+ */
+export async function addWatchlistEntry(entry: {
+  symbol: string;
+  displayName: string;
+  notes: string | null;
+}): Promise<void> {
+  await apiFetch("/api/watchlist", z.object({ ok: z.boolean() }), {
+    method: "POST",
+    body: JSON.stringify(entry),
+  });
+}
+
+/**
+ * Remove a stock from the watchlist.
+ * @param symbol - Upstox trading symbol to remove
+ * @returns Resolves on success, throws on HTTP error
+ */
+export async function removeWatchlistEntry(symbol: string): Promise<void> {
+  await apiFetch(`/api/watchlist/${encodeURIComponent(symbol)}`, z.object({ ok: z.boolean() }), {
+    method: "DELETE",
+  });
+}
+
+// ── Phase 7: Advisor ──────────────────────────────────────────────────────
+
+export const AdvisoryResponseSchema = z.object({
+  answer: z.string(),
+  sessionId: z.string(),
+});
+export type AdvisoryResponse = z.infer<typeof AdvisoryResponseSchema>;
+
+/**
+ * Ask the SEBI advisory chain a portfolio question.
+ * @param question - The user's question in natural language
+ * @param sessionId - Stable client-generated session id for multi-turn context
+ * @returns The advisory answer and echoed session id
+ */
+export async function askAdvisor(question: string, sessionId: string): Promise<AdvisoryResponse> {
+  return apiFetch("/api/advisor/ask", AdvisoryResponseSchema.and(z.object({ ok: z.boolean() })), {
+    method: "POST",
+    body: JSON.stringify({ question, sessionId, channel: "ui" }),
+  });
+}
+
+export const AdvisoryConversationSchema = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  role: z.enum(["user", "assistant"]),
+  content: z.string(),
+  channel: z.string(),
+  createdAt: z.string(),
+});
+export type AdvisoryConversation = z.infer<typeof AdvisoryConversationSchema>;
+
+const AdvisoryConversationsResponseSchema = z.object({
+  ok: z.boolean(),
+  data: z.array(AdvisoryConversationSchema),
+});
+
+/**
+ * Fetch the advisory conversation history.
+ * @returns Array of advisory conversation messages, oldest first
+ */
+export async function fetchAdvisoryConversations(): Promise<AdvisoryConversation[]> {
+  const response = await apiFetch(
+    "/api/advisor/conversations",
+    AdvisoryConversationsResponseSchema,
+  );
+  return response.data;
+}
