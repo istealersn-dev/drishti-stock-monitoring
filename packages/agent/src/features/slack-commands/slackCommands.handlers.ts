@@ -4,7 +4,7 @@ import type { SayFn } from "@slack/bolt";
 import { desc, eq } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
-import { agentLogs, agentRuns, stockConfig } from "../../db/schema.js";
+import { agentLogs, agentRuns, slackSessions, stockConfig } from "../../db/schema.js";
 import { chat } from "../../llm/llmClient.js";
 import { env } from "../../shared/env.js";
 import { err, ok } from "../../shared/errors.js";
@@ -37,6 +37,10 @@ import {
 } from "./slackCommands.formatters.js";
 
 type SayFunction = SayFn;
+
+type SlackClient = {
+  chat: { update: (args: { channel: string; ts: string; text: string }) => Promise<unknown> };
+};
 
 const CMD_PNL = "cmd_pnl";
 const CMD_HOLDINGS = "cmd_holdings";
@@ -294,24 +298,60 @@ export async function handleHelp(say: SayFunction): Promise<void> {
 const SETUP_HISTORY_DAYS = 260;
 
 /**
- * Handle `/drishti ask <question>` — routes question to the SEBI advisor chain.
- * @param question - The advisory question from the user
- * @param say - Slack say function
- * @returns Resolved when response is posted
+ * Handle a question to Drishti — from slash command, thread reply, or @mention.
+ * Posts a "Thinking…" placeholder then replaces it with the answer in-place.
+ * If threadTs is provided the reply is posted inside that thread.
+ * Returns the posted message ts + channel so the caller can persist the session.
+ * @param question - The advisory question
+ * @param say - Slack say function (channel-scoped)
+ * @param client - Slack web client for chat.update
+ * @param opts.sessionId - Conversation session (caller generates or looks up)
+ * @param opts.threadTs - If set, reply inside this thread
+ * @returns The message ts and channel of the posted reply
  */
-export async function handleAsk(question: string, say: SayFunction): Promise<void> {
-  await say("🤔 Thinking…");
-  const result = await askAdvisor({
-    question,
-    sessionId: crypto.randomUUID(),
-    channel: "slack",
-  });
-  if (!result.ok) {
-    logCommandError("advisor_ask", result.error.message);
-    await say(`⚠️ Advisory query failed: ${result.error.message}`);
-    return;
+export async function handleAsk(
+  question: string,
+  say: SayFunction,
+  client: SlackClient,
+  opts: { sessionId: string; threadTs?: string },
+): Promise<{ ts: string | undefined; channel: string | undefined }> {
+  const thinkingPayload = opts.threadTs
+    ? { text: "🤔 Thinking…", thread_ts: opts.threadTs }
+    : "🤔 Thinking…";
+
+  const thinkingMsg = await say(thinkingPayload);
+
+  const result = await askAdvisor({ question, sessionId: opts.sessionId, channel: "slack" });
+  const finalText = result.ok
+    ? `> ${question}\n\n${result.value.answer}`
+    : (() => {
+        logCommandError("advisor_ask", result.error.message);
+        return `⚠️ Advisory query failed: ${result.error.message}`;
+      })();
+
+  const ts = thinkingMsg.ts ? String(thinkingMsg.ts) : undefined;
+  const channel = thinkingMsg.channel ? String(thinkingMsg.channel) : undefined;
+
+  if (ts && channel) {
+    await client.chat.update({ channel, ts, text: finalText });
+  } else {
+    await say(finalText);
   }
-  await say(result.value.answer);
+
+  return { ts, channel };
+}
+
+/**
+ * Persist a new Slack session after a slash-command reply is posted.
+ * @param threadTs - The ts of Drishti's reply (becomes the thread root)
+ * @param channel - Slack channel id
+ * @param sessionId - The session id used for this conversation
+ */
+export function storeSlackSession(threadTs: string, channel: string, sessionId: string): void {
+  db.insert(slackSessions)
+    .values({ threadTs, channel, sessionId, lastActiveAt: new Date().toISOString() })
+    .onConflictDoNothing()
+    .run();
 }
 
 /**

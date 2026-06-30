@@ -14,14 +14,10 @@ import { buildAgentGraph } from "./features/agent/agent.graph.js";
 import { registerApprovalHandlers } from "./features/approval/approval.handler.js";
 import { startTimeoutPoller } from "./features/approval/approval.timeout.js";
 import { startDigestCrons } from "./features/digest/digest.service.js";
-import { submitBuyInstruction } from "./features/instructions/instructions.pipeline.js";
 import { registerSlackCommands } from "./features/slack-commands/slackCommands.router.js";
-import { SlackMessageShape } from "./features/slack-commands/slackCommands.schema.js";
 import { startAdvisorCrons, startCron } from "./scheduler/cron.js";
 import { env } from "./shared/env.js";
 import { logger } from "./shared/logger.js";
-
-const BUY_KEYWORD = /\bbuy\b/i;
 
 async function tick(): Promise<void> {
   const runId = crypto.randomUUID();
@@ -80,18 +76,6 @@ async function main(): Promise<void> {
 
   registerApprovalHandlers(boltApp);
   registerSlackCommands(boltApp, env.SLACK_COMMAND_CHANNEL_ID);
-
-  const buyChannels = new Set([env.SLACK_ALERT_CHANNEL_ID, env.SLACK_COMMAND_CHANNEL_ID]);
-
-  boltApp.message(async ({ message, say: _say }) => {
-    if (message.subtype) return;
-    const parsed = SlackMessageShape.safeParse(message);
-    if (!parsed.success) return;
-    const { channel, text } = parsed.data;
-    if (!channel || !buyChannels.has(channel)) return;
-    if (!text || /^!/.test(text) || !BUY_KEYWORD.test(text)) return;
-    await submitBuyInstruction(text, channel);
-  });
 
   await boltApp.start();
   logger.info("Slack Bolt app started (socket mode)");

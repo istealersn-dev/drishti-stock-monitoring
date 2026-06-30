@@ -94,3 +94,10 @@ export const advisoryConversations = sqliteTable("advisory_conversations", {
   channel: text("channel").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+export const slackSessions = sqliteTable("slack_sessions", {
+  threadTs: text("thread_ts").primaryKey(),
+  channel: text("channel").notNull(),
+  sessionId: text("session_id").notNull(),
+  lastActiveAt: text("last_active_at").notNull(),
+});

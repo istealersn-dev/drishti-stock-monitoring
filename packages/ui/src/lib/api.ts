@@ -49,8 +49,11 @@ export async function loginWithKey(key: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key }),
   });
-  if (!response.ok) {
+  if (response.status === 401) {
     throw new Error("Invalid access key");
+  }
+  if (!response.ok) {
+    throw new Error(`Cannot reach Drishti API (${response.status})`);
   }
 }
 

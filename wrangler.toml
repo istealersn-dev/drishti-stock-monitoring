@@ -3,4 +3,4 @@ compatibility_date = "2025-01-01"
 pages_build_output_dir = "packages/ui/dist"
 
 # VITE_API_BASE_URL is set as a build-time environment variable in the CF Pages dashboard:
-# VITE_API_BASE_URL = "https://drishti.stanleyj.dev"
+# VITE_API_BASE_URL = "https://drishti-api.stanleyj.dev"
