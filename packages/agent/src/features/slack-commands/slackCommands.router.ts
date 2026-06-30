@@ -126,12 +126,9 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
     try {
       await handleAsk(question, say, client, { sessionId, threadTs: replyThreadTs });
 
-      // Store session so future plain thread replies are picked up.
-      // Use replyThreadTs (always defined) rather than posted.ts to avoid
-      // silently dropping sessions when say() returns without a ts.
-      if (!existingSessionId) {
-        storeSlackSession(replyThreadTs, channel, sessionId);
-      }
+      // Always refresh lastActiveAt so the 24h TTL is based on last activity,
+      // not session creation. storeSlackSession upserts on conflict.
+      storeSlackSession(replyThreadTs, channel, sessionId);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error("@mention handler threw", { error: msg });

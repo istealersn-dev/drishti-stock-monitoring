@@ -90,7 +90,10 @@ async function main(): Promise<void> {
     const { channel, text } = parsed.data;
     if (!channel || !buyChannels.has(channel) || !text) return;
     if (/^!/.test(text) || /^\//.test(text) || !BUY_INSTRUCTION.test(text)) return;
-    await submitBuyInstruction(text, channel);
+    const result = await submitBuyInstruction(text, channel);
+    if (!result.ok) {
+      logger.error("Plain-message buy instruction failed", { channel, error: result.error });
+    }
   });
 
   await boltApp.start();
