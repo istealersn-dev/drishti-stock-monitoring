@@ -80,16 +80,22 @@ const mockHolding = {
 };
 
 describe("buildAgentGraph", () => {
+  let mockDatabaseInsertValues: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
     const innerRun = vi.fn();
     const innerAll = vi.fn().mockReturnValue([]);
-    mockDbInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ run: innerRun }) });
+    mockDatabaseInsertValues = vi.fn().mockReturnValue({ run: innerRun });
+    mockDbInsert.mockReturnValue({ values: mockDatabaseInsertValues });
     mockDbUpdate.mockReturnValue({
       set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ run: innerRun }) }),
     });
+    const innerGet = vi.fn().mockReturnValue(undefined); // wasRecentlyAlerted: no prior row by default
     mockDbSelect.mockReturnValue({
-      from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ all: innerAll }) }),
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ all: innerAll, get: innerGet }),
+      }),
     });
     mockPushAlert.mockResolvedValue({ ok: true, value: "ts-001" });
     mockHandleSlBreach.mockResolvedValue(undefined);
@@ -139,6 +145,7 @@ describe("buildAgentGraph", () => {
 
     expect(final.holdings).toHaveLength(1);
     expect(final.llmOutput?.portfolioSummary).toBe("All good.");
+    // Portfolio summary is pushed to Slack once per trading session
     expect(mockPushAlert).toHaveBeenCalledWith(expect.stringContaining("All good."));
   });
 
@@ -183,6 +190,193 @@ describe("buildAgentGraph", () => {
 
     expect(mockAnalysePortfolio).not.toHaveBeenCalled();
     expect(final.llmOutput).toBeNull();
+  });
+
+  it("pushes alert_only decision to Slack and writes dedup log row", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [
+          {
+            symbol: "AXISBANK-EQ",
+            action: "alert_only",
+            reasoning: "Watch this.",
+            gttParams: null,
+          },
+        ],
+        portfolioSummary: "Watch.",
+      },
+    });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+
+    expect(mockPushAlert).toHaveBeenCalledWith(expect.stringContaining("Watch this."));
+  });
+
+  it("suppresses alert_only when wasRecentlyAlerted returns a row", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [
+          {
+            symbol: "AXISBANK-EQ",
+            action: "alert_only",
+            reasoning: "Watch this.",
+            gttParams: null,
+          },
+        ],
+        portfolioSummary: "Watch.",
+      },
+    });
+    // Simulate wasRecentlyAlerted returning a row (already alerted this hour)
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          all: vi.fn().mockReturnValue([]),
+          get: vi.fn().mockReturnValue({ id: 1 }),
+        }),
+      }),
+    });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+
+    expect(mockPushAlert).not.toHaveBeenCalledWith(expect.stringContaining("Watch this."));
+  });
+
+  it("does not write dedup log row when alert_only Slack push fails", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [
+          {
+            symbol: "AXISBANK-EQ",
+            action: "alert_only",
+            reasoning: "Watch this.",
+            gttParams: null,
+          },
+        ],
+        portfolioSummary: "Watch.",
+      },
+    });
+    mockPushAlert.mockResolvedValue({ ok: false, error: new Error("Slack rate limit") });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+
+    // No dedup row — the alert failed so the next tick should retry.
+    // Inspect the .values() mock (not db.insert() itself, which only receives the table arg).
+    const writtenActions = mockDatabaseInsertValues.mock.calls.map(
+      (call: unknown[]) => (call[0] as { action?: string } | undefined)?.action,
+    );
+    expect(writtenActions).not.toContain("alert_only");
+  });
+
+  it("suppresses portfolio_summary Slack push when already sent this session", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [{ symbol: "AXISBANK-EQ", action: "hold", reasoning: "Fine.", gttParams: null }],
+        portfolioSummary: "Summary.",
+      },
+    });
+    // Simulate wasRecentlyAlerted returning a row for portfolio_summary
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          all: vi.fn().mockReturnValue([]),
+          get: vi.fn().mockReturnValue({ id: 1 }),
+        }),
+      }),
+    });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+
+    expect(mockPushAlert).not.toHaveBeenCalledWith(expect.stringContaining("Portfolio Update"));
+  });
+
+  it("does not write portfolio_summary dedup row when logAndAlert Slack push fails", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [{ symbol: "AXISBANK-EQ", action: "hold", reasoning: "Fine.", gttParams: null }],
+        portfolioSummary: "Summary.",
+      },
+    });
+    mockPushAlert.mockResolvedValue({ ok: false, error: new Error("Slack down") });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+
+    const writtenActions = mockDatabaseInsertValues.mock.calls.map(
+      (call: unknown[]) => (call[0] as { action?: string } | undefined)?.action,
+    );
+    expect(writtenActions).not.toContain("portfolio_summary");
+  });
+
+  it("writes gtt_modify_failed row when gtt_modify decision has null gttParams", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [
+          { symbol: "AXISBANK-EQ", action: "gtt_modify", reasoning: "Adjust SL.", gttParams: null },
+        ],
+        portfolioSummary: "Adjust needed.",
+      },
+    });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+
+    const writtenActions = mockDatabaseInsertValues.mock.calls.map(
+      (call: unknown[]) => (call[0] as { action?: string } | undefined)?.action,
+    );
+    expect(writtenActions).toContain("gtt_modify_failed");
+    expect(mockPushAlert).not.toHaveBeenCalledWith(expect.stringContaining("Adjust SL."));
   });
 
   it("calls handleSlBreach for each detected breach", async () => {

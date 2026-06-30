@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
@@ -20,6 +20,35 @@ import { StateGraph } from "./agent.state.js";
 import type { AgentState } from "./agent.state.js";
 
 const GTT_LIMIT_BUFFER = 0.995;
+
+const ALERT_ONLY_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour between repeated alert_only alerts
+const TRADING_DAY_MS = 8 * 60 * 60 * 1000; // 8 h window — covers one full market session
+const PORTFOLIO_SENTINEL = "__portfolio__"; // symbol key for portfolio-level agent_logs rows
+
+/**
+ * Returns true if an agent_log row with the given action+symbol already exists
+ * within the cooldown window. Read-only — callers are responsible for writing the
+ * dedup row (with the same action+symbol) only after confirming alert delivery.
+ * @param action - The agent_logs action string to check
+ * @param symbol - The trading symbol, or PORTFOLIO_SENTINEL for portfolio-level events
+ * @param windowMs - Cooldown duration in milliseconds
+ * @returns true if a matching log row exists within the window
+ */
+function wasRecentlyAlerted(action: string, symbol: string, windowMs: number): boolean {
+  const since = new Date(Date.now() - windowMs).toISOString();
+  const row = db
+    .select({ id: agentLogs.id })
+    .from(agentLogs)
+    .where(
+      and(
+        eq(agentLogs.action, action),
+        eq(agentLogs.symbol, symbol),
+        gte(agentLogs.createdAt, since),
+      ),
+    )
+    .get();
+  return row !== undefined;
+}
 
 /** Fetch holdings and LTP; populate state or append to errors on failure. */
 async function fetchPortfolioNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {
@@ -89,21 +118,32 @@ async function checkTargetsNode(state: Readonly<AgentState>): Promise<Partial<Ag
 
   for (const hit of targetHits) {
     const label = hit.targetLevel === 1 ? "T1" : "T2";
+    const action = `target_${label.toLowerCase()}_hit`;
+
+    if (wasRecentlyAlerted(action, hit.symbol, TRADING_DAY_MS)) {
+      logger.debug("checkTargets: suppressing duplicate alert", {
+        symbol: hit.symbol,
+        label,
+      });
+      continue;
+    }
+
     const alertResult = await pushAlert(
       `🎯 *${hit.companyName}* (${hit.symbol}) hit ${label} target ₹${hit.targetPrice}. LTP: ₹${hit.currentPrice}. Review position.`,
     );
     if (!alertResult.ok) {
-      logger.warn("checkTargets: alert failed", {
+      logger.warn("checkTargets: alert failed — skipping dedup log to allow retry", {
         symbol: hit.symbol,
         error: alertResult.error.message,
       });
+      continue;
     }
 
     db.insert(agentLogs)
       .values({
         runId: state.runId,
         symbol: hit.symbol,
-        action: `target_${label.toLowerCase()}_hit`,
+        action,
         reasoning: `${label} target ₹${hit.targetPrice} reached at LTP ₹${hit.currentPrice}`,
         dryRun: env.DRISHTI_DRY_RUN,
         error: null,
@@ -165,7 +205,7 @@ function findActiveGttId(symbol: string): string | null {
   const rows = db
     .select({ id: gttOrders.id })
     .from(gttOrders)
-    .where(eq(gttOrders.symbol, symbol))
+    .where(and(eq(gttOrders.symbol, symbol), eq(gttOrders.status, "active")))
     .all();
 
   return rows[0]?.id ?? null;
@@ -194,7 +234,22 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
     }
 
     if (decision.action === "alert_only") {
+      if (wasRecentlyAlerted("alert_only", decision.symbol, ALERT_ONLY_COOLDOWN_MS)) {
+        logger.debug("executeActions: suppressing duplicate alert_only", {
+          symbol: decision.symbol,
+        });
+        continue;
+      }
+
       const alertResult = await pushAlert(`👁 *${decision.symbol}*: ${decision.reasoning}`);
+      if (!alertResult.ok) {
+        logger.warn("executeActions: alert_only push failed — skipping dedup log to allow retry", {
+          symbol: decision.symbol,
+          error: alertResult.error.message,
+        });
+        continue;
+      }
+
       db.insert(agentLogs)
         .values({
           runId: state.runId,
@@ -202,7 +257,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           action: "alert_only",
           reasoning: decision.reasoning,
           dryRun: env.DRISHTI_DRY_RUN,
-          error: alertResult.ok ? null : alertResult.error.message,
+          error: null,
           createdAt: now,
         })
         .run();
@@ -233,6 +288,24 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           reasoning: decision.reasoning,
           dryRun: env.DRISHTI_DRY_RUN,
           error: cancelResult.ok ? null : cancelResult.error.message,
+          createdAt: now,
+        })
+        .run();
+      continue;
+    }
+
+    if (decision.action === "gtt_modify" && !decision.gttParams) {
+      logger.warn("executeActions: gtt_modify decision missing gttParams — skipping", {
+        symbol: decision.symbol,
+      });
+      db.insert(agentLogs)
+        .values({
+          runId: state.runId,
+          symbol: decision.symbol,
+          action: "gtt_modify_failed",
+          reasoning: decision.reasoning,
+          dryRun: env.DRISHTI_DRY_RUN,
+          error: "gttParams missing in LLM decision",
           createdAt: now,
         })
         .run();
@@ -320,25 +393,34 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
   return {};
 }
 
-/** Push portfolio summary to Slack and log it. */
+/** Push LLM portfolio summary to Slack once per trading session, then log to DB. */
 async function logAndAlertNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {
   if (state.holdings.length === 0) return {};
   if (!state.llmOutput) return {};
 
-  const summary = state.llmOutput?.portfolioSummary ?? "Portfolio analysed — no LLM summary.";
-  const alertResult = await pushAlert(`📊 *Portfolio Update*\n${summary}`);
+  const summary = state.llmOutput.portfolioSummary ?? "Portfolio analysed — no LLM summary.";
 
+  // Suppress repeated summaries within the same trading session — one push per 8h window.
+  // PORTFOLIO_SENTINEL is the symbol key used in agent_logs for portfolio-level events.
+  if (wasRecentlyAlerted("portfolio_summary", PORTFOLIO_SENTINEL, TRADING_DAY_MS)) {
+    logger.debug("logAndAlert: portfolio summary already pushed this session — skipping");
+    return {};
+  }
+
+  const alertResult = await pushAlert(`📊 *Portfolio Update*\n${summary}`);
   if (!alertResult.ok) {
-    logger.error("logAndAlert: Slack push failed", { error: alertResult.error.message });
+    logger.warn("logAndAlert: Slack push failed", { error: alertResult.error.message });
+    return {};
   }
 
   db.insert(agentLogs)
     .values({
       runId: state.runId,
+      symbol: PORTFOLIO_SENTINEL,
       action: "portfolio_summary",
       reasoning: summary,
       dryRun: env.DRISHTI_DRY_RUN,
-      error: alertResult.ok ? null : alertResult.error.message,
+      error: null,
       createdAt: new Date().toISOString(),
     })
     .run();
