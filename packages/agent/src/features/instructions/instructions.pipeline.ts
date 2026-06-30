@@ -74,14 +74,13 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
   if (entryPrice > 0 && suggestedQty > 0) {
     const concentrationResult = await validateConcentration(suggestedQty, entryPrice);
     if (!concentrationResult.pass) {
-      logger.warn("Trade rejected: concentration check failed", {
+      logger.warn("Concentration warning — proceeding to approval", {
         symbol: resolved.tradingSymbol,
         reason: concentrationResult.reason,
       });
       await pushAlert(
-        `❌ *Trade Rejected — Position size check failed*\n\nStock: *${resolved.tradingSymbol}*\nReason: ${concentrationResult.reason}`,
+        `⚠️ *Concentration Warning*\n\nStock: *${resolved.tradingSymbol}*\n${concentrationResult.reason}\n\nApproval card follows — review carefully.`,
       );
-      return { ok: false, error: concentrationResult.reason };
     }
   }
 

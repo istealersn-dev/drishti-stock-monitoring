@@ -37,6 +37,7 @@ vi.mock("../portfolio/portfolio.tools.js", () => ({
 import { ok } from "../../shared/errors.js";
 
 import { askAdvisor, generateTradeSetup } from "./advisor.chain.js";
+import { buildAdvisoryContext } from "./advisor.prompts.js";
 import type { AdvisoryRequest } from "./advisor.schema.js";
 
 const request: AdvisoryRequest = {
@@ -95,6 +96,27 @@ describe("askAdvisor", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain("connection refused");
+  });
+});
+
+describe("buildAdvisoryContext", () => {
+  it("keeps output within 6000-token (~24000 char) budget for a large portfolio", () => {
+    const largeHolding = {
+      isin: "INE000000000",
+      trading_symbol: "STOCKNAME-EQ",
+      company_name: "A".repeat(200),
+      quantity: 100,
+      average_price: 1000,
+      last_price: 1100,
+      pnl: 10000,
+    };
+    const oversizedPortfolio = Array.from({ length: 200 }, (_, index) => ({
+      ...largeHolding,
+      isin: `INE${String(index).padStart(9, "0")}`,
+    }));
+    const result = buildAdvisoryContext(oversizedPortfolio, "Should I hold?");
+    expect(result.length).toBeLessThanOrEqual(24000);
+    expect(result).toContain("Should I hold?");
   });
 });
 

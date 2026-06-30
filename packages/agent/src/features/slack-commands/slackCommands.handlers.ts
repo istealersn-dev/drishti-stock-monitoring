@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 
+import type { SayFn } from "@slack/bolt";
 import { desc, eq } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
@@ -35,7 +36,7 @@ import {
   formatStatus,
 } from "./slackCommands.formatters.js";
 
-type SayFunction = (text: string) => Promise<unknown>;
+type SayFunction = SayFn;
 
 const CMD_PNL = "cmd_pnl";
 const CMD_HOLDINGS = "cmd_holdings";
@@ -377,20 +378,41 @@ export async function handleSetup(stockName: string, say: SayFunction): Promise<
   const tgtPrices = setup.targets.map((t) => `${t.price}${t.isOpenEnded ? "+" : ""}`).join(" ");
   const buyInstructionText = `${tradingSymbol} Buy ${setup.entryLow}-${setup.entryHigh} SL ${setup.stopLoss} Tgt ${tgtPrices}`;
 
-  await say(
-    [
-      `📈 *Trade Setup — ${tradingSymbol}*`,
-      "",
-      `*Entry Range:* ₹${setup.entryLow} – ₹${setup.entryHigh}`,
-      `*Stop Loss:* ₹${setup.stopLoss}`,
-      `*Targets:* ${targetString}`,
-      "",
-      `*Rationale:* ${setup.rationale}`,
-      "",
-      "To submit as a buy instruction:",
-      `\`${buyInstructionText}\``,
-    ].join("\n"),
-  );
+  const risk = setup.entryHigh - setup.stopLoss;
+  const reward = t1 ? t1.price - setup.entryHigh : null;
+  const rrLabel = risk > 0 && reward !== null ? `1:${(reward / risk).toFixed(1)}` : "N/A";
+
+  await say({
+    text: `📈 Trade Setup — ${tradingSymbol}`,
+    blocks: [
+      {
+        type: "header",
+        text: { type: "plain_text", text: `📈 Trade Setup — ${tradingSymbol}`, emoji: true },
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Entry Range*\n₹${setup.entryLow} – ₹${setup.entryHigh}` },
+          { type: "mrkdwn", text: `*Stop Loss*\n₹${setup.stopLoss}` },
+          { type: "mrkdwn", text: `*R:R (to T1)*\n${rrLabel}` },
+          { type: "mrkdwn", text: `*Targets*\n${targetString}` },
+        ],
+      },
+      { type: "divider" },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: `*Rationale*\n${setup.rationale}` },
+      },
+      { type: "divider" },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `To submit as a buy instruction:\n\`${buyInstructionText}\``,
+        },
+      },
+    ],
+  });
 }
 
 /**
