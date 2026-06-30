@@ -8,8 +8,11 @@ config({
 });
 
 const EnvironmentSchema = z.object({
-  LM_STUDIO_BASE_URL: z.string().url(),
-  LM_MODEL: z.string().min(1),
+  GEMINI_API_KEY: z.string().min(1),
+
+  // LM Studio — kept for backward compatibility but no longer used for advisor/insights
+  LM_STUDIO_BASE_URL: z.string().url().optional().default("http://localhost:1234"),
+  LM_MODEL: z.string().min(1).optional().default("google/gemma-4-12b-qat"),
 
   UPSTOX_API_KEY: z.string().min(1),
   UPSTOX_API_SECRET: z.string().min(1),

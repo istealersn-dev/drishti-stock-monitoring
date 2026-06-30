@@ -21,8 +21,6 @@ import { startAdvisorCrons, startCron } from "./scheduler/cron.js";
 import { env } from "./shared/env.js";
 import { logger } from "./shared/logger.js";
 
-const BUY_KEYWORD = /\bbuy\b/i;
-
 async function tick(): Promise<void> {
   const runId = crypto.randomUUID();
   const startedAt = new Date().toISOString();
@@ -81,16 +79,21 @@ async function main(): Promise<void> {
   registerApprovalHandlers(boltApp);
   registerSlackCommands(boltApp, env.SLACK_COMMAND_CHANNEL_ID);
 
+  // Plain-message buy instructions in command/alert channels.
+  // Requires "buy" + at least one digit (price) to avoid misrouting advisory questions.
+  const BUY_INSTRUCTION = /\bbuy\b.*\d/i;
   const buyChannels = new Set([env.SLACK_ALERT_CHANNEL_ID, env.SLACK_COMMAND_CHANNEL_ID]);
-
-  boltApp.message(async ({ message, say: _say }) => {
+  boltApp.message(async ({ message }) => {
     if (message.subtype) return;
     const parsed = SlackMessageShape.safeParse(message);
     if (!parsed.success) return;
     const { channel, text } = parsed.data;
-    if (!channel || !buyChannels.has(channel)) return;
-    if (!text || /^!/.test(text) || !BUY_KEYWORD.test(text)) return;
-    await submitBuyInstruction(text, channel);
+    if (!channel || !buyChannels.has(channel) || !text) return;
+    if (/^!/.test(text) || /^\//.test(text) || !BUY_INSTRUCTION.test(text)) return;
+    const result = await submitBuyInstruction(text, channel);
+    if (!result.ok) {
+      logger.error("Plain-message buy instruction failed", { channel, error: result.error });
+    }
   });
 
   await boltApp.start();

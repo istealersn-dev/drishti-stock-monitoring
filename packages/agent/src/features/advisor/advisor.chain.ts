@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 
+import { and, desc, eq, gte } from "drizzle-orm";
+
 import { db } from "../../db/db.js";
 import { advisoryConversations } from "../../db/schema.js";
-import { chat } from "../../llm/llmClient.js";
+import { chatWithDrishti, generateText, toGeminiHistory } from "../../llm/geminiClient.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import { logger } from "../../shared/logger.js";
@@ -16,11 +18,33 @@ import {
 import { TradeSetupSchema } from "./advisor.schema.js";
 import type { AdvisoryRequest, AdvisoryResponse, TradeSetup } from "./advisor.schema.js";
 
+const MAX_HISTORY_TURNS = 20;
+
 /**
- * Answer a portfolio advisory question using the SEBI advisor persona.
- * Holdings are fetched for context; a fetch failure falls back to an empty portfolio
- * rather than blocking the advisory. The question and answer are persisted as two rows
- * (role "user" and "assistant") under the same session id.
+ * Load recent conversation turns for a session and convert to Gemini history format.
+ * Only loads the last MAX_HISTORY_TURNS pairs to stay within context budget.
+ * @param sessionId - The session to load history for
+ * @returns Gemini-format Content array
+ */
+function loadHistory(sessionId: string) {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const rows = db
+    .select()
+    .from(advisoryConversations)
+    .where(and(eq(advisoryConversations.sessionId, sessionId), gte(advisoryConversations.createdAt, cutoff)))
+    .orderBy(desc(advisoryConversations.createdAt))
+    .limit(MAX_HISTORY_TURNS)
+    .all();
+
+  // Reverse so history is chronological (oldest→newest) as Gemini expects
+  return toGeminiHistory(rows.reverse());
+}
+
+/**
+ * Answer a portfolio advisory question using the Drishti persona (Gemini 2.5 Flash + Google Search).
+ * Loads the last 24h of conversation history for the session to maintain multi-turn context.
+ * The question and answer are persisted as two rows (role "user" and "assistant")
+ * under the same session id.
  * @param request - The advisory request (question, session id, channel)
  * @returns A Result with the advisory answer, or an Error on failure
  */
@@ -36,13 +60,13 @@ export async function askAdvisor(
     }
     const holdings = holdingsResult.ok ? holdingsResult.value : [];
 
+    const history = loadHistory(request.sessionId);
+    const userContext = buildAdvisoryContext(holdings, request.question);
+
     const userAt = new Date().toISOString();
-    const context = buildAdvisoryContext(holdings, request.question);
-    const answer = await chat([
-      { role: "system", content: SEBI_ADVISOR_SYSTEM_PROMPT },
-      { role: "user", content: context },
-    ]);
+    const answer = await chatWithDrishti(SEBI_ADVISOR_SYSTEM_PROMPT, history, userContext);
     const assistantAt = new Date().toISOString();
+
     db.transaction((tx) => {
       tx.insert(advisoryConversations)
         .values({
@@ -74,8 +98,7 @@ export async function askAdvisor(
 
 /**
  * Generate a structured trade setup for a symbol from its technical levels.
- * The LLM returns the setup body as JSON; the symbol is attached and the result is
- * validated against TradeSetupSchema.
+ * Uses Gemini Flash (full model) for reliable JSON output.
  * @param symbol - The trading symbol the setup is for
  * @param levelsJson - JSON string of the stock's technical levels
  * @returns A Result with the validated trade setup, or an Error on failure
@@ -86,22 +109,25 @@ export async function generateTradeSetup(
 ): Promise<Result<TradeSetup, Error>> {
   let rawResponse: string;
   try {
-    rawResponse = await chat([
-      { role: "system", content: TRADE_SETUP_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `Generate a trade setup for ${symbol}.\nTechnical levels:\n${levelsJson}`,
-      },
-    ]);
+    rawResponse = await generateText(
+      TRADE_SETUP_SYSTEM_PROMPT,
+      `Generate a trade setup for ${symbol}.\nTechnical levels:\n${levelsJson}`,
+      { model: "gemini-2.5-flash" },
+    );
   } catch (e) {
     return err(e instanceof Error ? e : new Error(String(e)));
   }
 
+  const cleaned = rawResponse
+    .replace(/^```(?:json)?\n?/i, "")
+    .replace(/\n?```$/i, "")
+    .trim();
+
   let parsed: unknown;
   try {
-    parsed = JSON.parse(rawResponse);
+    parsed = JSON.parse(cleaned);
   } catch {
-    return err(new Error("LLM returned non-JSON setup response: " + rawResponse.slice(0, 200)));
+    return err(new Error("LLM returned non-JSON setup response: " + cleaned.slice(0, 200)));
   }
 
   const withSymbol = typeof parsed === "object" && parsed !== null ? { symbol, ...parsed } : parsed;

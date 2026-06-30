@@ -5,6 +5,7 @@ import { z } from "zod";
  * Used by both the command router and the buy-instruction listener.
  */
 export const SlackMessageShape = z.object({
-  channel: z.string().optional(),
+  channel: z.string().optional().default(""),
   text: z.string().optional(),
+  thread_ts: z.string().optional(),
 });

@@ -1,4 +1,4 @@
-import { chat, PORTFOLIO_LLM_TIMEOUT_MS, PORTFOLIO_MAX_TOKENS } from "../../llm/llmClient.js";
+import { generateText } from "../../llm/geminiClient.js";
 import { LlmError, err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
@@ -73,14 +73,10 @@ export async function analysePortfolio(
 
   let raw: string;
   try {
-    raw = await chat(
-      [
-        { role: "system", content: PORTFOLIO_ANALYSIS_SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      PORTFOLIO_MAX_TOKENS,
-      PORTFOLIO_LLM_TIMEOUT_MS,
-    );
+    raw = await generateText(PORTFOLIO_ANALYSIS_SYSTEM_PROMPT, userPrompt, {
+      model: "gemini-2.5-flash",
+      maxTokens: 8192,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return err(new LlmError(message));
