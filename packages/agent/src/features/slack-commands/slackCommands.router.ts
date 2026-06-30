@@ -124,10 +124,12 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
     logger.info("@mention received", { channel, hasThread: !!eventThreadTs, newSession: !existingSessionId });
 
     try {
-      const posted = await handleAsk(question, say, client, { sessionId, threadTs: replyThreadTs });
+      await handleAsk(question, say, client, { sessionId, threadTs: replyThreadTs });
 
-      // Store session so future plain thread replies are picked up
-      if (!existingSessionId && posted.ts) {
+      // Store session so future plain thread replies are picked up.
+      // Use replyThreadTs (always defined) rather than posted.ts to avoid
+      // silently dropping sessions when say() returns without a ts.
+      if (!existingSessionId) {
         storeSlackSession(replyThreadTs, channel, sessionId);
       }
     } catch (error) {

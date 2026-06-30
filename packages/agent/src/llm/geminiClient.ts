@@ -44,7 +44,7 @@ export async function chatWithDrishti(
       systemInstruction,
       tools: [{ googleSearch: {} }],
       temperature: 0.7,
-      maxOutputTokens: 300,
+      maxOutputTokens: 1500,
     },
   });
 

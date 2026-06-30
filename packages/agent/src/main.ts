@@ -14,7 +14,9 @@ import { buildAgentGraph } from "./features/agent/agent.graph.js";
 import { registerApprovalHandlers } from "./features/approval/approval.handler.js";
 import { startTimeoutPoller } from "./features/approval/approval.timeout.js";
 import { startDigestCrons } from "./features/digest/digest.service.js";
+import { submitBuyInstruction } from "./features/instructions/instructions.pipeline.js";
 import { registerSlackCommands } from "./features/slack-commands/slackCommands.router.js";
+import { SlackMessageShape } from "./features/slack-commands/slackCommands.schema.js";
 import { startAdvisorCrons, startCron } from "./scheduler/cron.js";
 import { env } from "./shared/env.js";
 import { logger } from "./shared/logger.js";
@@ -76,6 +78,20 @@ async function main(): Promise<void> {
 
   registerApprovalHandlers(boltApp);
   registerSlackCommands(boltApp, env.SLACK_COMMAND_CHANNEL_ID);
+
+  // Plain-message buy instructions in command/alert channels.
+  // Requires "buy" + at least one digit (price) to avoid misrouting advisory questions.
+  const BUY_INSTRUCTION = /\bbuy\b.*\d/i;
+  const buyChannels = new Set([env.SLACK_ALERT_CHANNEL_ID, env.SLACK_COMMAND_CHANNEL_ID]);
+  boltApp.message(async ({ message }) => {
+    if (message.subtype) return;
+    const parsed = SlackMessageShape.safeParse(message);
+    if (!parsed.success) return;
+    const { channel, text } = parsed.data;
+    if (!channel || !buyChannels.has(channel) || !text) return;
+    if (/^!/.test(text) || /^\//.test(text) || !BUY_INSTRUCTION.test(text)) return;
+    await submitBuyInstruction(text, channel);
+  });
 
   await boltApp.start();
   logger.info("Slack Bolt app started (socket mode)");

@@ -5,20 +5,18 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
 import { agentLogs, agentRuns, slackSessions, stockConfig } from "../../db/schema.js";
-import { chat } from "../../llm/llmClient.js";
+import { generateText } from "../../llm/geminiClient.js";
 import { env } from "../../shared/env.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
-import { askAdvisor } from "../advisor/advisor.chain.js";
-import { generateTradeSetup } from "../advisor/advisor.chain.js";
+import { askAdvisor, generateTradeSetup } from "../advisor/advisor.chain.js";
 import { listGTTs } from "../gtt/gtt.tools.js";
 import { computeHealthReport } from "../health/health.engine.js";
 import { formatHealthReport } from "../health/health.formatter.js";
 import { resolveSymbol } from "../instructions/instructions.resolver.js";
 import type { Holding } from "../portfolio/portfolio.schema.js";
 import { fetchHoldings } from "../portfolio/portfolio.tools.js";
-import { getCachedLevels } from "../technicals/technicals.cache.js";
-import { saveLevels } from "../technicals/technicals.cache.js";
+import { getCachedLevels, saveLevels } from "../technicals/technicals.cache.js";
 import type { TechnicalLevels } from "../technicals/technicals.schema.js";
 import { fetchOHLCV, computeLevels } from "../technicals/technicals.service.js";
 import {
@@ -167,17 +165,11 @@ async function resolveHolding(query: string, holdings: Holding[]): Promise<Holdi
   // 5. LLM fallback — ask the model to pick the best match from the holdings list
   const symbolList = holdings.map((h) => `${h.trading_symbol} (${h.company_name})`).join("\n");
   try {
-    const response = await chat([
-      {
-        role: "system",
-        content:
-          "You are a stock symbol resolver. Given a user query and a list of holdings, return ONLY the exact trading symbol that best matches the query. If nothing matches, return the word NONE. No explanation.",
-      },
-      {
-        role: "user",
-        content: `Query: "${query}"\n\nHoldings:\n${symbolList}`,
-      },
-    ]);
+    const response = await generateText(
+      "You are a stock symbol resolver. Given a user query and a list of holdings, return ONLY the exact trading symbol that best matches the query. If nothing matches, return the word NONE. No explanation.",
+      `Query: "${query}"\n\nHoldings:\n${symbolList}`,
+      { maxTokens: 20 },
+    );
     const resolved = response
       .trim()
       .toUpperCase()
@@ -251,38 +243,15 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
   await say(`🔍 Analysing *${holding.trading_symbol}*…`);
 
   try {
-    const reasoning = await chat([
-      { role: "system", content: ANALYSE_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `Holding snapshot:\n${JSON.stringify(snapshot, null, 2)}`,
-      },
-    ]);
+    const reasoning = await generateText(
+      ANALYSE_SYSTEM_PROMPT,
+      `Holding snapshot:\n${JSON.stringify(snapshot, null, 2)}`,
+    );
     await say(formatAnalysis(holding.trading_symbol, reasoning));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logCommandError(CMD_ANALYSE_LLM, message, holding.trading_symbol);
-
-    const lowerMessage = message.toLowerCase();
-    const isTimeout = lowerMessage.includes("timed out") || lowerMessage.includes("timeout");
-    const isOffline =
-      !isTimeout &&
-      (message.includes("ECONNREFUSED") ||
-        message.includes("ECONNRESET") ||
-        message.includes("fetch failed") ||
-        message.includes("LM Studio returned an empty response"));
-
-    if (isTimeout) {
-      await say(
-        `⏱️ *Analysis timed out.* LM Studio is busy — likely running a portfolio tick. Try again in ~30 seconds.`,
-      );
-    } else if (isOffline) {
-      await say(
-        `⚠️ *LM Studio is offline.* Start it on the Mac Mini and load \`${env.LM_MODEL}\` before using \`analyse\`.`,
-      );
-    } else {
-      await say(`⚠️ LLM analysis failed: ${message}`);
-    }
+    await say(`⚠️ Analysis failed: ${message}`);
   }
 }
 
@@ -348,9 +317,13 @@ export async function handleAsk(
  * @param sessionId - The session id used for this conversation
  */
 export function storeSlackSession(threadTs: string, channel: string, sessionId: string): void {
+  const now = new Date().toISOString();
   db.insert(slackSessions)
-    .values({ threadTs, channel, sessionId, lastActiveAt: new Date().toISOString() })
-    .onConflictDoNothing()
+    .values({ threadTs, channel, sessionId, lastActiveAt: now })
+    .onConflictDoUpdate({
+      target: slackSessions.threadTs,
+      set: { lastActiveAt: now },
+    })
     .run();
 }
 

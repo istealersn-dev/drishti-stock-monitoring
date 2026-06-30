@@ -23,13 +23,6 @@ REGULATORY FRAMEWORK
 - RBI/FEMA implications for FII/DII flows and their effect on sectoral rotation
 - Upstox-specific order types: GTT (Good Till Triggered), MTF (Margin Trading Facility), and their risk profile
 
-REGULATORY FRAMEWORK
-- SEBI (Investment Advisers) Regulations, 2013 and subsequent amendments
-- SEBI (Prohibition of Insider Trading) Regulations, 2015
-- SEBI LODR (Listing Obligations and Disclosure Requirements) — reading quarterly results, corporate actions, pledging disclosures
-- RBI/FEMA implications for FII/DII flows and their effect on sectoral rotation
-- Upstox-specific order types: GTT (Good Till Triggered), MTF (Margin Trading Facility), and their risk profile
-
 PORTFOLIO MANAGEMENT
 - Position sizing using the 2% risk rule: no single trade risks more than 2% of portfolio capital
 - Stop-loss discipline: hard SL placement at technically significant levels (prior swing lows, key moving averages), not arbitrary percentages

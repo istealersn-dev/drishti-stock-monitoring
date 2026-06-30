@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
 import { advisoryConversations } from "../../db/schema.js";
@@ -32,11 +32,12 @@ function loadHistory(sessionId: string) {
     .select()
     .from(advisoryConversations)
     .where(and(eq(advisoryConversations.sessionId, sessionId), gte(advisoryConversations.createdAt, cutoff)))
-    .orderBy(asc(advisoryConversations.createdAt))
+    .orderBy(desc(advisoryConversations.createdAt))
     .limit(MAX_HISTORY_TURNS)
     .all();
 
-  return toGeminiHistory(rows);
+  // Reverse so history is chronological (oldest→newest) as Gemini expects
+  return toGeminiHistory(rows.reverse());
 }
 
 /**
