@@ -41,6 +41,7 @@ const EnvironmentSchema = z.object({
     .regex(/^\d{2}:\d{2}$/)
     .default("15:30"),
   DRISHTI_APPROVAL_TIMEOUT_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
+  DRISHTI_LLM_MOVE_THRESHOLD_PCT: z.coerce.number().min(0).default(4),
 
   AGENT_API_PORT: z.coerce.number().int().default(4000),
   DRISHTI_ACCESS_KEY: z.string().min(16),

@@ -1,11 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 
-const { mockChat } = vi.hoisted(() => ({ mockChat: vi.fn() }));
+const { mockGenerateText } = vi.hoisted(() => ({ mockGenerateText: vi.fn() }));
 
-vi.mock("../../llm/llmClient.js", () => ({
-  chat: mockChat,
-  PORTFOLIO_MAX_TOKENS: 8192,
-  PORTFOLIO_LLM_TIMEOUT_MS: 300_000,
+vi.mock("../../llm/geminiClient.js", () => ({
+  generateText: mockGenerateText,
 }));
 
 import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
@@ -48,7 +46,7 @@ const validOutput = JSON.stringify({
 
 describe("analysePortfolio", () => {
   it("returns ok with valid LLM output", async () => {
-    mockChat.mockResolvedValue(validOutput);
+    mockGenerateText.mockResolvedValue(validOutput);
     const result = await analysePortfolio([makeHolding()], ltpMap, []);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -57,13 +55,13 @@ describe("analysePortfolio", () => {
   });
 
   it("strips markdown code fences before parsing", async () => {
-    mockChat.mockResolvedValue("```json\n" + validOutput + "\n```");
+    mockGenerateText.mockResolvedValue("```json\n" + validOutput + "\n```");
     const result = await analysePortfolio([makeHolding()], emptyLtpMap, []);
     expect(result.ok).toBe(true);
   });
 
   it("returns err when LLM output is not JSON", async () => {
-    mockChat.mockResolvedValue("Sorry, I cannot help with that.");
+    mockGenerateText.mockResolvedValue("Sorry, I cannot help with that.");
     const result = await analysePortfolio([makeHolding()], emptyLtpMap, []);
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -71,7 +69,7 @@ describe("analysePortfolio", () => {
   });
 
   it("returns err when LLM output fails schema validation", async () => {
-    mockChat.mockResolvedValue(JSON.stringify({ decisions: [], portfolioSummary: "" }));
+    mockGenerateText.mockResolvedValue(JSON.stringify({ decisions: [], portfolioSummary: "" }));
     const result = await analysePortfolio([makeHolding()], emptyLtpMap, []);
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -79,7 +77,7 @@ describe("analysePortfolio", () => {
   });
 
   it("rejects action 'buy' — not in schema", async () => {
-    mockChat.mockResolvedValue(
+    mockGenerateText.mockResolvedValue(
       JSON.stringify({
         decisions: [{ symbol: "X", action: "buy", reasoning: "r", gttParams: null }],
         portfolioSummary: "s",
@@ -92,7 +90,7 @@ describe("analysePortfolio", () => {
   });
 
   it("returns err when LLM call throws", async () => {
-    mockChat.mockRejectedValue(new Error("connection refused"));
+    mockGenerateText.mockRejectedValue(new Error("connection refused"));
     const result = await analysePortfolio([makeHolding()], emptyLtpMap, []);
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -100,7 +98,7 @@ describe("analysePortfolio", () => {
   });
 
   it("accepts gtt_modify with valid gttParams", async () => {
-    mockChat.mockResolvedValue(
+    mockGenerateText.mockResolvedValue(
       JSON.stringify({
         decisions: [
           {

@@ -73,8 +73,9 @@ export async function analysePortfolio(
 
   let raw: string;
   try {
+    // Default lite model — this call is now gated on material change (see agent.graph.ts),
+    // but each firing should still stay cheap.
     raw = await generateText(PORTFOLIO_ANALYSIS_SYSTEM_PROMPT, userPrompt, {
-      model: "gemini-2.5-flash",
       maxTokens: 8192,
     });
   } catch (error) {

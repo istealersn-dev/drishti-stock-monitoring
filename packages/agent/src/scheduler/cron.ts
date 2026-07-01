@@ -42,6 +42,7 @@ export function isMarketOpen(now: Date = new Date()): boolean {
  */
 export function startCron(tick: () => Promise<void>): void {
   const expression = `*/${env.DRISHTI_POLL_INTERVAL_MINUTES} * * * *`;
+  let isRunning = false;
 
   cron.schedule(expression, () => {
     if (!isMarketOpen()) {
@@ -49,11 +50,21 @@ export function startCron(tick: () => Promise<void>): void {
       return;
     }
 
-    tick().catch((error: unknown) => {
-      logger.error("Cron tick failed", {
-        error: error instanceof Error ? error.message : String(error),
+    if (isRunning) {
+      logger.warn("Skipping poll tick — previous tick still in progress");
+      return;
+    }
+
+    isRunning = true;
+    tick()
+      .catch((error: unknown) => {
+        logger.error("Cron tick failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      })
+      .finally(() => {
+        isRunning = false;
       });
-    });
   });
 
   logger.info("Cron scheduler started", {

@@ -31,14 +31,22 @@ acts as a control panel.
   placeholder values only.
 - **SQLite is the only database.** Do not introduce Postgres, Redis, or any
   external data store.
-- **LM Studio must be the only LLM provider.** No calls to OpenAI, Anthropic, or
-  any cloud API. The LLM runs locally via LM Studio at `http://localhost:1234`.
+- **LM Studio is the primary LLM provider.** No calls to OpenAI or any other
+  cloud API. The LLM runs locally via LM Studio at `http://localhost:1234`.
   Model: `google/gemma-4-12b-qat` (QAT 4-bit, ~7GB, safe on 24GB M4 Pro).
   Do NOT use the BF16 variant — it requires significantly more RAM.
   Avoid Qwen3/Qwen3.5 — LM Studio has open bugs where thinking mode cannot
   be disabled, leaving content always empty (issues #1990, #16945).
   Cap context length at 8K for portfolio analysis prompts — the full 256K window
   is unnecessary and wastes RAM headroom.
+  **TEMPORARY ALTERNATE:** Gemini 2.5 Flash (`@google/genai`) is permitted as a
+  stand-in cloud provider for the advisor persona / thread-continuity feature
+  (see `packages/agent/src/llm/geminiClient.ts`). This is a stopgap, not a
+  permanent exception — it must stay call-rate-limited (alerts only on
+  threshold breach, not periodic polling) to control quota/cost, and should be
+  migrated back to LM Studio once local model quality/latency support the
+  advisor use case. Do not expand Gemini usage to new features without
+  updating this note.
 
 ---
 
