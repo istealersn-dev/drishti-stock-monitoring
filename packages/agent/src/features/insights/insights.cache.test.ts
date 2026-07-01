@@ -13,6 +13,10 @@ vi.mock("../../db/schema.js", () => ({
   agentSettings: { key: "key", value: "value" },
 }));
 
+vi.mock("../../shared/logger.js", () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
 import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 
 import {
@@ -106,5 +110,28 @@ describe("insights.cache", () => {
     // but a prior run's snapshot is on disk and should be loaded on first read.
     expect(hasMovedSignificantly([mockHolding], ltpMapFor(1030), 4)).toBe(false);
     expect(hasMovedSignificantly([mockHolding], ltpMapFor(1050), 4)).toBe(true);
+  });
+
+  it("treats malformed JSON in the settings row as no prior snapshot instead of throwing", () => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ get: vi.fn().mockReturnValue({ value: "not json" }) }),
+      }),
+    });
+
+    expect(() => hasMovedSignificantly([mockHolding], ltpMapFor(1000), 4)).not.toThrow();
+    expect(hasMovedSignificantly([mockHolding], ltpMapFor(1000), 4)).toBe(true);
+  });
+
+  it("treats a schema-invalid snapshot (non-numeric values) as no prior snapshot instead of silently producing NaN", () => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          get: vi.fn().mockReturnValue({ value: JSON.stringify({ "AXISBANK-EQ": "1000" }) }),
+        }),
+      }),
+    });
+
+    expect(hasMovedSignificantly([mockHolding], ltpMapFor(1000), 4)).toBe(true);
   });
 });

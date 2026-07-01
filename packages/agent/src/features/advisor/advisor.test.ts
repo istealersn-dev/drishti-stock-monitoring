@@ -179,9 +179,10 @@ describe("askAdvisor", () => {
     await askAdvisor(request);
 
     const history = mockChatWithDrishti.mock.calls[0]?.[1] as Array<{ role: string }>;
-    if (history.length > 0) {
-      expect(history[0]?.role).toBe("user");
-    }
+    // Must keep the paired user question rather than dropping the whole turn.
+    expect(history).toHaveLength(2);
+    expect(history[0]?.role).toBe("user");
+    expect(history[1]?.role).toBe("model");
   });
 });
 

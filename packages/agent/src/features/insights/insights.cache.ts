@@ -1,10 +1,14 @@
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 
 import { db } from "../../db/db.js";
 import { agentSettings } from "../../db/schema.js";
+import { logger } from "../../shared/logger.js";
 import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 
 const SNAPSHOT_SETTINGS_KEY = "llm_analysis_last_ltp";
+
+const AnalysisSnapshotSchema = z.record(z.string(), z.number());
 
 // In-memory read-through cache over the agentSettings row, so this doesn't add a
 // DB query on every tick. null means "not yet loaded from DB this process" —
@@ -20,11 +24,32 @@ function loadSnapshot(): Record<string, number> {
     .where(eq(agentSettings.key, SNAPSHOT_SETTINGS_KEY))
     .get();
 
-  try {
-    cachedSnapshot = row?.value ? (JSON.parse(row.value) as Record<string, number>) : {};
-  } catch {
+  if (!row?.value) {
     cachedSnapshot = {};
+    return cachedSnapshot;
   }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(row.value);
+  } catch (error) {
+    logger.error("insights.cache: llm_analysis_last_ltp is not valid JSON — resetting", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    cachedSnapshot = {};
+    return cachedSnapshot;
+  }
+
+  const result = AnalysisSnapshotSchema.safeParse(parsed);
+  if (!result.success) {
+    logger.error("insights.cache: llm_analysis_last_ltp failed schema validation — resetting", {
+      error: result.error.message,
+    });
+    cachedSnapshot = {};
+    return cachedSnapshot;
+  }
+
+  cachedSnapshot = result.data;
   return cachedSnapshot;
 }
 
@@ -45,11 +70,12 @@ export function recordAnalysisSnapshot(holdings: Holding[], ltpMap: Record<strin
   cachedSnapshot = snapshot;
 
   const now = new Date().toISOString();
+  const value = JSON.stringify(snapshot);
   db.insert(agentSettings)
-    .values({ key: SNAPSHOT_SETTINGS_KEY, value: JSON.stringify(snapshot), updatedAt: now })
+    .values({ key: SNAPSHOT_SETTINGS_KEY, value, updatedAt: now })
     .onConflictDoUpdate({
       target: agentSettings.key,
-      set: { value: JSON.stringify(snapshot), updatedAt: now },
+      set: { value, updatedAt: now },
     })
     .run();
 }

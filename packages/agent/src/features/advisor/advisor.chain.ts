@@ -102,10 +102,13 @@ function loadHistory(sessionId: string): Content[] {
     startIndex = index;
   }
 
-  // If the kept slice starts on an assistant turn, its paired user question was
-  // trimmed off above — drop the now-unpaired assistant turn too.
-  while (chronological[startIndex]?.role === "assistant") {
-    startIndex++;
+  // If the kept slice starts on an assistant turn, its paired user question is the
+  // row directly before it (askAdvisor always inserts the pair atomically) — pull
+  // it back in even past the char budget, since an assistant reply with no
+  // preceding question is both invalid for Gemini and useless as context. Only
+  // drop it outright if there's truly no earlier row to pair it with.
+  if (chronological[startIndex]?.role === "assistant") {
+    startIndex = startIndex > 0 ? startIndex - 1 : startIndex + 1;
   }
 
   return toGeminiHistory(chronological.slice(startIndex));
