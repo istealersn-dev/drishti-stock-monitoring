@@ -8,12 +8,22 @@ import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 
 const SNAPSHOT_SETTINGS_KEY = "llm_analysis_last_ltp";
 
-const AnalysisSnapshotSchema = z.record(z.string(), z.number());
+// .finite() rejects Infinity/-Infinity too — a plain z.number() lets a numeric
+// overflow (e.g. `1e1000` parsed by JSON.parse to Infinity) through, which would
+// otherwise silently produce NaN in hasMovedSignificantly's move% comparison and
+// fail open (never re-triggers analysis for that symbol) instead of resetting.
+const AnalysisSnapshotSchema = z.record(z.string(), z.number().finite());
 
 // In-memory read-through cache over the agentSettings row, so this doesn't add a
 // DB query on every tick. null means "not yet loaded from DB this process" —
 // distinct from an empty object, which means "loaded, and genuinely no prior data".
 let cachedSnapshot: Record<string, number> | null = null;
+
+function resetSnapshot(reason: string, detail: string): Record<string, number> {
+  logger.error(`insights.cache: ${reason} — resetting llm_analysis_last_ltp`, { error: detail });
+  cachedSnapshot = {};
+  return cachedSnapshot;
+}
 
 function loadSnapshot(): Record<string, number> {
   if (cachedSnapshot) return cachedSnapshot;
@@ -33,20 +43,15 @@ function loadSnapshot(): Record<string, number> {
   try {
     parsed = JSON.parse(row.value);
   } catch (error) {
-    logger.error("insights.cache: llm_analysis_last_ltp is not valid JSON — resetting", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    cachedSnapshot = {};
-    return cachedSnapshot;
+    return resetSnapshot(
+      "llm_analysis_last_ltp is not valid JSON",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 
   const result = AnalysisSnapshotSchema.safeParse(parsed);
   if (!result.success) {
-    logger.error("insights.cache: llm_analysis_last_ltp failed schema validation — resetting", {
-      error: result.error.message,
-    });
-    cachedSnapshot = {};
-    return cachedSnapshot;
+    return resetSnapshot("llm_analysis_last_ltp failed schema validation", result.error.message);
   }
 
   cachedSnapshot = result.data;

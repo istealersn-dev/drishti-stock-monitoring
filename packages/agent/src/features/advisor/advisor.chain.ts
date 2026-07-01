@@ -65,10 +65,12 @@ function needsGrounding(question: string): boolean {
 
 /**
  * Load recent conversation turns for a session and convert to Gemini history format.
- * Loads at most MAX_HISTORY_TURNS pairs, then trims from the oldest until the total
- * character count is under MAX_HISTORY_CHARS, to keep resent-token cost bounded.
- * Never returns a history starting on an "assistant" turn — Gemini requires the
- * first turn to be "user", so a leading unpaired assistant reply is dropped.
+ * Loads at most MAX_HISTORY_TURNS rows (MAX_HISTORY_TURNS / 2 user+assistant pairs),
+ * then trims from the oldest until the total character count is under
+ * MAX_HISTORY_CHARS, to keep resent-token cost bounded. Never returns a history
+ * starting on an "assistant" turn — Gemini requires the first turn to be "user" —
+ * by pulling the paired user question back in past the char budget if needed;
+ * only drops the assistant turn outright if there's truly no row to pair it with.
  * @param sessionId - The session to load history for
  * @returns Gemini-format Content array
  */

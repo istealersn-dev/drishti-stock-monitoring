@@ -184,6 +184,35 @@ describe("askAdvisor", () => {
     expect(history[0]?.role).toBe("user");
     expect(history[1]?.role).toBe("model");
   });
+
+  it("drops a truly unpaired oldest-row assistant turn (no earlier row to pull in)", async () => {
+    // A single orphaned assistant row with nothing before it in the fetched window —
+    // shouldn't happen via the normal atomic-pair write path, but the trim logic
+    // must not throw or return malformed history if it ever does.
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              all: vi.fn().mockReturnValue([
+                {
+                  role: "assistant",
+                  content: "Orphaned reply.",
+                  createdAt: "2026-07-01T10:00:00.000Z",
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+    });
+    mockChatWithDrishti.mockResolvedValue("Hold for now.");
+
+    await askAdvisor(request);
+
+    const history = mockChatWithDrishti.mock.calls[0]?.[1] as Array<{ role: string }>;
+    expect(history).toHaveLength(0);
+  });
 });
 
 describe("buildAdvisoryContext", () => {
