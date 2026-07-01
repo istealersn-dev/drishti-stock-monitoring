@@ -1,29 +1,41 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockChat, mockRun, mockValues, mockInsert, mockTransaction, mockFetchHoldings } =
-  vi.hoisted(() => {
-    const run = vi.fn();
-    const values = vi.fn(() => ({ run }));
-    const insert = vi.fn(() => ({ values }));
-    const transaction = vi.fn((callback: (tx: { insert: typeof insert }) => void) => {
-      callback({ insert });
-    });
-    return {
-      mockChat: vi.fn(),
-      mockRun: run,
-      mockValues: values,
-      mockInsert: insert,
-      mockTransaction: transaction,
-      mockFetchHoldings: vi.fn(),
-    };
+const {
+  mockChatWithDrishti,
+  mockGenerateText,
+  mockRun,
+  mockValues,
+  mockInsert,
+  mockTransaction,
+  mockFetchHoldings,
+  mockDbSelect,
+} = vi.hoisted(() => {
+  const run = vi.fn();
+  const values = vi.fn(() => ({ run }));
+  const insert = vi.fn(() => ({ values }));
+  const transaction = vi.fn((callback: (tx: { insert: typeof insert }) => void) => {
+    callback({ insert });
   });
+  return {
+    mockChatWithDrishti: vi.fn(),
+    mockGenerateText: vi.fn(),
+    mockRun: run,
+    mockValues: values,
+    mockInsert: insert,
+    mockTransaction: transaction,
+    mockFetchHoldings: vi.fn(),
+    mockDbSelect: vi.fn(),
+  };
+});
 
-vi.mock("../../llm/llmClient.js", () => ({
-  chat: mockChat,
+vi.mock("../../llm/geminiClient.js", () => ({
+  chatWithDrishti: mockChatWithDrishti,
+  generateText: mockGenerateText,
+  toGeminiHistory: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock("../../db/db.js", () => ({
-  db: { insert: mockInsert, transaction: mockTransaction },
+  db: { insert: mockInsert, transaction: mockTransaction, select: mockDbSelect },
 }));
 
 vi.mock("../../shared/logger.js", () => ({
@@ -64,11 +76,20 @@ beforeEach(() => {
     callback({ insert: mockInsert });
   });
   mockFetchHoldings.mockResolvedValue(ok([]));
+  mockDbSelect.mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        orderBy: vi.fn().mockReturnValue({
+          limit: vi.fn().mockReturnValue({ all: vi.fn().mockReturnValue([]) }),
+        }),
+      }),
+    }),
+  });
 });
 
 describe("askAdvisor", () => {
   it("saves two rows in a single transaction", async () => {
-    mockChat.mockResolvedValue("Hold for now; SL at 520.");
+    mockChatWithDrishti.mockResolvedValue("Hold for now; SL at 520.");
     await askAdvisor(request);
     expect(mockTransaction).toHaveBeenCalledOnce();
     expect(mockInsert).toHaveBeenCalledTimes(2);
@@ -82,7 +103,7 @@ describe("askAdvisor", () => {
   });
 
   it("returns ok with the answer when chat succeeds", async () => {
-    mockChat.mockResolvedValue("Hold for now; SL at 520.");
+    mockChatWithDrishti.mockResolvedValue("Hold for now; SL at 520.");
     const result = await askAdvisor(request);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -91,11 +112,33 @@ describe("askAdvisor", () => {
   });
 
   it("returns err when chat throws", async () => {
-    mockChat.mockRejectedValue(new Error("connection refused"));
+    mockChatWithDrishti.mockRejectedValue(new Error("connection refused"));
     const result = await askAdvisor(request);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain("connection refused");
+  });
+
+  it("does not enable grounding for a routine portfolio question", async () => {
+    mockChatWithDrishti.mockResolvedValue("Hold for now.");
+    await askAdvisor(request);
+    expect(mockChatWithDrishti).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.any(String),
+      { grounding: false },
+    );
+  });
+
+  it("enables grounding when the question needs live web data", async () => {
+    mockChatWithDrishti.mockResolvedValue("Here's the latest news.");
+    await askAdvisor({ ...request, question: "Any recent news on RAMCOSYS?" });
+    expect(mockChatWithDrishti).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.any(String),
+      { grounding: true },
+    );
   });
 });
 
@@ -122,7 +165,7 @@ describe("buildAdvisoryContext", () => {
 
 describe("generateTradeSetup", () => {
   it("parses valid JSON correctly", async () => {
-    mockChat.mockResolvedValue(validSetup);
+    mockGenerateText.mockResolvedValue(validSetup);
     const result = await generateTradeSetup("RAMCOSYS-EQ", "{}");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -133,7 +176,7 @@ describe("generateTradeSetup", () => {
   });
 
   it("returns err when the LLM returns non-JSON", async () => {
-    mockChat.mockResolvedValue("Sorry, I cannot generate that setup.");
+    mockGenerateText.mockResolvedValue("Sorry, I cannot generate that setup.");
     const result = await generateTradeSetup("RAMCOSYS-EQ", "{}");
     expect(result.ok).toBe(false);
     if (result.ok) return;

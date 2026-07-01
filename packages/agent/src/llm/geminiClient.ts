@@ -25,24 +25,28 @@ export function toGeminiHistory(
 }
 
 /**
- * Send a message to Drishti (multi-turn chat) with Google Search grounding.
+ * Send a message to Drishti (multi-turn chat). Google Search grounding is opt-in —
+ * pass opts.grounding only when the question actually needs live web data, since
+ * grounding carries its own cost/quota on top of normal token usage.
  * The caller is responsible for loading and passing conversation history.
  * @param systemInstruction - The full Drishti system prompt
  * @param history - Prior turns as Gemini Content array
  * @param message - The new user message
+ * @param options.grounding - Enable Google Search grounding for this turn; defaults to false
  * @returns Drishti's response text
  */
 export async function chatWithDrishti(
   systemInstruction: string,
   history: Content[],
   message: string,
+  options: { grounding?: boolean } = {},
 ): Promise<string> {
   const chatSession = ai.chats.create({
     model: GEMINI_FLASH,
     history,
     config: {
       systemInstruction,
-      tools: [{ googleSearch: {} }],
+      ...(options.grounding ? { tools: [{ googleSearch: {} }] } : {}),
       temperature: 0.7,
       maxOutputTokens: 1500,
     },

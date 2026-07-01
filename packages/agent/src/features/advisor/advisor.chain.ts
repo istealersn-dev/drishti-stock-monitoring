@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import type { Content } from "@google/genai";
 import { and, desc, eq, gte } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
@@ -18,26 +19,75 @@ import {
 import { TradeSetupSchema } from "./advisor.schema.js";
 import type { AdvisoryRequest, AdvisoryResponse, TradeSetup } from "./advisor.schema.js";
 
-const MAX_HISTORY_TURNS = 20;
+const MAX_HISTORY_TURNS = 8;
+const MAX_HISTORY_CHARS = 6000; // caps resent token volume regardless of turn count
+
+// Questions matching these need live web data (news, macro events) that the
+// portfolio/technicals context can't supply — grounding is only worth its
+// extra cost for this subset of questions.
+const GROUNDING_SIGNAL_KEYWORDS = [
+  "news",
+  "today",
+  "recent",
+  "latest",
+  "why did",
+  "why is",
+  "results",
+  "earnings",
+  "rbi",
+  "budget",
+  "sebi",
+  "ipo",
+  "merger",
+  "acquisition",
+  "market sentiment",
+];
+
+/**
+ * Decide whether a question needs Google Search grounding. Grounding adds cost/quota
+ * on top of normal tokens, so it's only enabled for questions that plausibly need
+ * live web data rather than portfolio/technicals reasoning.
+ * @param question - The user's advisory question
+ * @returns true if the question should be answered with grounding enabled
+ */
+function needsGrounding(question: string): boolean {
+  const lower = question.toLowerCase();
+  return GROUNDING_SIGNAL_KEYWORDS.some((keyword) => lower.includes(keyword));
+}
 
 /**
  * Load recent conversation turns for a session and convert to Gemini history format.
- * Only loads the last MAX_HISTORY_TURNS pairs to stay within context budget.
+ * Loads at most MAX_HISTORY_TURNS pairs, then trims from the oldest until the total
+ * character count is under MAX_HISTORY_CHARS, to keep resent-token cost bounded.
  * @param sessionId - The session to load history for
  * @returns Gemini-format Content array
  */
-function loadHistory(sessionId: string) {
+function loadHistory(sessionId: string): Content[] {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const rows = db
     .select()
     .from(advisoryConversations)
-    .where(and(eq(advisoryConversations.sessionId, sessionId), gte(advisoryConversations.createdAt, cutoff)))
+    .where(
+      and(
+        eq(advisoryConversations.sessionId, sessionId),
+        gte(advisoryConversations.createdAt, cutoff),
+      ),
+    )
     .orderBy(desc(advisoryConversations.createdAt))
     .limit(MAX_HISTORY_TURNS)
     .all();
 
-  // Reverse so history is chronological (oldest→newest) as Gemini expects
-  return toGeminiHistory(rows.reverse());
+  // rows are newest-first; keep newest rows first until the char budget is spent,
+  // then reverse so history is chronological (oldest→newest) as Gemini expects
+  const withinBudget: typeof rows = [];
+  let totalChars = 0;
+  for (const row of rows) {
+    totalChars += row.content.length;
+    if (totalChars > MAX_HISTORY_CHARS && withinBudget.length > 0) break;
+    withinBudget.push(row);
+  }
+
+  return toGeminiHistory(withinBudget.reverse());
 }
 
 /**
@@ -64,7 +114,9 @@ export async function askAdvisor(
     const userContext = buildAdvisoryContext(holdings, request.question);
 
     const userAt = new Date().toISOString();
-    const answer = await chatWithDrishti(SEBI_ADVISOR_SYSTEM_PROMPT, history, userContext);
+    const answer = await chatWithDrishti(SEBI_ADVISOR_SYSTEM_PROMPT, history, userContext, {
+      grounding: needsGrounding(request.question),
+    });
     const assistantAt = new Date().toISOString();
 
     db.transaction((tx) => {
