@@ -1,10 +1,38 @@
+import { eq } from "drizzle-orm";
+
+import { db } from "../../db/db.js";
+import { agentSettings } from "../../db/schema.js";
 import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 
-let lastAnalysedLtp: Record<string, number> = {};
+const SNAPSHOT_SETTINGS_KEY = "llm_analysis_last_ltp";
+
+// In-memory read-through cache over the agentSettings row, so this doesn't add a
+// DB query on every tick. null means "not yet loaded from DB this process" —
+// distinct from an empty object, which means "loaded, and genuinely no prior data".
+let cachedSnapshot: Record<string, number> | null = null;
+
+function loadSnapshot(): Record<string, number> {
+  if (cachedSnapshot) return cachedSnapshot;
+
+  const row = db
+    .select({ value: agentSettings.value })
+    .from(agentSettings)
+    .where(eq(agentSettings.key, SNAPSHOT_SETTINGS_KEY))
+    .get();
+
+  try {
+    cachedSnapshot = row?.value ? (JSON.parse(row.value) as Record<string, number>) : {};
+  } catch {
+    cachedSnapshot = {};
+  }
+  return cachedSnapshot;
+}
 
 /**
  * Record the LTP of every holding at the moment an LLM analysis actually ran.
- * Used to gate future calls on materially-changed prices.
+ * Persisted to SQLite (agent_settings) so the gate survives process restarts —
+ * an in-memory-only snapshot would reset to empty on every restart and force a
+ * full-portfolio re-analysis on the next tick, defeating the quota-control gate.
  * @param holdings - Holdings included in the analysis
  * @param ltpMap - Map of instrument_token → LTP used for that analysis
  */
@@ -14,7 +42,16 @@ export function recordAnalysisSnapshot(holdings: Holding[], ltpMap: Record<strin
     const ltp = ltpMap[holding.instrument_token]?.last_price ?? holding.last_price;
     snapshot[holding.trading_symbol] = ltp;
   }
-  lastAnalysedLtp = snapshot;
+  cachedSnapshot = snapshot;
+
+  const now = new Date().toISOString();
+  db.insert(agentSettings)
+    .values({ key: SNAPSHOT_SETTINGS_KEY, value: JSON.stringify(snapshot), updatedAt: now })
+    .onConflictDoUpdate({
+      target: agentSettings.key,
+      set: { value: JSON.stringify(snapshot), updatedAt: now },
+    })
+    .run();
 }
 
 /**
@@ -30,8 +67,9 @@ export function hasMovedSignificantly(
   ltpMap: Record<string, LtpData>,
   thresholdPct: number,
 ): boolean {
+  const snapshot = loadSnapshot();
   return holdings.some((holding) => {
-    const priorLtp = lastAnalysedLtp[holding.trading_symbol];
+    const priorLtp = snapshot[holding.trading_symbol];
     if (priorLtp === undefined) return true;
 
     const ltp = ltpMap[holding.instrument_token]?.last_price ?? holding.last_price;
@@ -42,7 +80,7 @@ export function hasMovedSignificantly(
   });
 }
 
-/** Test-only: clear the in-memory snapshot so tests don't leak state across cases. */
+/** Test-only: clear the cached snapshot so tests don't leak state across cases. */
 export function __resetAnalysisSnapshotForTests(): void {
-  lastAnalysedLtp = {};
+  cachedSnapshot = null;
 }

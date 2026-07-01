@@ -49,6 +49,7 @@ vi.mock("../../db/db.js", () => ({
 vi.mock("../../db/schema.js", () => ({
   agentLogs: {},
   gttOrders: {},
+  agentSettings: { key: "key", value: "value" },
 }));
 
 import { __resetAnalysisSnapshotForTests } from "../insights/insights.cache.js";
@@ -91,7 +92,10 @@ describe("buildAgentGraph", () => {
     __resetAnalysisSnapshotForTests();
     const innerRun = vi.fn();
     const innerAll = vi.fn().mockReturnValue([]);
-    mockDatabaseInsertValues = vi.fn().mockReturnValue({ run: innerRun });
+    mockDatabaseInsertValues = vi.fn().mockReturnValue({
+      run: innerRun,
+      onConflictDoUpdate: vi.fn().mockReturnValue({ run: innerRun }),
+    });
     mockDbInsert.mockReturnValue({ values: mockDatabaseInsertValues });
     mockDbUpdate.mockReturnValue({
       set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ run: innerRun }) }),
@@ -176,6 +180,31 @@ describe("buildAgentGraph", () => {
     // LLM failure → null output so logAndAlertNode stays silent (no Slack spam)
     expect(final.llmOutput).toBeNull();
     expect(final.errors).toHaveLength(0);
+  });
+
+  it("retries analysePortfolio on the very next tick after a failure, instead of going silent for the rest of the trading day", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValueOnce({ ok: false, error: new Error("Gemini outage") });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+    expect(mockAnalysePortfolio).toHaveBeenCalledOnce();
+
+    // No breach/target/price-move on the second tick either — only the once-a-day
+    // fallback should be driving this call. Because the first attempt failed, no
+    // llm_analyse_gate row was written, so fallbackDue must still be true.
+    mockAnalysePortfolio.mockResolvedValueOnce({
+      ok: true,
+      value: { decisions: [], portfolioSummary: "Recovered." },
+    });
+    await graph.run(makeInitialState());
+    expect(mockAnalysePortfolio).toHaveBeenCalledTimes(2);
   });
 
   it("skips LLM analysis when market is closed", async () => {

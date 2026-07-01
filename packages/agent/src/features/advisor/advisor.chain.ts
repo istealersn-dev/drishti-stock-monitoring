@@ -24,41 +24,51 @@ const MAX_HISTORY_CHARS = 6000; // caps resent token volume regardless of turn c
 
 // Questions matching these need live web data (news, macro events) that the
 // portfolio/technicals context can't supply — grounding is only worth its
-// extra cost for this subset of questions.
+// extra cost for this subset of questions. Deliberately avoids generic single
+// words ("today", "recent", "results") that show up in routine hold/trim
+// questions too, since a false positive here defeats the point of gating.
 const GROUNDING_SIGNAL_KEYWORDS = [
   "news",
-  "today",
-  "recent",
-  "latest",
+  "recent news",
+  "latest news",
   "why did",
   "why is",
-  "results",
+  "quarterly results",
   "earnings",
   "rbi",
   "budget",
-  "sebi",
+  "sebi circular",
   "ipo",
   "merger",
   "acquisition",
   "market sentiment",
+  "stock split",
+  "bonus issue",
 ];
 
 /**
  * Decide whether a question needs Google Search grounding. Grounding adds cost/quota
  * on top of normal tokens, so it's only enabled for questions that plausibly need
- * live web data rather than portfolio/technicals reasoning.
+ * live web data rather than portfolio/technicals reasoning. Matches on word
+ * boundaries to avoid short keywords (e.g. "rbi", "ipo") false-positiving inside
+ * unrelated words.
  * @param question - The user's advisory question
  * @returns true if the question should be answered with grounding enabled
  */
 function needsGrounding(question: string): boolean {
   const lower = question.toLowerCase();
-  return GROUNDING_SIGNAL_KEYWORDS.some((keyword) => lower.includes(keyword));
+  return GROUNDING_SIGNAL_KEYWORDS.some((keyword) => {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`\\b${escaped}\\b`).test(lower);
+  });
 }
 
 /**
  * Load recent conversation turns for a session and convert to Gemini history format.
  * Loads at most MAX_HISTORY_TURNS pairs, then trims from the oldest until the total
  * character count is under MAX_HISTORY_CHARS, to keep resent-token cost bounded.
+ * Never returns a history starting on an "assistant" turn — Gemini requires the
+ * first turn to be "user", so a leading unpaired assistant reply is dropped.
  * @param sessionId - The session to load history for
  * @returns Gemini-format Content array
  */
@@ -77,17 +87,28 @@ function loadHistory(sessionId: string): Content[] {
     .limit(MAX_HISTORY_TURNS)
     .all();
 
-  // rows are newest-first; keep newest rows first until the char budget is spent,
-  // then reverse so history is chronological (oldest→newest) as Gemini expects
-  const withinBudget: typeof rows = [];
+  const chronological = rows.reverse();
+
+  // Walk backward from the newest turn, keeping whole turns within the char budget.
+  // The newest turn is always kept even if it alone exceeds the budget.
   let totalChars = 0;
-  for (const row of rows) {
-    totalChars += row.content.length;
-    if (totalChars > MAX_HISTORY_CHARS && withinBudget.length > 0) break;
-    withinBudget.push(row);
+  let startIndex = chronological.length;
+  for (let index = chronological.length - 1; index >= 0; index--) {
+    const row = chronological[index];
+    if (!row) continue;
+    const nextTotal = totalChars + row.content.length;
+    if (nextTotal > MAX_HISTORY_CHARS && startIndex < chronological.length) break;
+    totalChars = nextTotal;
+    startIndex = index;
   }
 
-  return toGeminiHistory(withinBudget.reverse());
+  // If the kept slice starts on an assistant turn, its paired user question was
+  // trimmed off above — drop the now-unpaired assistant turn too.
+  while (chronological[startIndex]?.role === "assistant") {
+    startIndex++;
+  }
+
+  return toGeminiHistory(chronological.slice(startIndex));
 }
 
 /**

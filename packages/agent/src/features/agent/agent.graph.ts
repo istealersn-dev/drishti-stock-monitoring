@@ -193,18 +193,6 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
     return { llmOutput: null };
   }
 
-  db.insert(agentLogs)
-    .values({
-      runId: state.runId,
-      symbol: PORTFOLIO_SENTINEL,
-      action: LLM_ANALYSE_GATE_ACTION,
-      reasoning: null,
-      dryRun: env.DRISHTI_DRY_RUN,
-      error: null,
-      createdAt: new Date().toISOString(),
-    })
-    .run();
-
   const result = await analysePortfolio(state.holdings, state.ltpMap, state.slConfigs);
 
   if (!result.ok) {
@@ -221,7 +209,8 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
         createdAt: new Date().toISOString(),
       })
       .run();
-    // Return null so executeActionsNode and logAndAlertNode both no-op silently
+    // No llm_analyse_gate row on failure — the fallback cadence stays due so the
+    // next tick retries, instead of going silent for the rest of the trading day.
     return { llmOutput: null };
   }
 
@@ -230,6 +219,17 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
     decisions: result.value.decisions.length,
   });
 
+  db.insert(agentLogs)
+    .values({
+      runId: state.runId,
+      symbol: PORTFOLIO_SENTINEL,
+      action: LLM_ANALYSE_GATE_ACTION,
+      reasoning: null,
+      dryRun: env.DRISHTI_DRY_RUN,
+      error: null,
+      createdAt: new Date().toISOString(),
+    })
+    .run();
   recordAnalysisSnapshot(state.holdings, state.ltpMap);
 
   return { llmOutput: result.value };

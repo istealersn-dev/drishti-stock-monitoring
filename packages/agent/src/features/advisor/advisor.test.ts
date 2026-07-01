@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const {
   mockChatWithDrishti,
   mockGenerateText,
+  mockToGeminiHistory,
   mockRun,
   mockValues,
   mockInsert,
@@ -19,6 +20,14 @@ const {
   return {
     mockChatWithDrishti: vi.fn(),
     mockGenerateText: vi.fn(),
+    // Mirrors the real toGeminiHistory role mapping, so history-shape assertions
+    // (e.g. role alternation) exercise realistic data instead of an empty stub.
+    mockToGeminiHistory: vi.fn((rows: Array<{ role: string; content: string }>) =>
+      rows.map((r) => ({
+        role: r.role === "assistant" ? "model" : "user",
+        parts: [{ text: r.content }],
+      })),
+    ),
     mockRun: run,
     mockValues: values,
     mockInsert: insert,
@@ -31,7 +40,7 @@ const {
 vi.mock("../../llm/geminiClient.js", () => ({
   chatWithDrishti: mockChatWithDrishti,
   generateText: mockGenerateText,
-  toGeminiHistory: vi.fn().mockReturnValue([]),
+  toGeminiHistory: mockToGeminiHistory,
 }));
 
 vi.mock("../../db/db.js", () => ({
@@ -139,6 +148,40 @@ describe("askAdvisor", () => {
       expect.any(String),
       { grounding: true },
     );
+  });
+
+  it("never sends Gemini history starting on an assistant turn, even if the newest row alone exceeds the char budget", async () => {
+    const oversizedAnswer = "A".repeat(7000); // exceeds the 6000-char history budget alone
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              all: vi.fn().mockReturnValue([
+                {
+                  role: "assistant",
+                  content: oversizedAnswer,
+                  createdAt: "2026-07-01T10:01:00.000Z",
+                },
+                {
+                  role: "user",
+                  content: "Should I hold?",
+                  createdAt: "2026-07-01T10:00:00.000Z",
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+    });
+    mockChatWithDrishti.mockResolvedValue("Hold for now.");
+
+    await askAdvisor(request);
+
+    const history = mockChatWithDrishti.mock.calls[0]?.[1] as Array<{ role: string }>;
+    if (history.length > 0) {
+      expect(history[0]?.role).toBe("user");
+    }
   });
 });
 
