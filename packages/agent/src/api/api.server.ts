@@ -429,10 +429,13 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
     if (cached) {
       return reply.send({ ok: true, data: cached });
     }
-    return reply.status(503).send({
-      ok: false,
-      error: "Health report not yet computed. POST /api/health/run to generate.",
-    });
+    const result = await computeHealthReport();
+    if (!result.ok) {
+      logger.error("Health report computation failed", { error: result.error.message });
+      return reply.status(500).send({ ok: false, error: result.error.message });
+    }
+    setLastHealthReport(result.value);
+    return reply.send({ ok: true, data: result.value });
   });
 
   app.post("/api/health/run", async (_request, reply) => {
