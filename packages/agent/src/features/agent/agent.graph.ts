@@ -8,6 +8,7 @@ import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
 import { buildSlExitRequest } from "../gtt/gtt.service.js";
 import { cancelGTT, createGTT } from "../gtt/gtt.tools.js";
+import { hasMovedSignificantly, recordAnalysisSnapshot } from "../insights/insights.cache.js";
 import { analysePortfolio } from "../insights/insights.chain.js";
 import { updateHoldingsCache } from "../portfolio/portfolio.cache.js";
 import { fetchHoldings, fetchLTP } from "../portfolio/portfolio.tools.js";
@@ -24,6 +25,7 @@ const GTT_LIMIT_BUFFER = 0.995;
 const ALERT_ONLY_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour between repeated alert_only alerts
 const TRADING_DAY_MS = 8 * 60 * 60 * 1000; // 8 h window — covers one full market session
 const PORTFOLIO_SENTINEL = "__portfolio__"; // symbol key for portfolio-level agent_logs rows
+const LLM_ANALYSE_GATE_ACTION = "llm_analyse_gate"; // marks an attempted (not necessarily successful) LLM analysis, for fallback cadence
 
 /**
  * Returns true if an agent_log row with the given action+symbol already exists
@@ -160,7 +162,12 @@ async function checkTargetsNode(state: Readonly<AgentState>): Promise<Partial<Ag
   return { targetHits };
 }
 
-/** Run LLM analysis over portfolio state; skips outside market hours and on errors. */
+/**
+ * Run LLM analysis over portfolio state; skips outside market hours, on errors, and
+ * when nothing material has happened. A call is only made when: a SL breach or target
+ * hit fired this run, a holding has moved beyond DRISHTI_LLM_MOVE_THRESHOLD_PCT since
+ * the last analysis, or no analysis has run yet this trading session (fallback cadence).
+ */
 async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {
   if (state.holdings.length === 0 || state.errors.length > 0) return {};
 
@@ -168,6 +175,35 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
     logger.debug("llmAnalyse: market closed — skipping portfolio LLM");
     return { llmOutput: null };
   }
+
+  const hasMaterialEvent = state.breaches.length > 0 || state.targetHits.length > 0;
+  const movedSignificantly = hasMovedSignificantly(
+    state.holdings,
+    state.ltpMap,
+    env.DRISHTI_LLM_MOVE_THRESHOLD_PCT,
+  );
+  const fallbackDue = !wasRecentlyAlerted(
+    LLM_ANALYSE_GATE_ACTION,
+    PORTFOLIO_SENTINEL,
+    TRADING_DAY_MS,
+  );
+
+  if (!hasMaterialEvent && !movedSignificantly && !fallbackDue) {
+    logger.debug("llmAnalyse: no material change — skipping Gemini call");
+    return { llmOutput: null };
+  }
+
+  db.insert(agentLogs)
+    .values({
+      runId: state.runId,
+      symbol: PORTFOLIO_SENTINEL,
+      action: LLM_ANALYSE_GATE_ACTION,
+      reasoning: null,
+      dryRun: env.DRISHTI_DRY_RUN,
+      error: null,
+      createdAt: new Date().toISOString(),
+    })
+    .run();
 
   const result = await analysePortfolio(state.holdings, state.ltpMap, state.slConfigs);
 
@@ -193,6 +229,8 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
     runId: state.runId,
     decisions: result.value.decisions.length,
   });
+
+  recordAnalysisSnapshot(state.holdings, state.ltpMap);
 
   return { llmOutput: result.value };
 }

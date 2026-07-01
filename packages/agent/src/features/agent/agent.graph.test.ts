@@ -36,7 +36,9 @@ vi.mock("../targets/targets.detector.js", () => ({
 }));
 vi.mock("../insights/insights.chain.js", () => ({ analysePortfolio: mockAnalysePortfolio }));
 vi.mock("../../scheduler/cron.js", () => ({ isMarketOpen: vi.fn().mockReturnValue(true) }));
-vi.mock("../../shared/env.js", () => ({ env: { DRISHTI_DRY_RUN: false } }));
+vi.mock("../../shared/env.js", () => ({
+  env: { DRISHTI_DRY_RUN: false, DRISHTI_LLM_MOVE_THRESHOLD_PCT: 4 },
+}));
 vi.mock("../../db/db.js", () => ({
   db: {
     insert: mockDbInsert,
@@ -48,6 +50,8 @@ vi.mock("../../db/schema.js", () => ({
   agentLogs: {},
   gttOrders: {},
 }));
+
+import { __resetAnalysisSnapshotForTests } from "../insights/insights.cache.js";
 
 import { buildAgentGraph } from "./agent.graph.js";
 import type { AgentState } from "./agent.state.js";
@@ -84,6 +88,7 @@ describe("buildAgentGraph", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetAnalysisSnapshotForTests();
     const innerRun = vi.fn();
     const innerAll = vi.fn().mockReturnValue([]);
     mockDatabaseInsertValues = vi.fn().mockReturnValue({ run: innerRun });
@@ -377,6 +382,83 @@ describe("buildAgentGraph", () => {
     );
     expect(writtenActions).toContain("gtt_modify_failed");
     expect(mockPushAlert).not.toHaveBeenCalledWith(expect.stringContaining("Adjust SL."));
+  });
+
+  it("skips the Gemini call on a repeat tick with no material change once the fallback gate has fired", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [{ symbol: "AXISBANK-EQ", action: "hold", reasoning: "Fine.", gttParams: null }],
+        portfolioSummary: "Summary.",
+      },
+    });
+
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+    expect(mockAnalysePortfolio).toHaveBeenCalledOnce();
+
+    // Second tick: same LTP (no significant move), and wasRecentlyAlerted now
+    // reports the llm_analyse_gate row written by the first tick, so the
+    // fallback cadence is satisfied too — Gemini should not be called again.
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          all: vi.fn().mockReturnValue([]),
+          get: vi.fn().mockReturnValue({ id: 1 }),
+        }),
+      }),
+    });
+
+    await graph.run(makeInitialState());
+    expect(mockAnalysePortfolio).toHaveBeenCalledOnce();
+  });
+
+  it("calls Gemini again when a holding moves beyond the threshold, even with the fallback gate satisfied", async () => {
+    mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+    mockAnalysePortfolio.mockResolvedValue({
+      ok: true,
+      value: {
+        decisions: [{ symbol: "AXISBANK-EQ", action: "hold", reasoning: "Fine.", gttParams: null }],
+        portfolioSummary: "Summary.",
+      },
+    });
+
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+    const graph = buildAgentGraph();
+    await graph.run(makeInitialState());
+    expect(mockAnalysePortfolio).toHaveBeenCalledOnce();
+
+    // Fallback gate already satisfied (llm_analyse_gate row exists), but LTP
+    // has moved >4% since the last analysis — should still trigger a call.
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          all: vi.fn().mockReturnValue([]),
+          get: vi.fn().mockReturnValue({ id: 1 }),
+        }),
+      }),
+    });
+    mockFetchLTP.mockResolvedValue({
+      ok: true,
+      value: {
+        "NSE_EQ|INE238A01034": { last_price: 1200, instrument_token: "NSE_EQ|INE238A01034" },
+      },
+    });
+
+    await graph.run(makeInitialState());
+    expect(mockAnalysePortfolio).toHaveBeenCalledTimes(2);
   });
 
   it("calls handleSlBreach for each detected breach", async () => {
