@@ -15,6 +15,7 @@ export default [
           "./packages/agent/tsconfig.json",
           "./packages/agent/tsconfig.tooling.json",
           "./packages/ui/tsconfig.json",
+          "./packages/token-refresh/tsconfig.json",
         ],
         tsconfigRootDir: import.meta.dirname,
       },

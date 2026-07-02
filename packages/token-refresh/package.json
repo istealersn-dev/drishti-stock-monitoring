@@ -1,0 +1,23 @@
+{
+  "name": "token-refresh",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@slack/web-api": "^7.9.0",
+    "dotenv": "^16.0.0",
+    "otpauth": "^9.3.4",
+    "playwright": "^1.48.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "tsx": "^4.0.0",
+    "vitest": "^2.0.0"
+  }
+}
