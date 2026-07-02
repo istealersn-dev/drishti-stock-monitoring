@@ -6,6 +6,10 @@ const execFileAsync = promisify(execFile);
 const KEYCHAIN_ACCOUNT = "drishti";
 
 export class CredentialNotFoundError extends Error {
+  /**
+   * @param key - The fully-prefixed Keychain service name that failed to read.
+   * @param cause - The underlying error from the `security` CLI (preserved in the message).
+   */
   constructor(key: string, cause: unknown) {
     const reason = cause instanceof Error ? cause.message : String(cause);
     super(`Keychain read failed for ${key}: ${reason}`);
