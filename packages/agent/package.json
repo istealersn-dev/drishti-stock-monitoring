@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
-    "@google/genai": "^2.10.0",
     "@slack/bolt": "^3.22.0",
     "@slack/web-api": "^7.9.0",
     "better-sqlite3": "^11.10.0",

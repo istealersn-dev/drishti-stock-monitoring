@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import type { Content } from "@google/genai";
 import { and, desc, eq, gte } from "drizzle-orm";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 
 import { db } from "../../db/db.js";
 import { advisoryConversations } from "../../db/schema.js";
-import { chatWithDrishti, generateText, toGeminiHistory } from "../../llm/geminiClient.js";
+import { ADVISOR_LLM_TIMEOUT_MS, chat, chatOnce } from "../../llm/llmClient.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import { logger } from "../../shared/logger.js";
@@ -21,60 +21,22 @@ import type { AdvisoryRequest, AdvisoryResponse, TradeSetup } from "./advisor.sc
 
 const MAX_HISTORY_TURNS = 8;
 const MAX_HISTORY_CHARS = 6000; // caps resent token volume regardless of turn count
-
-// Questions matching these need live web data (news, macro events) that the
-// portfolio/technicals context can't supply — grounding is only worth its
-// extra cost for this subset of questions. Deliberately avoids generic single
-// words ("today", "recent", "results") that show up in routine hold/trim
-// questions too, since a false positive here defeats the point of gating.
-const GROUNDING_SIGNAL_KEYWORDS = [
-  "news",
-  "recent news",
-  "latest news",
-  "why did",
-  "why is",
-  "quarterly results",
-  "earnings",
-  "rbi",
-  "budget",
-  "sebi circular",
-  "ipo",
-  "merger",
-  "acquisition",
-  "market sentiment",
-  "stock split",
-  "bonus issue",
-];
+const ADVISOR_MAX_TOKENS = 1500; // keeps the persona's "under 1000 characters" rule enforceable
+const ADVISOR_TEMPERATURE = 0.7; // conversational persona — higher variance than structured-output calls
 
 /**
- * Decide whether a question needs Google Search grounding. Grounding adds cost/quota
- * on top of normal tokens, so it's only enabled for questions that plausibly need
- * live web data rather than portfolio/technicals reasoning. Matches on word
- * boundaries to avoid short keywords (e.g. "rbi", "ipo") false-positiving inside
- * unrelated words.
- * @param question - The user's advisory question
- * @returns true if the question should be answered with grounding enabled
- */
-function needsGrounding(question: string): boolean {
-  const lower = question.toLowerCase();
-  return GROUNDING_SIGNAL_KEYWORDS.some((keyword) => {
-    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`\\b${escaped}\\b`).test(lower);
-  });
-}
-
-/**
- * Load recent conversation turns for a session and convert to Gemini history format.
+ * Load recent conversation turns for a session as chat messages.
  * Loads at most MAX_HISTORY_TURNS rows (MAX_HISTORY_TURNS / 2 user+assistant pairs),
  * then trims from the oldest until the total character count is under
  * MAX_HISTORY_CHARS, to keep resent-token cost bounded. Never returns a history
- * starting on an "assistant" turn — Gemini requires the first turn to be "user" —
- * by pulling the paired user question back in past the char budget if needed;
- * only drops the assistant turn outright if there's truly no row to pair it with.
+ * starting on an "assistant" turn — an assistant reply with no preceding question is
+ * useless as context — by pulling the paired user question back in past the char
+ * budget if needed; only drops the assistant turn outright if there's truly no row
+ * to pair it with.
  * @param sessionId - The session to load history for
- * @returns Gemini-format Content array
+ * @returns Chat messages in chronological order
  */
-function loadHistory(sessionId: string): Content[] {
+function loadHistory(sessionId: string): ChatCompletionMessageParam[] {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const rows = db
     .select()
@@ -107,17 +69,20 @@ function loadHistory(sessionId: string): Content[] {
   // If the kept slice starts on an assistant turn, its paired user question is the
   // row directly before it (askAdvisor always inserts the pair atomically) — pull
   // it back in even past the char budget, since an assistant reply with no
-  // preceding question is both invalid for Gemini and useless as context. Only
-  // drop it outright if there's truly no earlier row to pair it with.
+  // preceding question is useless as context. Only drop it outright if there's
+  // truly no earlier row to pair it with.
   if (chronological[startIndex]?.role === "assistant") {
     startIndex = startIndex > 0 ? startIndex - 1 : startIndex + 1;
   }
 
-  return toGeminiHistory(chronological.slice(startIndex));
+  return chronological.slice(startIndex).map((row) => ({
+    role: row.role === "assistant" ? "assistant" : "user",
+    content: row.content,
+  }));
 }
 
 /**
- * Answer a portfolio advisory question using the Drishti persona (Gemini 2.5 Flash + Google Search).
+ * Answer a portfolio advisory question using the Drishti persona.
  * Loads the last 24h of conversation history for the session to maintain multi-turn context.
  * The question and answer are persisted as two rows (role "user" and "assistant")
  * under the same session id.
@@ -140,9 +105,16 @@ export async function askAdvisor(
     const userContext = buildAdvisoryContext(holdings, request.question);
 
     const userAt = new Date().toISOString();
-    const answer = await chatWithDrishti(SEBI_ADVISOR_SYSTEM_PROMPT, history, userContext, {
-      grounding: needsGrounding(request.question),
-    });
+    const answer = await chat(
+      [
+        { role: "system", content: SEBI_ADVISOR_SYSTEM_PROMPT },
+        ...history,
+        { role: "user", content: userContext },
+      ],
+      ADVISOR_MAX_TOKENS,
+      ADVISOR_LLM_TIMEOUT_MS,
+      ADVISOR_TEMPERATURE,
+    );
     const assistantAt = new Date().toISOString();
 
     db.transaction((tx) => {
@@ -176,7 +148,6 @@ export async function askAdvisor(
 
 /**
  * Generate a structured trade setup for a symbol from its technical levels.
- * Uses Gemini Flash (full model) for reliable JSON output.
  * @param symbol - The trading symbol the setup is for
  * @param levelsJson - JSON string of the stock's technical levels
  * @returns A Result with the validated trade setup, or an Error on failure
@@ -187,10 +158,10 @@ export async function generateTradeSetup(
 ): Promise<Result<TradeSetup, Error>> {
   let rawResponse: string;
   try {
-    rawResponse = await generateText(
+    rawResponse = await chatOnce(
       TRADE_SETUP_SYSTEM_PROMPT,
       `Generate a trade setup for ${symbol}.\nTechnical levels:\n${levelsJson}`,
-      { model: "gemini-2.5-flash" },
+      { timeoutMs: ADVISOR_LLM_TIMEOUT_MS },
     );
   } catch (e) {
     return err(e instanceof Error ? e : new Error(String(e)));

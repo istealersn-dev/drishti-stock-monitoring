@@ -190,7 +190,7 @@ describe("buildAgentGraph", () => {
         "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
       },
     });
-    mockAnalysePortfolio.mockResolvedValueOnce({ ok: false, error: new Error("Gemini outage") });
+    mockAnalysePortfolio.mockResolvedValueOnce({ ok: false, error: new Error("LLM outage") });
 
     const graph = buildAgentGraph();
     await graph.run(makeInitialState());
@@ -413,7 +413,7 @@ describe("buildAgentGraph", () => {
     expect(mockPushAlert).not.toHaveBeenCalledWith(expect.stringContaining("Adjust SL."));
   });
 
-  it("skips the Gemini call on a repeat tick with no material change once the fallback gate has fired", async () => {
+  it("skips the LLM call on a repeat tick with no material change once the fallback gate has fired", async () => {
     mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
     mockFetchLTP.mockResolvedValue({
       ok: true,
@@ -435,7 +435,7 @@ describe("buildAgentGraph", () => {
 
     // Second tick: same LTP (no significant move), and wasRecentlyAlerted now
     // reports the llm_analyse_gate row written by the first tick, so the
-    // fallback cadence is satisfied too — Gemini should not be called again.
+    // fallback cadence is satisfied too — the LLM should not be called again.
     mockDbSelect.mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
@@ -449,7 +449,7 @@ describe("buildAgentGraph", () => {
     expect(mockAnalysePortfolio).toHaveBeenCalledOnce();
   });
 
-  it("calls Gemini again when a holding moves beyond the threshold, even with the fallback gate satisfied", async () => {
+  it("calls the LLM again when a holding moves beyond the threshold, even with the fallback gate satisfied", async () => {
     mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
     mockAnalysePortfolio.mockResolvedValue({
       ok: true,

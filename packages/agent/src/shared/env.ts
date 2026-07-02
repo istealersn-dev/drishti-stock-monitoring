@@ -8,9 +8,7 @@ config({
 });
 
 const EnvironmentSchema = z.object({
-  GEMINI_API_KEY: z.string().min(1),
-
-  // LM Studio — kept for backward compatibility but no longer used for advisor/insights
+  // LM Studio — the sole LLM provider (advisor, insights, slack-analyse, instructions parser, health engine)
   LM_STUDIO_BASE_URL: z.string().url().optional().default("http://localhost:1234"),
   LM_MODEL: z.string().min(1).optional().default("google/gemma-4-12b-qat"),
 
