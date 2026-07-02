@@ -22,4 +22,5 @@ packages/*/build/
 
 # Token refresh debug artifacts
 packages/token-refresh/screenshots/
-packages/token-refresh/logs/
+packages/token-refresh/logs/*
+!packages/token-refresh/logs/.gitkeep
