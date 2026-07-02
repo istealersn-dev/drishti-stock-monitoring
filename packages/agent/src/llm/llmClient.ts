@@ -20,6 +20,15 @@ export const PORTFOLIO_LLM_TIMEOUT_MS = 300_000;
 // reasoning) run heavier prompts than the default case but lighter than a full
 // 12-holding portfolio batch — the 120s default is too tight for Gemma 4 12B here.
 export const ADVISOR_LLM_TIMEOUT_MS = 180_000;
+export const ADVISOR_MAX_TOKENS = 1500; // keeps the persona's "under 1000 characters" rule enforceable
+export const ADVISOR_TEMPERATURE = 0.7; // conversational persona — higher variance than structured-output calls
+// Trade setup JSON (entry/SL/targets + a free-text rationale) needs more headroom
+// than the terse persona reply, but not the full portfolio-analysis budget.
+export const TRADE_SETUP_MAX_TOKENS = 4096;
+
+// Lightweight fuzzy-match fallback (returns a single ~20-token symbol guess) — fails
+// fast rather than inheriting the 120s default sized for much heavier prompts.
+export const SYMBOL_RESOLVE_TIMEOUT_MS = 30_000;
 
 const client = new OpenAI({
   baseURL: env.LM_STUDIO_BASE_URL + "/v1",
@@ -101,7 +110,7 @@ export async function chatWithTools(
     messages,
     tools,
     max_tokens: DEFAULT_MAX_TOKENS,
-    temperature: 0.1,
+    temperature: DEFAULT_TEMPERATURE,
     stream: false,
   });
 

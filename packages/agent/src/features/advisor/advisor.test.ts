@@ -32,6 +32,9 @@ vi.mock("../../llm/llmClient.js", () => ({
   chat: mockChat,
   chatOnce: mockChatOnce,
   ADVISOR_LLM_TIMEOUT_MS: 180_000,
+  ADVISOR_MAX_TOKENS: 1500,
+  ADVISOR_TEMPERATURE: 0.7,
+  TRADE_SETUP_MAX_TOKENS: 4096,
 }));
 
 vi.mock("../../db/db.js", () => ({

@@ -5,7 +5,11 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
 import { agentLogs, agentRuns, slackSessions, stockConfig } from "../../db/schema.js";
-import { ADVISOR_LLM_TIMEOUT_MS, chatOnce } from "../../llm/llmClient.js";
+import {
+  ADVISOR_LLM_TIMEOUT_MS,
+  SYMBOL_RESOLVE_TIMEOUT_MS,
+  chatOnce,
+} from "../../llm/llmClient.js";
 import { env } from "../../shared/env.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
@@ -37,7 +41,7 @@ import {
 type SayFunction = SayFn;
 
 type SlackClient = {
-  chat: { update: (args: { channel: string; ts: string; text: string }) => Promise<unknown> };
+  chat: { update: (arguments_: { channel: string; ts: string; text: string }) => Promise<unknown> };
 };
 
 const CMD_PNL = "cmd_pnl";
@@ -169,7 +173,7 @@ async function resolveHolding(query: string, holdings: Holding[]): Promise<Holdi
     const response = await chatOnce(
       "You are a stock symbol resolver. Given a user query and a list of holdings, return ONLY the exact trading symbol that best matches the query. If nothing matches, return the word NONE. No explanation.",
       `Query: "${query}"\n\nHoldings:\n${symbolList}`,
-      { maxTokens: 20 },
+      { maxTokens: 20, timeoutMs: SYMBOL_RESOLVE_TIMEOUT_MS },
     );
     const resolved = response
       .trim()
@@ -182,7 +186,7 @@ async function resolveHolding(query: string, holdings: Holding[]): Promise<Holdi
   } catch (error) {
     // LLM unavailable — fall through to null, but still record the failure
     const message = error instanceof Error ? error.message : String(error);
-    logCommandError(CMD_RESOLVE_HOLDING_LLM, message);
+    logCommandError(CMD_RESOLVE_HOLDING_LLM, message, query);
   }
 
   return null;
@@ -286,15 +290,15 @@ export async function handleAsk(
   question: string,
   say: SayFunction,
   client: SlackClient,
-  opts: { sessionId: string; threadTs?: string },
+  options: { sessionId: string; threadTs?: string },
 ): Promise<{ ts: string | undefined; channel: string | undefined }> {
-  const thinkingPayload = opts.threadTs
-    ? { text: "🤔 Thinking…", thread_ts: opts.threadTs }
+  const thinkingPayload = options.threadTs
+    ? { text: "🤔 Thinking…", thread_ts: options.threadTs }
     : "🤔 Thinking…";
 
-  const thinkingMsg = await say(thinkingPayload);
+  const thinkingMessage = await say(thinkingPayload);
 
-  const result = await askAdvisor({ question, sessionId: opts.sessionId, channel: "slack" });
+  const result = await askAdvisor({ question, sessionId: options.sessionId, channel: "slack" });
   const finalText = result.ok
     ? `> ${question}\n\n${result.value.answer}`
     : (() => {
@@ -302,8 +306,8 @@ export async function handleAsk(
         return `⚠️ Advisory query failed: ${result.error.message}`;
       })();
 
-  const ts = thinkingMsg.ts ? String(thinkingMsg.ts) : undefined;
-  const channel = thinkingMsg.channel ? String(thinkingMsg.channel) : undefined;
+  const ts = thinkingMessage.ts ? String(thinkingMessage.ts) : undefined;
+  const channel = thinkingMessage.channel ? String(thinkingMessage.channel) : undefined;
 
   if (ts && channel) {
     await client.chat.update({ channel, ts, text: finalText });

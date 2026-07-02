@@ -11,6 +11,7 @@ vi.mock("../gtt/gtt.tools.js", () => ({
 vi.mock("../../llm/llmClient.js", () => ({
   chatOnce: vi.fn(),
   ADVISOR_LLM_TIMEOUT_MS: 180_000,
+  SYMBOL_RESOLVE_TIMEOUT_MS: 30_000,
 }));
 
 vi.mock("../../db/db.js", () => ({

@@ -5,7 +5,14 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 
 import { db } from "../../db/db.js";
 import { advisoryConversations } from "../../db/schema.js";
-import { ADVISOR_LLM_TIMEOUT_MS, chat, chatOnce } from "../../llm/llmClient.js";
+import {
+  ADVISOR_LLM_TIMEOUT_MS,
+  ADVISOR_MAX_TOKENS,
+  ADVISOR_TEMPERATURE,
+  TRADE_SETUP_MAX_TOKENS,
+  chat,
+  chatOnce,
+} from "../../llm/llmClient.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import { logger } from "../../shared/logger.js";
@@ -21,8 +28,6 @@ import type { AdvisoryRequest, AdvisoryResponse, TradeSetup } from "./advisor.sc
 
 const MAX_HISTORY_TURNS = 8;
 const MAX_HISTORY_CHARS = 6000; // caps resent token volume regardless of turn count
-const ADVISOR_MAX_TOKENS = 1500; // keeps the persona's "under 1000 characters" rule enforceable
-const ADVISOR_TEMPERATURE = 0.7; // conversational persona — higher variance than structured-output calls
 
 /**
  * Load recent conversation turns for a session as chat messages.
@@ -161,7 +166,7 @@ export async function generateTradeSetup(
     rawResponse = await chatOnce(
       TRADE_SETUP_SYSTEM_PROMPT,
       `Generate a trade setup for ${symbol}.\nTechnical levels:\n${levelsJson}`,
-      { timeoutMs: ADVISOR_LLM_TIMEOUT_MS },
+      { timeoutMs: ADVISOR_LLM_TIMEOUT_MS, maxTokens: TRADE_SETUP_MAX_TOKENS },
     );
   } catch (e) {
     return err(e instanceof Error ? e : new Error(String(e)));
