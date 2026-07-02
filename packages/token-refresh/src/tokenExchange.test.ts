@@ -75,6 +75,17 @@ describe("exchangeCodeForToken", () => {
     expect(result.success).toBe(false);
   });
 
+  it("passes an abort signal to fetch so a hung connection cannot block forever", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse({ ok: true, status: 200, body: { access_token: "token-value" } }),
+    );
+    await exchangeCodeForToken("auth-code");
+    const callOptions = (fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      signal?: AbortSignal;
+    };
+    expect(callOptions?.signal).toBeInstanceOf(AbortSignal);
+  });
+
   it("treats a non-JSON response body as a failure, not a thrown exception", async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,

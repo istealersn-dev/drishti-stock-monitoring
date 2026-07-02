@@ -14,6 +14,8 @@ const ErrorResponseSchema = z.object({
   message: z.string(),
 });
 
+const FETCH_TIMEOUT_MS = 15000;
+
 /**
  * Exchanges an OAuth authorization code for an Upstox access token.
  * @param code - The `code` captured from the redirect_uri request.
@@ -41,6 +43,7 @@ export async function exchangeCodeForToken(code: string): Promise<TokenExchangeR
       "content-type": "application/x-www-form-urlencoded",
     },
     body,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   const rawText = await response.text();
@@ -65,8 +68,6 @@ export async function exchangeCodeForToken(code: string): Promise<TokenExchangeR
   return { success: true, accessToken: tokenParsed.data.access_token };
 }
 
-// Only ever reveals length, never characters — a short code/token can be fully
-// reconstructed from a "first N / last N" mask, which defeats the point of masking.
 /**
  * Redacts a secret/token for logging, revealing only its length — never any characters,
  * since a "first N / last N" style mask can fully reconstruct a short value.
