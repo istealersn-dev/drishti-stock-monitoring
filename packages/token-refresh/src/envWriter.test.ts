@@ -7,16 +7,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeToken } from "./envWriter.js";
 
 describe("envWriter", () => {
-  let dir: string;
+  let directory: string;
   let envPath: string;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "token-refresh-test-"));
-    envPath = join(dir, ".env.local.test");
+    directory = await mkdtemp(join(tmpdir(), "token-refresh-test-"));
+    envPath = join(directory, ".env.local.test");
   });
 
   afterEach(async () => {
-    await rm(dir, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true });
   });
 
   it("appends both keys when the file does not exist yet", async () => {
@@ -64,8 +64,10 @@ describe("envWriter", () => {
 
   it("leaves the original file untouched if the write step fails before rename", async () => {
     await writeFile(envPath, "ORIGINAL=untouched\n", "utf8");
-    const badPath = join(dir, "no-such-dir", ".env.local.test");
-    await expect(writeToken(badPath, "final", new Date("2026-01-01T00:00:00.000Z"))).rejects.toThrow();
+    const badPath = join(directory, "no-such-directory", ".env.local.test");
+    await expect(
+      writeToken(badPath, "final", new Date("2026-01-01T00:00:00.000Z")),
+    ).rejects.toThrow();
     const content = await readFile(envPath, "utf8");
     expect(content).toBe("ORIGINAL=untouched\n");
   });

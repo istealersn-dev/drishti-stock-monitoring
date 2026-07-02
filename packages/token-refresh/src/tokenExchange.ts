@@ -1,8 +1,18 @@
+import { z } from "zod";
+
 import { CREDENTIAL_KEYS } from "./credentials.js";
 import { getCredential } from "./keychain.js";
 
 export type TokenExchangeResult =
   { success: true; accessToken: string } | { success: false; errorMessage: string };
+
+const TokenResponseSchema = z.object({
+  access_token: z.string().min(1),
+});
+
+const ErrorResponseSchema = z.object({
+  message: z.string(),
+});
 
 export async function exchangeCodeForToken(code: string): Promise<TokenExchangeResult> {
   const apiKey = await getCredential(CREDENTIAL_KEYS.apiKey);
@@ -26,13 +36,26 @@ export async function exchangeCodeForToken(code: string): Promise<TokenExchangeR
     body,
   });
 
-  const json = (await response.json()) as Record<string, unknown>;
-  if (!response.ok || typeof json.access_token !== "string") {
-    const errorMessage =
-      typeof json.message === "string" ? json.message : JSON.stringify(json).slice(0, 300);
+  const rawText = await response.text();
+  let rawJson: unknown;
+  try {
+    rawJson = JSON.parse(rawText);
+  } catch {
+    return {
+      success: false,
+      errorMessage: `HTTP ${response.status}: non-JSON response: ${rawText.slice(0, 300)}`,
+    };
+  }
+
+  const tokenParsed = TokenResponseSchema.safeParse(rawJson);
+  if (!response.ok || !tokenParsed.success) {
+    const errorParsed = ErrorResponseSchema.safeParse(rawJson);
+    const errorMessage = errorParsed.success
+      ? errorParsed.data.message
+      : JSON.stringify(rawJson).slice(0, 300);
     return { success: false, errorMessage: `HTTP ${response.status}: ${errorMessage}` };
   }
-  return { success: true, accessToken: json.access_token };
+  return { success: true, accessToken: tokenParsed.data.access_token };
 }
 
 // Only ever reveals length, never characters — a short code/token can be fully

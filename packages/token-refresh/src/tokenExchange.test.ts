@@ -20,6 +20,18 @@ describe("safeLengthOnly", () => {
   });
 });
 
+function mockFetchResponse(options: { ok: boolean; status: number; body: unknown }): {
+  ok: boolean;
+  status: number;
+  text: () => Promise<string>;
+} {
+  return {
+    ok: options.ok,
+    status: options.status,
+    text: async (): Promise<string> => JSON.stringify(options.body),
+  };
+}
+
 describe("exchangeCodeForToken", () => {
   beforeEach(() => {
     mockGetCredential.mockReset();
@@ -28,21 +40,17 @@ describe("exchangeCodeForToken", () => {
   });
 
   it("returns success with the access token on a valid response", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ access_token: "token-value" }),
-    });
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse({ ok: true, status: 200, body: { access_token: "token-value" } }),
+    );
     const result = await exchangeCodeForToken("auth-code");
     expect(result).toEqual({ success: true, accessToken: "token-value" });
   });
 
   it("returns failure with the API message when the exchange is rejected", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: false,
-      status: 400,
-      json: async () => ({ message: "invalid code" }),
-    });
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse({ ok: false, status: 400, body: { message: "invalid code" } }),
+    );
     const result = await exchangeCodeForToken("bad-code");
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -52,12 +60,31 @@ describe("exchangeCodeForToken", () => {
   });
 
   it("treats a 200 response with no access_token as a failure, not a crash", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse({ ok: true, status: 200, body: { unexpected: "shape" } }),
+    );
+    const result = await exchangeCodeForToken("auth-code");
+    expect(result.success).toBe(false);
+  });
+
+  it("treats an empty access_token string as a failure, not a success", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse({ ok: true, status: 200, body: { access_token: "" } }),
+    );
+    const result = await exchangeCodeForToken("auth-code");
+    expect(result.success).toBe(false);
+  });
+
+  it("treats a non-JSON response body as a failure, not a thrown exception", async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ unexpected: "shape" }),
+      ok: false,
+      status: 502,
+      text: async () => "<html>Bad Gateway</html>",
     });
     const result = await exchangeCodeForToken("auth-code");
     expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errorMessage).toContain("502");
+    }
   });
 });

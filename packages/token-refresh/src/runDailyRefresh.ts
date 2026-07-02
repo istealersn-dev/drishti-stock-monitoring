@@ -6,8 +6,12 @@ import { exchangeCodeForToken, safeLengthOnly } from "./tokenExchange.js";
 const ENV_LOCAL_PATH = new URL("../../../.env.local", import.meta.url).pathname;
 const OTP_COOLDOWN_MS = 11 * 60 * 1000; // Upstox's cooldown is ~10 min; pad by 1 for clock skew.
 
-function describeLoginError(e: unknown): string {
-  return e instanceof LoginFlowError ? `[${e.stage}] ${e.message}` : String(e);
+function describeError(e: unknown): string {
+  return e instanceof LoginFlowError
+    ? `[${e.stage}] ${e.message}`
+    : e instanceof Error
+      ? e.message
+      : String(e);
 }
 
 async function attemptLogin(): Promise<string> {
@@ -21,34 +25,19 @@ async function attemptLogin(): Promise<string> {
       await pushTokenRefreshAlert(
         `:hourglass_flowing_sand: Drishti Upstox token refresh hit the OTP rate limit — retrying in ${OTP_COOLDOWN_MS / 60_000} min.`,
       );
-      await new Promise((r) => setTimeout(r, OTP_COOLDOWN_MS));
+      await new Promise((resolve) => setTimeout(resolve, OTP_COOLDOWN_MS));
       return await runLoginFlow(); // single retry only — never loop
     }
     throw e;
   }
 }
 
-async function main(): Promise<void> {
-  const startedAt = new Date();
-  console.log(`[${startedAt.toISOString()}] starting Upstox token refresh`);
-
-  let code: string;
-  try {
-    code = await attemptLogin();
-  } catch (e) {
-    const message = describeLoginError(e);
-    console.error(`login flow failed: ${message}`);
-    await pushTokenRefreshAlert(`:x: Drishti Upstox token refresh FAILED at login: ${message}`);
-    process.exit(1);
-  }
+async function refreshToken(): Promise<void> {
+  const code = await attemptLogin();
 
   const exchangeResult = await exchangeCodeForToken(code);
   if (!exchangeResult.success) {
-    console.error(`token exchange failed: ${exchangeResult.errorMessage}`);
-    await pushTokenRefreshAlert(
-      `:x: Drishti Upstox token refresh FAILED at token exchange: ${exchangeResult.errorMessage}`,
-    );
-    process.exit(1);
+    throw new Error(`token exchange failed: ${exchangeResult.errorMessage}`);
   }
 
   const refreshedAt = new Date();
@@ -58,7 +47,24 @@ async function main(): Promise<void> {
   await pushTokenRefreshAlert(
     `:white_check_mark: Drishti Upstox token refresh succeeded at ${refreshedAt.toISOString()}`,
   );
-  console.log("done.");
+}
+
+async function main(): Promise<void> {
+  const startedAt = new Date();
+  console.log(`[${startedAt.toISOString()}] starting Upstox token refresh`);
+
+  // Every stage of the pipeline (login, token exchange, .env.local write) is covered by
+  // this single boundary, so a failure anywhere always reaches the Slack alert below —
+  // no stage can fail silently.
+  try {
+    await refreshToken();
+    console.log("done.");
+  } catch (e) {
+    const message = describeError(e);
+    console.error(`token refresh failed: ${message}`);
+    await pushTokenRefreshAlert(`:x: Drishti Upstox token refresh FAILED: ${message}`);
+    process.exit(1);
+  }
 }
 
 await main();

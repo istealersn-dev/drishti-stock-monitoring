@@ -6,8 +6,9 @@ const execFileAsync = promisify(execFile);
 const KEYCHAIN_ACCOUNT = "drishti";
 
 export class CredentialNotFoundError extends Error {
-  constructor(key: string) {
-    super(`Keychain credential not found: ${key}`);
+  constructor(key: string, cause: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    super(`Keychain read failed for ${key}: ${reason}`);
     this.name = "CredentialNotFoundError";
   }
 }
@@ -28,8 +29,8 @@ export async function getCredential(key: string): Promise<string> {
       "-w",
     ]);
     return stdout.trimEnd();
-  } catch {
-    throw new CredentialNotFoundError(service);
+  } catch (e) {
+    throw new CredentialNotFoundError(service, e);
   }
 }
 

@@ -12,19 +12,23 @@ vi.mock("dotenv", () => ({ config: vi.fn() }));
 vi.mock("@slack/web-api", () => ({ WebClient: MockWebClient }));
 
 describe("pushTokenRefreshAlert", () => {
-  const originalEnv = { ...process.env };
+  const originalEnvironment = { ...process.env };
 
   beforeEach(() => {
     vi.resetModules();
     mockPostMessage.mockReset().mockResolvedValue({ ok: true });
-    process.env = { ...originalEnv, SLACK_BOT_TOKEN: "test-token", SLACK_ALERT_CHANNEL_ID: "C123" };
+    process.env = {
+      ...originalEnvironment,
+      SLACK_BOT_TOKEN: "test-token",
+      SLACK_ALERT_CHANNEL_ID: "C123",
+    };
   });
 
   it("posts the given message to the configured alert channel", async () => {
     const { pushTokenRefreshAlert } = await import("./slackNotify.js");
     await pushTokenRefreshAlert("test message");
     expect(mockPostMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ channel: "C123", text: "test message" })
+      expect.objectContaining({ channel: "C123", text: "test message" }),
     );
   });
 

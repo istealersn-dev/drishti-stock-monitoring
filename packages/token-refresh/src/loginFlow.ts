@@ -5,14 +5,14 @@ import { CREDENTIAL_KEYS } from "./credentials.js";
 import { getCredential } from "./keychain.js";
 import { buildLoginDialogUrl } from "./loginUrl.js";
 import { SELECTORS } from "./selectors.js";
-import { generateTotpCode } from "./totp.js";
+import { generateTotpCode, secondsRemainingInWindow } from "./totp.js";
 
 export const OTP_RATE_LIMIT_CODE = 1017069;
 
 export class LoginFlowError extends Error {
   constructor(
     message: string,
-    readonly stage: "mobile" | "totp" | "pin" | "no-code",
+    readonly stage: "mobile" | "totp" | "pin",
     readonly apiErrorCode?: number,
   ) {
     super(message);
@@ -24,13 +24,31 @@ export class LoginFlowError extends Error {
   }
 }
 
+const KNOWN_TOAST_PATTERN = /incorrect [^.]*\.|invalid [^.]*\.|exceeded[^.]*\./i;
+
+// Falls back to a truncated raw-text snippet when the known-wording regex doesn't match,
+// so a Slack alert still carries some diagnostic signal if Upstox reworders their copy.
 async function readVisibleErrorToast(page: Page): Promise<string | undefined> {
   const toastText = await page
     .locator("body")
     .evaluate((body) => (body as HTMLElement).innerText)
     .catch(() => "");
-  const match = toastText.match(/incorrect [^.]*\.|invalid [^.]*\.|exceeded[^.]*\./i);
-  return match?.[0];
+  if (!toastText) return undefined;
+  const match = toastText.match(KNOWN_TOAST_PATTERN);
+  if (match) return match[0];
+  return `unrecognized page state: ${toastText.slice(0, 200).replace(/\s+/g, " ")}`;
+}
+
+const MIN_TOTP_WINDOW_SECONDS = 5;
+
+// Avoids generating a code so close to the end of its 30s window that it expires
+// before Upstox validates it — waits out the rollover instead of risking a wasted attempt.
+async function freshTotpCode(): Promise<string> {
+  const remaining = secondsRemainingInWindow();
+  if (remaining < MIN_TOTP_WINDOW_SECONDS) {
+    await new Promise((resolve) => setTimeout(resolve, (remaining + 1) * 1000));
+  }
+  return generateTotpCode();
 }
 
 /**
@@ -45,7 +63,6 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
   const redirectUri = await getCredential(CREDENTIAL_KEYS.redirectUri);
 
   let capturedCode: string | undefined;
-  let otpGenerateError: { code: number; message: string } | undefined;
 
   const browser = await chromium.launch({ headless: true });
   try {
@@ -57,27 +74,30 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
         if (code) capturedCode = code;
       }
     });
-    page.on("response", (response) => {
-      if (!/\/otp\/generate/.test(response.url())) return;
-      response
-        .json()
-        .then((json: { success?: boolean; error?: { code: number; message: string } }) => {
-          if (json.success === false && json.error) otpGenerateError = json.error;
-        })
-        .catch(() => {});
-    });
 
     await page.goto(url, { waitUntil: "networkidle" });
     await page.fill(SELECTORS.mobileNumberInput, mobileNumber);
-    await page.click(SELECTORS.getOtpButton);
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(3000);
 
-    if (otpGenerateError) {
-      throw new LoginFlowError(otpGenerateError.message, "mobile", otpGenerateError.code);
+    // Wait for the actual otp/generate response before proceeding, rather than a fixed
+    // timeout racing an unawaited response handler — eliminates the prior timing gap
+    // where a slow-to-parse response could be missed entirely.
+    const [otpGenerateResponse] = await Promise.all([
+      page
+        .waitForResponse((r) => /\/otp\/generate/.test(r.url()), { timeout: 15000 })
+        .catch(() => undefined),
+      page.click(SELECTORS.getOtpButton),
+    ]);
+    await page.waitForLoadState("networkidle");
+
+    if (otpGenerateResponse) {
+      const json = (await otpGenerateResponse.json().catch(() => undefined)) as
+        { success?: boolean; error?: { code: number; message: string } } | undefined;
+      if (json?.success === false && json.error) {
+        throw new LoginFlowError(json.error.message, "mobile", json.error.code);
+      }
     }
 
-    const totpCode = totpCodeOverride ?? (await generateTotpCode());
+    const totpCode = totpCodeOverride ?? (await freshTotpCode());
     await page.fill(SELECTORS.otpTotpInput, totpCode);
     await page.click(SELECTORS.otpContinueButton);
     await page.waitForLoadState("networkidle");
@@ -99,10 +119,7 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
 
     if (!capturedCode) {
       const toast = await readVisibleErrorToast(page);
-      throw new LoginFlowError(
-        toast ?? "No authorization code captured after PIN submit",
-        "no-code",
-      );
+      throw new LoginFlowError(toast ?? "No authorization code captured after PIN submit", "pin");
     }
     return capturedCode;
   } finally {
