@@ -11,7 +11,8 @@ import { generateTotpCode, secondsRemainingInWindow } from "./totp.js";
 export const OTP_RATE_LIMIT_CODE = 1017069;
 
 const SNIPPET_LENGTH = 200;
-const NETWORK_WAIT_TIMEOUT_MS = 10000;
+const OTP_GENERATE_WAIT_TIMEOUT_MS = 10000;
+const REDIRECT_WAIT_TIMEOUT_MS = 10000;
 
 export class LoginFlowError extends Error {
   /**
@@ -39,32 +40,34 @@ const OtpGenerateErrorSchema = z.object({
   error: z.object({ code: z.number(), message: z.string() }),
 });
 
-// Only the wording confirmed live against the real account. Reworded copy on Upstox's
-// side falls through to readPageSnippet instead of matching here.
-const KNOWN_TOAST_PATTERN = /incorrect [^.]*\.|invalid [^.]*\.|exceeded[^.]*\./i;
+// Only the wording confirmed live against the real account, word-bounded so it can't
+// match a substring inside an unrelated word. Reworded copy on Upstox's side falls
+// through to the bounded page snippet instead of matching here.
+const KNOWN_TOAST_PATTERN = /\bincorrect [^.]*\.|\binvalid [^.]*\.|\bexceeded[^.]*\./i;
+
+type ErrorDiagnostics = {
+  /** Set only when a known, previously-observed error toast wording matched. */
+  knownToast: string | undefined;
+  /** A short, bounded fallback snippet of whatever is on the page, for any other case. */
+  snippet: string;
+};
 
 /**
- * Looks for a recognized, known-wording error toast on the page. Returns undefined for
- * any other page content — callers must not treat a truthy return from a generic "page
- * text" read as a confirmed error, or every unrelated bit of page content ends up
- * misreported as a specific failure.
+ * Reads the page body once and derives both a known-error-toast match and a bounded
+ * fallback snippet from that single read, so the two never observe different page
+ * states across two separate DOM round-trips.
+ * @param page - The current Playwright page.
+ * @returns Diagnostics derived from a single body-text read.
  */
-async function matchKnownErrorToast(page: Page): Promise<string | undefined> {
-  const toastText = await page
+async function readErrorDiagnostics(page: Page): Promise<ErrorDiagnostics> {
+  const bodyText = await page
     .locator("body")
     .evaluate((body) => (body as HTMLElement).innerText)
     .catch(() => "");
-  const match = toastText.match(KNOWN_TOAST_PATTERN);
-  return match?.[0].slice(0, SNIPPET_LENGTH);
-}
-
-/** A short, bounded diagnostic snippet of whatever is currently on the page. */
-async function readPageSnippet(page: Page): Promise<string> {
-  const toastText = await page
-    .locator("body")
-    .evaluate((body) => (body as HTMLElement).innerText)
-    .catch(() => "");
-  return toastText.slice(0, SNIPPET_LENGTH).replace(/\s+/g, " ") || "(empty page)";
+  const match = bodyText.match(KNOWN_TOAST_PATTERN);
+  const trimmed = bodyText.trim();
+  const snippet = trimmed ? trimmed.slice(0, SNIPPET_LENGTH).replace(/\s+/g, " ") : "(empty page)";
+  return { knownToast: match?.[0].slice(0, SNIPPET_LENGTH), snippet };
 }
 
 const MIN_TOTP_WINDOW_SECONDS = 5;
@@ -84,6 +87,8 @@ async function freshTotpCode(): Promise<string> {
  * against the real rate-limit response). Throws if the response body was received but is
  * not valid JSON, or doesn't parse as the known error shape but also isn't silently
  * assumed to be a success — only a genuine schema match short-circuits with an error.
+ * @param response - The otp/generate HTTP response.
+ * @returns Nothing on success; throws {@link LoginFlowError} on a recognized failure.
  */
 export async function checkOtpGenerateResponse(response: Pick<Response, "text">): Promise<void> {
   const rawText = await response.text().catch(() => undefined);
@@ -137,7 +142,7 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
     const [otpGenerateResponse] = await Promise.all([
       page
         .waitForResponse((r) => /\/otp\/generate/.test(r.url()), {
-          timeout: NETWORK_WAIT_TIMEOUT_MS,
+          timeout: OTP_GENERATE_WAIT_TIMEOUT_MS,
         })
         .catch(() => undefined),
       page.click(SELECTORS.getOtpButton),
@@ -160,9 +165,11 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
         .isVisible()
         .catch(() => false))
     ) {
-      const toast = await matchKnownErrorToast(page);
-      const snippet = toast ?? (await readPageSnippet(page));
-      throw new LoginFlowError(`TOTP step did not reach the PIN screen: ${snippet}`, "totp");
+      const { knownToast, snippet } = await readErrorDiagnostics(page);
+      throw new LoginFlowError(
+        `TOTP step did not reach the PIN screen: ${knownToast ?? snippet}`,
+        "totp",
+      );
     }
 
     // Wait for the actual redirect request to fire, rather than a fixed timeout that
@@ -170,7 +177,7 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
     await Promise.all([
       page
         .waitForRequest((r) => r.url().startsWith(redirectUri), {
-          timeout: NETWORK_WAIT_TIMEOUT_MS,
+          timeout: REDIRECT_WAIT_TIMEOUT_MS,
         })
         .catch(() => undefined),
       (async (): Promise<void> => {
@@ -183,11 +190,10 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
       // A recognized toast means Upstox told us why (e.g. "Incorrect PIN") — a
       // confirmed PIN-entry failure. Anything else (including ordinary, unrelated page
       // text) means the cause is unknown and must not be reported as a PIN failure.
-      const knownToast = await matchKnownErrorToast(page);
+      const { knownToast, snippet } = await readErrorDiagnostics(page);
       if (knownToast) {
         throw new LoginFlowError(knownToast, "pin");
       }
-      const snippet = await readPageSnippet(page);
       throw new LoginFlowError(
         `No authorization code captured after PIN submit: ${snippet}`,
         "redirect",
