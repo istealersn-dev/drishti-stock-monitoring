@@ -86,6 +86,18 @@ describe("exchangeCodeForToken", () => {
     expect(callOptions?.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it("actually rejects once the timeout elapses on a request that never responds", async () => {
+    // AbortSignal.timeout() uses a native timer that vitest's fake timers can't
+    // intercept, so this uses a real, short timeout instead of faking 15s.
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (_url: string, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener("abort", () => reject(options.signal.reason));
+        }),
+    );
+    await expect(exchangeCodeForToken("auth-code", 50)).rejects.toBeTruthy();
+  });
+
   it("treats a non-JSON response body as a failure, not a thrown exception", async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,

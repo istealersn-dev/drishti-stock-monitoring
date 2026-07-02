@@ -114,6 +114,9 @@ export async function checkOtpGenerateResponse(response: Pick<Response, "text">)
  * Drives the real Upstox login flow (mobile number -> TOTP -> PIN) and returns the
  * OAuth `code` captured from the (intentionally unreachable) redirect_uri request.
  * Always closes the browser, even on failure — never leaves Chromium orphaned.
+ * @param totpCodeOverride - Bypasses live TOTP generation with a fixed code; used only
+ *   by the failure-path test to deliberately submit a wrong code.
+ * @returns The captured OAuth authorization code.
  */
 export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
   const url = await buildLoginDialogUrl();

@@ -35,13 +35,26 @@ async function attemptLogin(): Promise<string> {
 async function refreshToken(): Promise<void> {
   const code = await attemptLogin();
 
-  const exchangeResult = await exchangeCodeForToken(code);
+  let exchangeResult;
+  try {
+    exchangeResult = await exchangeCodeForToken(code);
+  } catch (e) {
+    // exchangeCodeForToken can reject outside its own Result type (a Keychain read
+    // failure, a network error, or the fetch timeout) — wrap it the same way a
+    // Result-style failure is wrapped below, so every exchange failure reaches Slack
+    // with the same "token exchange failed:" context instead of a bare, stage-less message.
+    throw new Error(`token exchange failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
   if (!exchangeResult.success) {
     throw new Error(`token exchange failed: ${exchangeResult.errorMessage}`);
   }
 
   const refreshedAt = new Date();
-  await writeToken(ENV_LOCAL_PATH, exchangeResult.accessToken, refreshedAt);
+  try {
+    await writeToken(ENV_LOCAL_PATH, exchangeResult.accessToken, refreshedAt);
+  } catch (e) {
+    throw new Error(`writing .env.local failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
   console.log(`wrote access_token (${safeLengthOnly(exchangeResult.accessToken)}) to .env.local`);
 
   await pushTokenRefreshAlert(

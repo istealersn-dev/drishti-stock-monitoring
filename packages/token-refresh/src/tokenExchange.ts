@@ -14,16 +14,21 @@ const ErrorResponseSchema = z.object({
   message: z.string(),
 });
 
-const FETCH_TIMEOUT_MS = 15000;
+const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 
 /**
  * Exchanges an OAuth authorization code for an Upstox access token.
  * @param code - The `code` captured from the redirect_uri request.
+ * @param fetchTimeoutMs - How long to wait for a response before aborting; overridable
+ *   only so tests can verify the abort actually fires without waiting 15 real seconds.
  * @returns A TokenExchangeResult describing success or failure. Can still reject for
  *   causes outside the exchange itself (a Keychain credential read failure, or a network
  *   error before any response is received) — callers must not assume this never throws.
  */
-export async function exchangeCodeForToken(code: string): Promise<TokenExchangeResult> {
+export async function exchangeCodeForToken(
+  code: string,
+  fetchTimeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+): Promise<TokenExchangeResult> {
   const apiKey = await getCredential(CREDENTIAL_KEYS.apiKey);
   const apiSecret = await getCredential(CREDENTIAL_KEYS.apiSecret);
   const redirectUri = await getCredential(CREDENTIAL_KEYS.redirectUri);
@@ -43,7 +48,7 @@ export async function exchangeCodeForToken(code: string): Promise<TokenExchangeR
       "content-type": "application/x-www-form-urlencoded",
     },
     body,
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: AbortSignal.timeout(fetchTimeoutMs),
   });
 
   const rawText = await response.text();
