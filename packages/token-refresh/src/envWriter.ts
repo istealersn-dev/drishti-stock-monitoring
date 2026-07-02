@@ -6,7 +6,7 @@ const REFRESHED_AT_KEY = "UPSTOX_TOKEN_REFRESHED_AT";
 
 function upsertLine(content: string, key: string, value: string): string {
   const line = `${key}=${value}`;
-  const pattern = new RegExp(`^${key}=.*$`, "m");
+  const pattern = new RegExp(`^${key}=.*$`, "gm");
   if (pattern.test(content)) {
     return content.replace(pattern, line);
   }
@@ -14,6 +14,14 @@ function upsertLine(content: string, key: string, value: string): string {
   return `${content}${separator}${line}\n`;
 }
 
+/**
+ * Atomically writes UPSTOX_ACCESS_TOKEN and UPSTOX_TOKEN_REFRESHED_AT into an env file,
+ * overwriting any existing lines for those keys in place and leaving every other line untouched.
+ * @param envPath - Path to the .env-style file to update.
+ * @param accessToken - Fresh Upstox access token.
+ * @param refreshedAt - Timestamp the token was obtained at.
+ * @returns Nothing.
+ */
 export async function writeToken(
   envPath: string,
   accessToken: string,

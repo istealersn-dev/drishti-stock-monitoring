@@ -55,10 +55,20 @@ function promptField(label: string, masked: boolean): Promise<string> {
   });
 }
 
+/**
+ * Prompts for a line of input, echoed normally as the user types.
+ * @param label - Prompt text shown before the input.
+ * @returns The entered value, trimmed.
+ */
 export async function promptPlain(label: string): Promise<string> {
   return promptField(label, false);
 }
 
+/**
+ * Prompts for a line of input, echoing `*` per character instead of the real value.
+ * @param label - Prompt text shown before the input.
+ * @returns The entered value, trimmed.
+ */
 export async function promptMasked(label: string): Promise<string> {
   return promptField(label, true);
 }

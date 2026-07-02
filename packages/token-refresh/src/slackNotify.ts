@@ -12,6 +12,13 @@ function getClient(): WebClient {
   return client;
 }
 
+/**
+ * Posts a message to Drishti's configured Slack alert channel. Never throws — a
+ * missing channel id or a Slack API failure is logged to stderr and swallowed, since
+ * alerting must not crash the refresh script it's reporting on.
+ * @param message - The alert text (mrkdwn-formatted).
+ * @returns Nothing.
+ */
 export async function pushTokenRefreshAlert(message: string): Promise<void> {
   const channel = process.env.SLACK_ALERT_CHANNEL_ID;
   if (!channel) {

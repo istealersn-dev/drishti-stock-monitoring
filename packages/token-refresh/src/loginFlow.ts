@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
-import type { Page } from "playwright";
+import type { Page, Response } from "playwright";
+import { z } from "zod";
 
 import { CREDENTIAL_KEYS } from "./credentials.js";
 import { getCredential } from "./keychain.js";
@@ -12,7 +13,7 @@ export const OTP_RATE_LIMIT_CODE = 1017069;
 export class LoginFlowError extends Error {
   constructor(
     message: string,
-    readonly stage: "mobile" | "totp" | "pin",
+    readonly stage: "mobile" | "totp" | "pin" | "redirect",
     readonly apiErrorCode?: number,
   ) {
     super(message);
@@ -23,6 +24,11 @@ export class LoginFlowError extends Error {
     return this.apiErrorCode === OTP_RATE_LIMIT_CODE;
   }
 }
+
+const OtpGenerateErrorSchema = z.object({
+  success: z.literal(false),
+  error: z.object({ code: z.number(), message: z.string() }),
+});
 
 const KNOWN_TOAST_PATTERN = /incorrect [^.]*\.|invalid [^.]*\.|exceeded[^.]*\./i;
 
@@ -49,6 +55,32 @@ async function freshTotpCode(): Promise<string> {
     await new Promise((resolve) => setTimeout(resolve, (remaining + 1) * 1000));
   }
   return generateTotpCode();
+}
+
+/**
+ * Inspects the otp/generate response for Upstox's structured error shape. Throws if the
+ * response body was received but is not valid JSON — an unparseable body from an endpoint
+ * that has only ever returned JSON in testing is treated as a real failure, not silently
+ * ignored, unlike the earlier version of this function.
+ */
+async function checkOtpGenerateResponse(response: Response): Promise<void> {
+  const rawText = await response.text().catch(() => undefined);
+  if (rawText === undefined) {
+    throw new LoginFlowError("Failed to read otp/generate response body", "mobile");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    throw new LoginFlowError(
+      `otp/generate returned a non-JSON response: ${rawText.slice(0, 200)}`,
+      "mobile",
+    );
+  }
+  const errorResult = OtpGenerateErrorSchema.safeParse(parsed);
+  if (errorResult.success) {
+    throw new LoginFlowError(errorResult.data.error.message, "mobile", errorResult.data.error.code);
+  }
 }
 
 /**
@@ -79,8 +111,7 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
     await page.fill(SELECTORS.mobileNumberInput, mobileNumber);
 
     // Wait for the actual otp/generate response before proceeding, rather than a fixed
-    // timeout racing an unawaited response handler — eliminates the prior timing gap
-    // where a slow-to-parse response could be missed entirely.
+    // timeout racing an unawaited response handler.
     const [otpGenerateResponse] = await Promise.all([
       page
         .waitForResponse((r) => /\/otp\/generate/.test(r.url()), { timeout: 15000 })
@@ -90,11 +121,7 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
     await page.waitForLoadState("networkidle");
 
     if (otpGenerateResponse) {
-      const json = (await otpGenerateResponse.json().catch(() => undefined)) as
-        { success?: boolean; error?: { code: number; message: string } } | undefined;
-      if (json?.success === false && json.error) {
-        throw new LoginFlowError(json.error.message, "mobile", json.error.code);
-      }
+      await checkOtpGenerateResponse(otpGenerateResponse);
     }
 
     const totpCode = totpCodeOverride ?? (await freshTotpCode());
@@ -113,13 +140,31 @@ export async function runLoginFlow(totpCodeOverride?: string): Promise<string> {
       throw new LoginFlowError(toast ?? "TOTP step did not reach the PIN screen", "totp");
     }
 
-    await page.fill(SELECTORS.pinInput, pin);
-    await page.click(SELECTORS.pinContinueButton);
-    await page.waitForTimeout(6000);
+    // Wait for the actual redirect request to fire, rather than a fixed timeout that
+    // could misreport a merely-slow (but correct) submission as a failure.
+    await Promise.all([
+      page
+        .waitForRequest((r) => r.url().startsWith(redirectUri), { timeout: 15000 })
+        .catch(() => undefined),
+      (async (): Promise<void> => {
+        await page.fill(SELECTORS.pinInput, pin);
+        await page.click(SELECTORS.pinContinueButton);
+      })(),
+    ]);
 
     if (!capturedCode) {
       const toast = await readVisibleErrorToast(page);
-      throw new LoginFlowError(toast ?? "No authorization code captured after PIN submit", "pin");
+      // A recognized toast means Upstox told us why (e.g. "Incorrect PIN") — a
+      // confirmed PIN-entry failure. No toast at all means the cause is unknown
+      // (redirect never fired, page structure changed, etc.) and must not be
+      // reported as if it were a PIN failure specifically.
+      if (toast) {
+        throw new LoginFlowError(toast, "pin");
+      }
+      throw new LoginFlowError(
+        "No authorization code captured after PIN submit, and no error toast found",
+        "redirect",
+      );
     }
     return capturedCode;
   } finally {

@@ -14,6 +14,13 @@ const ErrorResponseSchema = z.object({
   message: z.string(),
 });
 
+/**
+ * Exchanges an OAuth authorization code for an Upstox access token.
+ * @param code - The `code` captured from the redirect_uri request.
+ * @returns A TokenExchangeResult describing success or failure. Can still reject for
+ *   causes outside the exchange itself (a Keychain credential read failure, or a network
+ *   error before any response is received) — callers must not assume this never throws.
+ */
 export async function exchangeCodeForToken(code: string): Promise<TokenExchangeResult> {
   const apiKey = await getCredential(CREDENTIAL_KEYS.apiKey);
   const apiSecret = await getCredential(CREDENTIAL_KEYS.apiSecret);
@@ -60,6 +67,12 @@ export async function exchangeCodeForToken(code: string): Promise<TokenExchangeR
 
 // Only ever reveals length, never characters — a short code/token can be fully
 // reconstructed from a "first N / last N" mask, which defeats the point of masking.
+/**
+ * Redacts a secret/token for logging, revealing only its length — never any characters,
+ * since a "first N / last N" style mask can fully reconstruct a short value.
+ * @param value - The secret to redact.
+ * @returns A placeholder string containing only the length.
+ */
 export function safeLengthOnly(value: string): string {
   return `<redacted, length=${value.length}>`;
 }

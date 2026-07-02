@@ -62,6 +62,20 @@ describe("envWriter", () => {
     ]);
   });
 
+  it("replaces every duplicate key line, not just the first, when one somehow exists", async () => {
+    await writeFile(
+      envPath,
+      "UPSTOX_ACCESS_TOKEN=first-stale\nOTHER=1\nUPSTOX_ACCESS_TOKEN=second-stale\n",
+      "utf8",
+    );
+    await writeToken(envPath, "fresh", new Date("2026-01-01T00:00:00.000Z"));
+    const lines = (await readFile(envPath, "utf8")).split("\n").filter(Boolean);
+    expect(lines.filter((l) => l.startsWith("UPSTOX_ACCESS_TOKEN="))).toEqual([
+      "UPSTOX_ACCESS_TOKEN=fresh",
+      "UPSTOX_ACCESS_TOKEN=fresh",
+    ]);
+  });
+
   it("leaves the original file untouched if the write step fails before rename", async () => {
     await writeFile(envPath, "ORIGINAL=untouched\n", "utf8");
     const badPath = join(directory, "no-such-directory", ".env.local.test");
