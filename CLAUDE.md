@@ -39,14 +39,10 @@ acts as a control panel.
   be disabled, leaving content always empty (issues #1990, #16945).
   Cap context length at 8K for portfolio analysis prompts — the full 256K window
   is unnecessary and wastes RAM headroom.
-  **TEMPORARY ALTERNATE:** Gemini 2.5 Flash (`@google/genai`) is permitted as a
-  stand-in cloud provider for the advisor persona / thread-continuity feature
-  (see `packages/agent/src/llm/geminiClient.ts`). This is a stopgap, not a
-  permanent exception — it must stay call-rate-limited (alerts only on
-  threshold breach, not periodic polling) to control quota/cost, and should be
-  migrated back to LM Studio once local model quality/latency support the
-  advisor use case. Do not expand Gemini usage to new features without
-  updating this note.
+  Gemini 2.5 Flash was used as a temporary stand-in for the advisor persona /
+  thread-continuity feature while the Mac Mini had no power backup; it has
+  since been reverted back to LM Studio now that UPS + power backup is in
+  place. Do not reintroduce a cloud LLM provider without updating this note.
 
 ---
 

@@ -1,4 +1,4 @@
-import { generateText } from "../../llm/geminiClient.js";
+import { chatOnce, PORTFOLIO_MAX_TOKENS, PORTFOLIO_LLM_TIMEOUT_MS } from "../../llm/llmClient.js";
 import { LlmError, err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
@@ -73,10 +73,11 @@ export async function analysePortfolio(
 
   let raw: string;
   try {
-    // Default lite model — this call is now gated on material change (see agent.graph.ts),
-    // but each firing should still stay cheap.
-    raw = await generateText(PORTFOLIO_ANALYSIS_SYSTEM_PROMPT, userPrompt, {
-      maxTokens: 8192,
+    // Gated on material change (see agent.graph.ts) so each firing still stays cheap
+    // despite the higher per-call cost of local inference.
+    raw = await chatOnce(PORTFOLIO_ANALYSIS_SYSTEM_PROMPT, userPrompt, {
+      maxTokens: PORTFOLIO_MAX_TOKENS,
+      timeoutMs: PORTFOLIO_LLM_TIMEOUT_MS,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

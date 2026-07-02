@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const {
-  mockChatWithDrishti,
-  mockGenerateText,
-  mockToGeminiHistory,
+  mockChat,
+  mockChatOnce,
   mockRun,
   mockValues,
   mockInsert,
@@ -18,16 +17,8 @@ const {
     callback({ insert });
   });
   return {
-    mockChatWithDrishti: vi.fn(),
-    mockGenerateText: vi.fn(),
-    // Mirrors the real toGeminiHistory role mapping, so history-shape assertions
-    // (e.g. role alternation) exercise realistic data instead of an empty stub.
-    mockToGeminiHistory: vi.fn((rows: Array<{ role: string; content: string }>) =>
-      rows.map((r) => ({
-        role: r.role === "assistant" ? "model" : "user",
-        parts: [{ text: r.content }],
-      })),
-    ),
+    mockChat: vi.fn(),
+    mockChatOnce: vi.fn(),
     mockRun: run,
     mockValues: values,
     mockInsert: insert,
@@ -37,10 +28,13 @@ const {
   };
 });
 
-vi.mock("../../llm/geminiClient.js", () => ({
-  chatWithDrishti: mockChatWithDrishti,
-  generateText: mockGenerateText,
-  toGeminiHistory: mockToGeminiHistory,
+vi.mock("../../llm/llmClient.js", () => ({
+  chat: mockChat,
+  chatOnce: mockChatOnce,
+  ADVISOR_LLM_TIMEOUT_MS: 180_000,
+  ADVISOR_MAX_TOKENS: 1500,
+  ADVISOR_TEMPERATURE: 0.7,
+  TRADE_SETUP_MAX_TOKENS: 4096,
 }));
 
 vi.mock("../../db/db.js", () => ({
@@ -98,7 +92,7 @@ beforeEach(() => {
 
 describe("askAdvisor", () => {
   it("saves two rows in a single transaction", async () => {
-    mockChatWithDrishti.mockResolvedValue("Hold for now; SL at 520.");
+    mockChat.mockResolvedValue("Hold for now; SL at 520.");
     await askAdvisor(request);
     expect(mockTransaction).toHaveBeenCalledOnce();
     expect(mockInsert).toHaveBeenCalledTimes(2);
@@ -112,7 +106,7 @@ describe("askAdvisor", () => {
   });
 
   it("returns ok with the answer when chat succeeds", async () => {
-    mockChatWithDrishti.mockResolvedValue("Hold for now; SL at 520.");
+    mockChat.mockResolvedValue("Hold for now; SL at 520.");
     const result = await askAdvisor(request);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -121,36 +115,37 @@ describe("askAdvisor", () => {
   });
 
   it("returns err when chat throws", async () => {
-    mockChatWithDrishti.mockRejectedValue(new Error("connection refused"));
+    mockChat.mockRejectedValue(new Error("connection refused"));
     const result = await askAdvisor(request);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain("connection refused");
   });
 
-  it("does not enable grounding for a routine portfolio question", async () => {
-    mockChatWithDrishti.mockResolvedValue("Hold for now.");
+  it("sends the system prompt and question as the first and last messages", async () => {
+    mockChat.mockResolvedValue("Hold for now.");
     await askAdvisor(request);
-    expect(mockChatWithDrishti).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(Array),
-      expect.any(String),
-      { grounding: false },
-    );
+    const messages = mockChat.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(messages[0]?.role).toBe("system");
+    expect(messages.at(-1)?.role).toBe("user");
+    expect(messages.at(-1)?.content).toContain(request.question);
   });
 
-  it("enables grounding when the question needs live web data", async () => {
-    mockChatWithDrishti.mockResolvedValue("Here's the latest news.");
-    await askAdvisor({ ...request, question: "Any recent news on RAMCOSYS?" });
-    expect(mockChatWithDrishti).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(Array),
-      expect.any(String),
-      { grounding: true },
-    );
+  it("uses an elevated timeout and conversational temperature for local-model inference", async () => {
+    mockChat.mockResolvedValue("Hold for now.");
+    await askAdvisor(request);
+    const [, maxTokens, timeoutMs, temperature] = mockChat.mock.calls[0] as [
+      unknown,
+      number,
+      number,
+      number,
+    ];
+    expect(maxTokens).toBe(1500);
+    expect(timeoutMs).toBe(180_000);
+    expect(temperature).toBe(0.7);
   });
 
-  it("never sends Gemini history starting on an assistant turn, even if the newest row alone exceeds the char budget", async () => {
+  it("never sends history starting on an assistant turn, even if the newest row alone exceeds the char budget", async () => {
     const oversizedAnswer = "A".repeat(7000); // exceeds the 6000-char history budget alone
     mockDbSelect.mockReturnValue({
       from: vi.fn().mockReturnValue({
@@ -174,15 +169,16 @@ describe("askAdvisor", () => {
         }),
       }),
     });
-    mockChatWithDrishti.mockResolvedValue("Hold for now.");
+    mockChat.mockResolvedValue("Hold for now.");
 
     await askAdvisor(request);
 
-    const history = mockChatWithDrishti.mock.calls[0]?.[1] as Array<{ role: string }>;
+    const messages = mockChat.mock.calls[0]?.[0] as Array<{ role: string }>;
+    const history = messages.slice(1, -1);
     // Must keep the paired user question rather than dropping the whole turn.
     expect(history).toHaveLength(2);
     expect(history[0]?.role).toBe("user");
-    expect(history[1]?.role).toBe("model");
+    expect(history[1]?.role).toBe("assistant");
   });
 
   it("drops a truly unpaired oldest-row assistant turn (no earlier row to pull in)", async () => {
@@ -206,11 +202,12 @@ describe("askAdvisor", () => {
         }),
       }),
     });
-    mockChatWithDrishti.mockResolvedValue("Hold for now.");
+    mockChat.mockResolvedValue("Hold for now.");
 
     await askAdvisor(request);
 
-    const history = mockChatWithDrishti.mock.calls[0]?.[1] as Array<{ role: string }>;
+    const messages = mockChat.mock.calls[0]?.[0] as Array<{ role: string }>;
+    const history = messages.slice(1, -1);
     expect(history).toHaveLength(0);
   });
 });
@@ -238,7 +235,7 @@ describe("buildAdvisoryContext", () => {
 
 describe("generateTradeSetup", () => {
   it("parses valid JSON correctly", async () => {
-    mockGenerateText.mockResolvedValue(validSetup);
+    mockChatOnce.mockResolvedValue(validSetup);
     const result = await generateTradeSetup("RAMCOSYS-EQ", "{}");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -249,7 +246,7 @@ describe("generateTradeSetup", () => {
   });
 
   it("returns err when the LLM returns non-JSON", async () => {
-    mockGenerateText.mockResolvedValue("Sorry, I cannot generate that setup.");
+    mockChatOnce.mockResolvedValue("Sorry, I cannot generate that setup.");
     const result = await generateTradeSetup("RAMCOSYS-EQ", "{}");
     expect(result.ok).toBe(false);
     if (result.ok) return;

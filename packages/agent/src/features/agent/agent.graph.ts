@@ -189,7 +189,7 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
   );
 
   if (!hasMaterialEvent && !movedSignificantly && !fallbackDue) {
-    logger.debug("llmAnalyse: no material change — skipping Gemini call");
+    logger.debug("llmAnalyse: no material change — skipping LLM call");
     return { llmOutput: null };
   }
 

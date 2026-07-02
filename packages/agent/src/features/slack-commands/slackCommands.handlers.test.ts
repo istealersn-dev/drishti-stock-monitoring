@@ -8,8 +8,10 @@ vi.mock("../gtt/gtt.tools.js", () => ({
   listGTTs: vi.fn(),
 }));
 
-vi.mock("../../llm/geminiClient.js", () => ({
-  generateText: vi.fn(),
+vi.mock("../../llm/llmClient.js", () => ({
+  chatOnce: vi.fn(),
+  ADVISOR_LLM_TIMEOUT_MS: 180_000,
+  SYMBOL_RESOLVE_TIMEOUT_MS: 30_000,
 }));
 
 vi.mock("../../db/db.js", () => ({
@@ -34,7 +36,7 @@ vi.mock("../../shared/env.js", () => ({
   },
 }));
 
-import { generateText } from "../../llm/geminiClient.js";
+import { chatOnce } from "../../llm/llmClient.js";
 import { listGTTs } from "../gtt/gtt.tools.js";
 import type { Holding } from "../portfolio/portfolio.schema.js";
 import { fetchHoldings } from "../portfolio/portfolio.tools.js";
@@ -49,7 +51,7 @@ import {
 
 const mockFetchHoldings = vi.mocked(fetchHoldings);
 const mockListGTTs = vi.mocked(listGTTs);
-const mockGenerateText = vi.mocked(generateText);
+const mockChat = vi.mocked(chatOnce);
 
 const makeHolding = (): Holding => ({
   isin: "INE123A01010",
@@ -168,7 +170,7 @@ describe("handleAnalyse", () => {
 
   it("sends analysis result on LLM success", async () => {
     mockFetchHoldings.mockResolvedValue({ ok: true, value: [makeHolding()] });
-    mockGenerateText.mockResolvedValue("Hold. Trading at +3.5% above entry, well above SL.");
+    mockChat.mockResolvedValue("Hold. Trading at +3.5% above entry, well above SL.");
     const say = vi.fn().mockResolvedValue(undefined);
     await handleAnalyse("reliance", say);
     expect(say).toHaveBeenCalledWith(expect.stringContaining("Analysing"));
@@ -177,7 +179,7 @@ describe("handleAnalyse", () => {
 
   it("sends LLM error message when chat throws", async () => {
     mockFetchHoldings.mockResolvedValue({ ok: true, value: [makeHolding()] });
-    mockGenerateText.mockRejectedValue(new Error("LM Studio not running"));
+    mockChat.mockRejectedValue(new Error("LM Studio not running"));
     const say = vi.fn().mockResolvedValue(undefined);
     await handleAnalyse("reliance", say);
     expect(say).toHaveBeenCalledWith(expect.stringContaining("Analysis failed"));
@@ -188,7 +190,7 @@ describe("handleAnalyse", () => {
     const hdfcBank = { ...makeHolding(), trading_symbol: "HDFCBANK-EQ", company_name: "HDFC Bank" };
     const hdfcLife = { ...makeHolding(), trading_symbol: "HDFCLIFE-EQ", company_name: "HDFC Life" };
     mockFetchHoldings.mockResolvedValue({ ok: true, value: [hdfcLife, hdfcBank] });
-    mockGenerateText.mockResolvedValue("Hold.");
+    mockChat.mockResolvedValue("Hold.");
     const say = vi.fn().mockResolvedValue(undefined);
     await handleAnalyse("HDFCBANK-EQ", say);
     expect(say).toHaveBeenCalledWith(expect.stringContaining("HDFCBANK-EQ"));
