@@ -16,13 +16,17 @@ function readHeaders(): HeadersInit {
   };
 }
 
-// NOTE: This schema should be verified against a live Upstox API response
-// before deploying to production. Run with DRISHTI_DRY_RUN=true and inspect
-// the raw response to confirm field names match.
+// Verified against a live Upstox API response on 2026-07-03 (GET
+// /v2/instruments/search?query=RELIANCE&exchanges=NSE&segments=EQ returned
+// HTTP 200 with this shape). The response has more fields than modeled here
+// (isin, exchange_token, short_name, tick_size, lot_size, instrument_type,
+// freeze_quantity, qty_multiplier, security_type) — only what's used downstream
+// is included. Note the field is `instrument_key` (e.g. "NSE_EQ|INE002A01018"),
+// not `instrument_token` as this file previously (incorrectly) assumed.
 const InstrumentSearchItemSchema = z.object({
   trading_symbol: z.string(),
   exchange: z.string(),
-  instrument_token: z.string(),
+  instrument_key: z.string(),
   name: z.string().optional(),
 });
 
@@ -41,7 +45,7 @@ export async function resolveSymbol(
   stockName: string,
 ): Promise<Result<ResolvedStock, UpstoxError>> {
   const query = encodeURIComponent(stockName.trim());
-  const url = `${BASE_URL}/v2/market/instruments/search?q=${query}&instrument_type=EQ`;
+  const url = `${BASE_URL}/v2/instruments/search?query=${query}&exchanges=NSE&segments=EQ`;
 
   try {
     const response = await fetch(url, { headers: readHeaders() });
@@ -63,7 +67,7 @@ export async function resolveSymbol(
     return ok({
       tradingSymbol: nseMatch.trading_symbol,
       exchange: nseMatch.exchange,
-      instrumentToken: nseMatch.instrument_token,
+      instrumentToken: nseMatch.instrument_key,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

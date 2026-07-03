@@ -210,6 +210,40 @@ describe("parseInstruction", () => {
 // ── resolveSymbol tests ───────────────────────────────────────────────────────
 
 describe("resolveSymbol", () => {
+  it("resolves a stock name to its trading symbol and instrument_key via the correct endpoint/params", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        data: [
+          {
+            name: "RELIANCE INDUSTRIES LTD",
+            exchange: "NSE",
+            instrument_key: "NSE_EQ|INE002A01018",
+            trading_symbol: "RELIANCE",
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await resolveSymbol("RELIANCE");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.tradingSymbol).toBe("RELIANCE");
+    expect(result.value.exchange).toBe("NSE");
+    expect(result.value.instrumentToken).toBe("NSE_EQ|INE002A01018");
+
+    const calledUrl = mockFetch.mock.calls[0]?.[0] as string;
+    expect(calledUrl).toContain("/v2/instruments/search");
+    expect(calledUrl).not.toContain("/v2/market/instruments/search");
+    expect(calledUrl).toContain("query=RELIANCE");
+    expect(calledUrl).toContain("exchanges=NSE");
+    expect(calledUrl).toContain("segments=EQ");
+
+    vi.unstubAllGlobals();
+  });
+
   it("returns err when no NSE equity is found for the stock name", async () => {
     vi.stubGlobal(
       "fetch",
