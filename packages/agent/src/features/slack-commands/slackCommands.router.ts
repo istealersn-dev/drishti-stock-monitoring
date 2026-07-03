@@ -7,7 +7,7 @@ import { db } from "../../db/db.js";
 import { slackSessions } from "../../db/schema.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
-import { classifyIntent } from "../instructions/instructions.intent.js";
+import { BUY_INSTRUCTION_REGEX, classifyIntent } from "../instructions/instructions.intent.js";
 import { submitBuyInstruction } from "../instructions/instructions.pipeline.js";
 
 import { routeCommand } from "./slackCommands.command.js";
@@ -28,7 +28,6 @@ import {
 } from "./slackCommands.handlers.js";
 import { SlackMessageShape } from "./slackCommands.schema.js";
 
-const BUY_INSTRUCTION = /\bbuy\b.*\d/i;
 const MENTION_PREFIX = /^<@[A-Z0-9]+>\s*/i;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const GENERIC_CLARIFYING_QUESTION =
@@ -145,21 +144,20 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
             thread_ts: replyThreadTs,
           });
         }
-        return;
-      }
-
-      if (classification.intent === "AMBIGUOUS") {
+      } else if (classification.intent === "AMBIGUOUS") {
         await say({
-          text: classification.clarifyingQuestion ?? GENERIC_CLARIFYING_QUESTION,
+          text: classification.clarifyingQuestion || GENERIC_CLARIFYING_QUESTION,
           thread_ts: replyThreadTs,
         });
-        return;
+      } else {
+        await handleAsk(question, say, client, { sessionId, threadTs: replyThreadTs });
       }
 
-      await handleAsk(question, say, client, { sessionId, threadTs: replyThreadTs });
-
       // Always refresh lastActiveAt so the 24h TTL is based on last activity,
-      // not session creation. storeSlackSession upserts on conflict.
+      // not session creation. storeSlackSession upserts on conflict. Stored for
+      // every branch (not just QUERY) so a reply inside this thread — including
+      // "yes place it" after a clarifying question — is recognized as a tracked
+      // thread by the plain-reply listener instead of being silently dropped.
       storeSlackSession(replyThreadTs, channel, sessionId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -213,7 +211,7 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
           command.text.trim().slice("watchlist remove ".length).trim(),
           reply,
         );
-      } else if (BUY_INSTRUCTION.test(sub)) {
+      } else if (BUY_INSTRUCTION_REGEX.test(sub)) {
         await reply("📥 Received buy instruction — parsing…");
         const result = await submitBuyInstruction(command.text.trim(), command.channel_id);
         if (!result.ok) {

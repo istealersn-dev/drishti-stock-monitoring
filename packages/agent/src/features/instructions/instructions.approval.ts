@@ -15,17 +15,37 @@ function getClient(): WebClient {
   return _client;
 }
 
-function formatTargets(instruction: ParsedInstruction): string {
+/**
+ * Format an instruction's targets as "T1 ₹680 · T2 ₹800+", or "—" if none.
+ * @param instruction - The parsed buy instruction
+ * @returns The formatted targets string
+ */
+export function formatTargets(instruction: ParsedInstruction): string {
   if (instruction.targets.length === 0) return "—";
   return instruction.targets
     .map((target, index) => `T${index + 1} ₹${target.price}${target.isOpenEnded ? "+" : ""}`)
     .join(" · ");
 }
 
-function formatEntry(instruction: ParsedInstruction): string {
+/**
+ * Format an instruction's entry range as "₹560 – ₹580" (or a single "₹570" when
+ * entryLow equals entryHigh), or "—" if either bound is missing.
+ * @param instruction - The parsed buy instruction
+ * @returns The formatted entry string
+ */
+export function formatEntry(instruction: ParsedInstruction): string {
   if (!instruction.entryLow || !instruction.entryHigh) return "—";
   if (instruction.entryLow === instruction.entryHigh) return `₹${instruction.entryLow}`;
   return `₹${instruction.entryLow} – ₹${instruction.entryHigh}`;
+}
+
+/**
+ * Format an instruction's stop loss as "₹520", or "—" if missing.
+ * @param instruction - The parsed buy instruction
+ * @returns The formatted stop-loss string
+ */
+export function formatStopLoss(instruction: ParsedInstruction): string {
+  return instruction.stopLoss ? `₹${instruction.stopLoss}` : "—";
 }
 
 /**
@@ -68,10 +88,7 @@ export async function sendApprovalCard(
         { type: "mrkdwn", text: `*Stock:*\n${resolvedSymbol}` },
         { type: "mrkdwn", text: `*Action:*\nBUY` },
         { type: "mrkdwn", text: `*Entry:*\n${formatEntry(instruction)}` },
-        {
-          type: "mrkdwn",
-          text: `*Stop Loss:*\n${instruction.stopLoss ? `₹${instruction.stopLoss}` : "—"}`,
-        },
+        { type: "mrkdwn", text: `*Stop Loss:*\n${formatStopLoss(instruction)}` },
         { type: "mrkdwn", text: `*Targets:*\n${formatTargets(instruction)}` },
         { type: "mrkdwn", text: `*Suggested Qty:*\n${suggestedQty} shares` },
         {

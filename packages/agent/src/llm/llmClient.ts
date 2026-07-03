@@ -36,8 +36,11 @@ export const INTENT_CLASSIFICATION_MAX_TOKENS = 200;
 export const INTENT_CLASSIFICATION_TIMEOUT_MS = 20_000;
 
 // Buy-approval sanity check (2-3 sentences + one web_search round) run synchronously
-// before the approval card is sent — tighter than the advisor's 180s since it sits
-// in the approval-send path and must never be the reason a card is delayed for long.
+// before the approval card is sent. This is a PER-ROUND timeout (runToolLoop applies
+// it to each of up to MAX_TOOL_ROUNDS chatWithTools calls), so worst case this is
+// ~3x60s, not a 60s cap on the whole analysis — tuned lower than the advisor's
+// per-round 180s only because a single round here is expected to be short (a brief
+// sanity check, not a multi-turn conversation), not because it bounds total latency.
 export const INSTRUCTION_ANALYSIS_MAX_TOKENS = 400;
 export const INSTRUCTION_ANALYSIS_TIMEOUT_MS = 60_000;
 

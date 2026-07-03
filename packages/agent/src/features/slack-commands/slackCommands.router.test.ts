@@ -114,7 +114,7 @@ describe("app_mention handler", () => {
     );
   });
 
-  it("asks a clarifying question when intent is AMBIGUOUS and never calls handleAsk or submitBuyInstruction", async () => {
+  it("asks a clarifying question when intent is AMBIGUOUS, never calls handleAsk or submitBuyInstruction, but still tracks the thread", async () => {
     mockClassifyIntent.mockResolvedValue({
       intent: "AMBIGUOUS",
       clarifyingQuestion: "Do you want to buy Ramco Systems, or ask about it?",
@@ -131,10 +131,53 @@ describe("app_mention handler", () => {
 
     expect(mockSubmitBuyInstruction).not.toHaveBeenCalled();
     expect(mockHandleAsk).not.toHaveBeenCalled();
-    expect(mockStoreSlackSession).not.toHaveBeenCalled();
+    expect(mockStoreSlackSession).toHaveBeenCalled();
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({ text: "Do you want to buy Ramco Systems, or ask about it?" }),
     );
+  });
+
+  it("falls back to the generic clarifying question when the LLM returns an empty string", async () => {
+    mockClassifyIntent.mockResolvedValue({ intent: "AMBIGUOUS", clarifyingQuestion: "" });
+
+    const { app, eventHandlers } = buildFakeApp();
+    registerSlackCommands(app as never, "C_CMD");
+
+    await eventHandlers.app_mention?.({
+      event: { text: "<@U1> Ramco Systems", channel: "C1", ts: "100.5" },
+      say,
+      client: {},
+    });
+
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Is this a buy instruction or a question? Rephrase and I'll help.",
+      }),
+    );
+  });
+
+  it("tracks the thread when intent is ORDER so a follow-up reply isn't silently dropped", async () => {
+    mockClassifyIntent.mockResolvedValue({ intent: "ORDER", clarifyingQuestion: null });
+    mockSubmitBuyInstruction.mockResolvedValue({
+      ok: true,
+      approvalId: "a2",
+      symbol: "RAMCOSYS-EQ",
+    });
+
+    const { app, eventHandlers } = buildFakeApp();
+    registerSlackCommands(app as never, "C_CMD");
+
+    await eventHandlers.app_mention?.({
+      event: {
+        text: "<@U1> Ramco Systems Buy 560-580 SL 520 Tgt 680 800+",
+        channel: "C1",
+        ts: "100.6",
+      },
+      say,
+      client: {},
+    });
+
+    expect(mockStoreSlackSession).toHaveBeenCalled();
   });
 
   it("falls through to handleAsk when intent is QUERY", async () => {

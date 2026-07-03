@@ -9,7 +9,10 @@ import { INTENT_CLASSIFICATION_SYSTEM_PROMPT } from "./instructions.prompts.js";
 import { IntentClassificationSchema } from "./instructions.schema.js";
 import type { IntentClassification } from "./instructions.schema.js";
 
-const BUY_INSTRUCTION_FALLBACK = /\bbuy\b.*\d/i;
+// Shared "does this look like a buy instruction" heuristic — used both as the
+// classifier's failure fallback here and as the /drishti slash command's primary
+// routing check in slackCommands.router.ts, so the two entry points can't drift.
+export const BUY_INSTRUCTION_REGEX = /\bbuy\b.*\d/i;
 
 /**
  * Fall back to a regex heuristic when the LLM classifier call fails or returns
@@ -19,7 +22,7 @@ const BUY_INSTRUCTION_FALLBACK = /\bbuy\b.*\d/i;
  * @returns ORDER if the text looks like a buy instruction, otherwise QUERY
  */
 function classifyByRegex(text: string): IntentClassification {
-  return BUY_INSTRUCTION_FALLBACK.test(text)
+  return BUY_INSTRUCTION_REGEX.test(text)
     ? { intent: "ORDER", clarifyingQuestion: null }
     : { intent: "QUERY", clarifyingQuestion: null };
 }
