@@ -7,6 +7,7 @@ import { db } from "../../db/db.js";
 import { slackSessions } from "../../db/schema.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
+import { MENTION_PREFIX_REGEX } from "../../shared/slackMention.js";
 import { recordConversationTurn } from "../advisor/advisor.chain.js";
 import { BUY_INSTRUCTION_REGEX, classifyIntent } from "../instructions/instructions.intent.js";
 import { submitBuyInstruction } from "../instructions/instructions.pipeline.js";
@@ -29,7 +30,6 @@ import {
 } from "./slackCommands.handlers.js";
 import { SlackMessageShape } from "./slackCommands.schema.js";
 
-const MENTION_PREFIX = /^<@[A-Z0-9]+>\s*/i;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const GENERIC_CLARIFYING_QUESTION =
   "Is this a buy instruction or a question? Rephrase and I'll help.";
@@ -89,7 +89,7 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
     const { text, thread_ts, channel } = parsed.data;
 
     if ("bot_id" in message && message.bot_id) return;
-    if (MENTION_PREFIX.test(text.trim())) return;
+    if (MENTION_PREFIX_REGEX.test(text.trim())) return;
     if (channel === commandChannelId && routeCommand(text.trim()) != null) return;
 
     const sessionId = getExistingSession(thread_ts);
@@ -112,7 +112,7 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
   // the reply. Mentions inside an existing tracked thread continue that session.
   app.event("app_mention", async ({ event, say, client }) => {
     const rawText = "text" in event ? String(event.text) : "";
-    const question = rawText.replace(MENTION_PREFIX, "").trim();
+    const question = rawText.replace(MENTION_PREFIX_REGEX, "").trim();
     if (!question) return;
 
     const channel = event.channel;

@@ -1,14 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
 
-const { mockChat } = vi.hoisted(() => ({ mockChat: vi.fn() }));
+const { mockChat, mockInsert, mockValues } = vi.hoisted(() => {
+  const run = vi.fn();
+  const values = vi.fn(() => ({ run }));
+  const insert = vi.fn(() => ({ values }));
+  return { mockChat: vi.fn(), mockInsert: insert, mockValues: values };
+});
 
 vi.mock("../../llm/llmClient.js", () => ({ chat: mockChat }));
+vi.mock("../../db/db.js", () => ({ db: { insert: mockInsert } }));
 vi.mock("../../shared/env.js", () => ({
   env: {
     LM_STUDIO_BASE_URL: "http://localhost:1234",
     LM_MODEL: "test-model",
     UPSTOX_EXTENDED_TOKEN: "",
     UPSTOX_ACCESS_TOKEN: "",
+    DRISHTI_DRY_RUN: false,
   },
 }));
 
@@ -143,6 +150,31 @@ describe("parseInstruction", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain("schema validation");
+  });
+
+  it("logs a buy_action_field_overridden row to agent_logs when the model disagrees with forced BUY", async () => {
+    mockChat.mockResolvedValue(
+      JSON.stringify({
+        stockName: "Reliance",
+        action: "SELL",
+        entryLow: 2500,
+        entryHigh: 2600,
+        stopLoss: 2650,
+        targets: [{ price: 2400, isOpenEnded: false }],
+      }),
+    );
+
+    const result = await parseInstruction("Sell Reliance 2500-2600 SL 2650 Tgt 2400");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.action).toBe("BUY");
+
+    expect(mockInsert).toHaveBeenCalled();
+    const insertedRow = (
+      mockValues.mock.calls as unknown as [{ action: string; error: string }][]
+    )[0]?.[0];
+    expect(insertedRow?.action).toBe("buy_action_field_overridden");
+    expect(insertedRow?.error).toContain("SELL");
   });
 
   it("returns err when LLM call throws", async () => {

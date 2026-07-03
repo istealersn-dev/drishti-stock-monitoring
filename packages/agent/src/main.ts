@@ -20,6 +20,7 @@ import { SlackMessageShape } from "./features/slack-commands/slackCommands.schem
 import { startAdvisorCrons, startCron } from "./scheduler/cron.js";
 import { env } from "./shared/env.js";
 import { logger } from "./shared/logger.js";
+import { MENTION_PREFIX_REGEX } from "./shared/slackMention.js";
 
 async function tick(): Promise<void> {
   const runId = crypto.randomUUID();
@@ -88,7 +89,6 @@ async function main(): Promise<void> {
   // risking two separate submitBuyInstruction calls (and potentially two approval
   // cards) for the same instruction.
   const BUY_INSTRUCTION = /\bbuy\b.*\d/i;
-  const MENTION_PREFIX = /^<@[A-Z0-9]+>/i;
   const buyChannels = new Set([env.SLACK_ALERT_CHANNEL_ID, env.SLACK_COMMAND_CHANNEL_ID]);
   boltApp.message(async ({ message }) => {
     if (message.subtype) return;
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     if (!parsed.success) return;
     const { channel, text } = parsed.data;
     if (!channel || !buyChannels.has(channel) || !text) return;
-    if (/^!/.test(text) || /^\//.test(text) || MENTION_PREFIX.test(text.trim())) return;
+    if (/^!/.test(text) || /^\//.test(text) || MENTION_PREFIX_REGEX.test(text.trim())) return;
     if (!BUY_INSTRUCTION.test(text)) return;
     const result = await submitBuyInstruction(text, channel);
     if (!result.ok) {
