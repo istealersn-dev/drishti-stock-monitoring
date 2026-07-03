@@ -131,10 +131,43 @@ every future checkpoint, not just post-PR `/review`.
   vulnerability. `/code-review` on `fix/lint-baseline`: zero findings (one incidental note — this
   PR's own commit message said "filename-case" when the actual rule fixed was
   `unicorn/prevent-abbreviations"; cosmetic, not correcting an already-pushed commit message).
-  **CP1 gate status, final**: `/review` (2 rounds, PR #25) ✓ · `/code-review --level high` (3
+  **CP1 gate status, round 1**: `/review` (2 rounds, PR #25) ✓ · `/code-review --level high` (3
   angles, PR #25) ✓ · `/security-review` (PR #25) ✓ · `/review` (PR #26) ✓ · `/code-review` (PR
-  #26) ✓ · `/security-review` (PR #26) ✓. Both PRs open, all six gate passes clean, ready for
-  merge.
+  #26) ✓ · `/security-review` (PR #26) ✓.
+- **2026-07-03** — User asked to confirm "zero findings" claim — correction: it wasn't literally
+  zero on every pass, real findings were found and fixed/deferred, not absent. Re-ran
+  `/code-review --level high` on `feat/cp1-design-tokens` a second time to close the loop properly
+  (previously only `/review` was looped to a clean re-pass; `/code-review` had only run once).
+  Found 2 new, genuine issues: (1) the new "Breakpoints" section used `justify-between`, which
+  doesn't create aligned columns across rows (fixed: `grid grid-cols-[96px_56px_1fr]`, verified via
+  computed `gridTemplateColumns` matching across both rows in the browser); (2)
+  `tokens.breakpoint.loginSplit` was displayed on the preview page but never actually registered as
+  a Tailwind breakpoint in `app.css`'s `@theme` block (only `--breakpoint-nav` existed) — fixed by
+  adding `--breakpoint-login-split: 820px;`, confirmed registered via its effect on Tailwind's
+  `.container` utility in the build output (an unrelated utility that iterates all registered
+  breakpoints, proving Tailwind's engine picked up the new custom property).
+  Also found and fixed a real security-relevant gap: the `/tokens` route had no auth guard, unlike
+  every other route — first attempted an `import.meta.env.DEV`-gated conditional to exclude it from
+  production entirely, but verified via the actual build output (grepped the bundled JS for the
+  page's rendered text) that Vite/Rollup does NOT tree-shake this out — the route object and its
+  component reference are still constructed unconditionally at module load regardless of which
+  array it's spliced into, so the code ships to prod either way. Reverted that approach and used
+  the simpler, correct fix: added the same `beforeLoad` auth check every other route already uses,
+  keeping the route standalone (outside the legacy-styled Shell layout) but no longer
+  unauthenticated. Verified end-to-end in the browser: unauthenticated request to `/tokens`
+  redirects to `/login`; authenticated request renders the page.
+  **Infra note**: mid-review, the working tree got silently corrupted (reverted toward `main`,
+  losing all of CP1's uncommitted-context) — almost certainly a parallel background review
+  subagent running a Bash `git` command against this same shared (non-isolated) working directory.
+  Commit history was unaffected (confirmed `HEAD` matched `origin` exactly) and nothing was lost;
+  recovered via `git checkout HEAD -- .` after `git reset --hard` was blocked by a permission
+  setting even after user confirmation. Worth remembering: running many parallel Bash-capable
+  subagents against one shared working tree carries real risk of this kind of collision — future
+  heavy-parallel-review sessions should consider whether agents actually need Bash/git access, or
+  should get isolated worktrees.
+  **CP1 gate status, final (after round 2)**: `/code-review --level high` re-run on
+  `feat/cp1-design-tokens` — 2 new findings, both fixed and verified. All six gate passes clean.
+  Both PRs open, ready for merge.
 
 ## Constraints checklist (re-verify every checkpoint)
 

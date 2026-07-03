@@ -1185,8 +1185,9 @@ body {
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  /* the single shell breakpoint (Design.md §5) */
+  /* the single shell breakpoint, plus login's secondary split (Design.md §5) */
   --breakpoint-nav: 760px;
+  --breakpoint-login-split: 820px;
 
   /* motion — durations lifted verbatim from project/Drishti.dc.html's drk-* keyframes */
   --animate-wave-x: wave-x 17s ease-in-out -5s infinite alternate;

@@ -287,7 +287,7 @@ export function TokensPreview(): React.ReactElement {
           {BREAKPOINTS.map((b) => (
             <div
               key={b.label}
-              className="flex items-center justify-between rounded-lg border border-border bg-surface-2 p-3"
+              className="grid grid-cols-[96px_56px_1fr] items-center gap-3 rounded-lg border border-border bg-surface-2 p-3"
             >
               <span className="font-mono text-body-sm font-medium text-fg">{b.label}</span>
               <span className="font-mono text-caption text-fg-faint">{b.value}px</span>
