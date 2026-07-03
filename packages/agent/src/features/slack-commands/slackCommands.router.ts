@@ -7,6 +7,7 @@ import { db } from "../../db/db.js";
 import { slackSessions } from "../../db/schema.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
+import { recordConversationTurn } from "../advisor/advisor.chain.js";
 import { BUY_INSTRUCTION_REGEX, classifyIntent } from "../instructions/instructions.intent.js";
 import { submitBuyInstruction } from "../instructions/instructions.pipeline.js";
 
@@ -145,10 +146,12 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
           });
         }
       } else if (classification.intent === "AMBIGUOUS") {
-        await say({
-          text: classification.clarifyingQuestion || GENERIC_CLARIFYING_QUESTION,
-          thread_ts: replyThreadTs,
-        });
+        const clarifyingQuestion = classification.clarifyingQuestion || GENERIC_CLARIFYING_QUESTION;
+        await say({ text: clarifyingQuestion, thread_ts: replyThreadTs });
+        // Persist this exchange so a reply in this thread has context via loadHistory —
+        // otherwise handleAsk sees the follow-up with zero history and answers as if
+        // it were a brand-new, unrelated question.
+        recordConversationTurn(sessionId, channel, question, clarifyingQuestion);
       } else {
         await handleAsk(question, say, client, { sessionId, threadTs: replyThreadTs });
       }

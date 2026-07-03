@@ -89,6 +89,49 @@ function loadHistory(sessionId: string): ChatCompletionMessageParam[] {
 }
 
 /**
+ * Persist a user/assistant turn pair under a session id, without calling the LLM.
+ * Used for exchanges that don't go through askAdvisor (e.g. the intent classifier's
+ * clarifying question) so a later reply in the same thread has conversational
+ * context via loadHistory instead of looking like a fresh, context-free question.
+ * @param sessionId - The session to record the turn under
+ * @param channel - Originating channel, for the conversation row
+ * @param userText - The user's message
+ * @param assistantText - Drishti's reply
+ */
+export function recordConversationTurn(
+  sessionId: string,
+  channel: string,
+  userText: string,
+  assistantText: string,
+): void {
+  const userAt = new Date().toISOString();
+  const assistantAt = new Date().toISOString();
+
+  db.transaction((tx) => {
+    tx.insert(advisoryConversations)
+      .values({
+        id: randomUUID(),
+        sessionId,
+        role: "user",
+        content: userText,
+        channel,
+        createdAt: userAt,
+      })
+      .run();
+    tx.insert(advisoryConversations)
+      .values({
+        id: randomUUID(),
+        sessionId,
+        role: "assistant",
+        content: assistantText,
+        channel,
+        createdAt: assistantAt,
+      })
+      .run();
+  });
+}
+
+/**
  * Answer a portfolio advisory question using the Drishti persona.
  * Loads the last 24h of conversation history for the session to maintain multi-turn context.
  * The question and answer are persisted as two rows (role "user" and "assistant")
@@ -112,7 +155,6 @@ export async function askAdvisor(
     const userContext = buildAdvisoryContext(holdings, request.question);
     const runId = randomUUID();
 
-    const userAt = new Date().toISOString();
     const answer = await runToolLoop(
       [
         { role: "system", content: SEBI_ADVISOR_SYSTEM_PROMPT },
@@ -132,30 +174,7 @@ export async function askAdvisor(
         temperature: ADVISOR_TEMPERATURE,
       },
     );
-    const assistantAt = new Date().toISOString();
-
-    db.transaction((tx) => {
-      tx.insert(advisoryConversations)
-        .values({
-          id: randomUUID(),
-          sessionId: request.sessionId,
-          role: "user",
-          content: request.question,
-          channel: request.channel,
-          createdAt: userAt,
-        })
-        .run();
-      tx.insert(advisoryConversations)
-        .values({
-          id: randomUUID(),
-          sessionId: request.sessionId,
-          role: "assistant",
-          content: answer,
-          channel: request.channel,
-          createdAt: assistantAt,
-        })
-        .run();
-    });
+    recordConversationTurn(request.sessionId, request.channel, request.question, answer);
 
     return ok({ answer, sessionId: request.sessionId });
   } catch (e) {

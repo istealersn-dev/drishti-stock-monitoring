@@ -1,15 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockClassifyIntent, mockSubmitBuyInstruction, mockHandleAsk, mockStoreSlackSession } =
-  vi.hoisted(() => ({
-    mockClassifyIntent: vi.fn(),
-    mockSubmitBuyInstruction: vi.fn(),
-    mockHandleAsk: vi.fn(),
-    mockStoreSlackSession: vi.fn(),
-  }));
+const {
+  mockClassifyIntent,
+  mockSubmitBuyInstruction,
+  mockHandleAsk,
+  mockStoreSlackSession,
+  mockRecordConversationTurn,
+} = vi.hoisted(() => ({
+  mockClassifyIntent: vi.fn(),
+  mockSubmitBuyInstruction: vi.fn(),
+  mockHandleAsk: vi.fn(),
+  mockStoreSlackSession: vi.fn(),
+  mockRecordConversationTurn: vi.fn(),
+}));
 
 vi.mock("../instructions/instructions.intent.js", () => ({
   classifyIntent: mockClassifyIntent,
+  BUY_INSTRUCTION_REGEX: /\bbuy\b.*\d/i,
+}));
+
+vi.mock("../advisor/advisor.chain.js", () => ({
+  recordConversationTurn: mockRecordConversationTurn,
 }));
 
 vi.mock("../instructions/instructions.pipeline.js", () => ({
@@ -134,6 +145,12 @@ describe("app_mention handler", () => {
     expect(mockStoreSlackSession).toHaveBeenCalled();
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({ text: "Do you want to buy Ramco Systems, or ask about it?" }),
+    );
+    expect(mockRecordConversationTurn).toHaveBeenCalledWith(
+      expect.any(String),
+      "C1",
+      "Ramco Systems",
+      "Do you want to buy Ramco Systems, or ask about it?",
     );
   });
 
