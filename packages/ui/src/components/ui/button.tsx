@@ -18,11 +18,12 @@ const VARIANT_CLASS: Record<ButtonVariant | "icon", string> = {
   primary:
     "px-4 py-2 rounded-xl bg-[image:var(--gradient-gold)] text-bg-base shadow-gold hover:brightness-110 active:brightness-95",
   secondary:
-    "px-4 py-2 rounded-xl border border-border-strong text-fg hover:border-border-muted hover:bg-surface-hover",
-  ghost: "px-4 py-2 rounded-xl text-fg-muted hover:bg-surface-hover hover:text-fg",
+    "px-4 py-2 rounded-xl border border-border-strong text-fg hover:border-border-muted hover:bg-surface-hover active:bg-surface-2",
+  ghost:
+    "px-4 py-2 rounded-xl text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-2",
   destructive:
-    "px-4 py-2 rounded-xl border border-neg-ring bg-neg-tint text-neg-soft hover:brightness-110",
-  icon: "h-8 w-8 rounded-lg text-fg-muted hover:bg-surface-hover hover:text-fg",
+    "px-4 py-2 rounded-xl border border-neg-ring bg-neg-tint text-neg-soft hover:brightness-110 active:brightness-90",
+  icon: "h-8 w-8 rounded-lg text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-2",
 };
 
 /**

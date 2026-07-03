@@ -33,6 +33,7 @@ export function PrimitivesPreview(): React.ReactElement {
   const [text, setText] = useState("");
   const [numeric, setNumeric] = useState("580");
   const [note, setNote] = useState("");
+  const [apiKey, setApiKey] = useState("sk-live-example-key-value");
 
   return (
     <main className="flex min-h-dvh flex-col gap-8 bg-bg-base p-8 font-sans text-fg">
@@ -116,6 +117,13 @@ export function PrimitivesPreview(): React.ReactElement {
             value="580"
             onChange={(): void => {}}
             disabled
+          />
+          <Input
+            id="preview-api-key"
+            label="API key"
+            type="password"
+            value={apiKey}
+            onChange={setApiKey}
           />
           <Textarea
             id="preview-note"
