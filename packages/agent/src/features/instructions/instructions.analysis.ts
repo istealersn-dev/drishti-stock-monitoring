@@ -55,6 +55,7 @@ export async function analyzeBuyInstruction(
         maxTokens: INSTRUCTION_ANALYSIS_MAX_TOKENS,
         timeoutMs: INSTRUCTION_ANALYSIS_TIMEOUT_MS,
         temperature: 0.3,
+        reasoningEffort: "none",
       },
     );
 
