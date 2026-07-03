@@ -8,6 +8,7 @@ import {
   chatOnce,
 } from "../../llm/llmClient.js";
 import { env } from "../../shared/env.js";
+import { stripJsonCodeFence } from "../../shared/llmResponse.js";
 import { logger } from "../../shared/logger.js";
 
 import { INTENT_CLASSIFICATION_SYSTEM_PROMPT } from "./instructions.prompts.js";
@@ -48,7 +49,7 @@ export async function classifyIntent(text: string): Promise<IntentClassification
       temperature: 0.1,
     });
 
-    const cleaned = response.replace(/```(?:json)?\n?|\n?```/g, "").trim();
+    const cleaned = stripJsonCodeFence(response);
 
     let raw: unknown;
     try {
