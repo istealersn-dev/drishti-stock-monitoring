@@ -33,7 +33,7 @@ export function PrimitivesPreview(): React.ReactElement {
   const [text, setText] = useState("");
   const [numeric, setNumeric] = useState("580");
   const [note, setNote] = useState("");
-  const [apiKey, setApiKey] = useState("sk-live-example-key-value");
+  const [apiKey, setApiKey] = useState("demo-reveal-toggle-123");
 
   return (
     <main className="flex min-h-dvh flex-col gap-8 bg-bg-base p-8 font-sans text-fg">

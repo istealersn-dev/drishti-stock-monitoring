@@ -190,6 +190,34 @@ from the spec.
   (squash-merge, matching the repo's existing merged-PR convention), deleted both remote branches,
   confirmed both landed in `origin/main` (grepped for `--breakpoint-login-split` and
   `spinTimerReference`). Branched `feat/cp2-ui-primitives-a` off the updated `origin/main`.
+- **2026-07-03/04** — CP2: built Button (primary/secondary/ghost/destructive/icon), Badge, Card,
+  Input, Textarea, StatusDot, Breadcrumb in `packages/ui/src/components/ui/`, all token-bound
+  (CP1's `@theme`). Deleted the old unused `card.tsx`/`badge.tsx` (dead code, zero importers
+  repo-wide, confirmed by two independent review agents) rather than keeping them as unused
+  "legacy" copies — the new primitives took the canonical names directly. Added `lucide-react`
+  (first use — Breadcrumb's chevron), first non-negotiable-stack icon library dependency.
+  Added `primitivesPreview.tsx` + auth-guarded `/primitives` route (same pattern as `/tokens`) for
+  visual verification; CP3 folds this into the fuller barrel-export catalog page.
+  **Pre-PR gate, round 1** (`/code-review --level high`, 2 parallel angles): found and fixed (a) a
+  real bug caught during browser verification before review even ran — disabled Button kept
+  showing its gold gradient because `disabled:bg-surface-2` only overrides `background-color`, not
+  `background-image` (fixed with `disabled:bg-[image:none]`); (b) missing `active:` pseudo-class on
+  4 of 5 Button variants (Design.md §6 requires all 5 states built for every variant — only
+  `primary` had it); (c) `Input`'s password type (Design.md §6: "Password field for API keys") had
+  no reveal toggle — added one as a flex sibling inside a shared bordered wrapper (not
+  `position:absolute`), using the newly-added `lucide-react` Eye/EyeOff icons.
+  **Round 2** (re-run to confirm convergence): zero new findings; verified both fixes hold via
+  direct file read + a live browser toggle-click test. Noted but not fixed (zero current blast
+  radius, informational only): `Input`'s `className` prop now targets the wrapper `<div>` instead
+  of the `<input>` itself, a side effect of the reveal-toggle restructure — no current caller
+  passes `className` to `Input`, so nothing breaks today; worth remembering if a future caller
+  expects `className` on the `<input>` element specifically (e.g. a validation-error border).
+  **`/security-review`**: zero HIGH/MEDIUM findings — password reveal toggle is local `useState`
+  only (no logging, no persistence), no primitive uses `dangerouslySetInnerHTML`/unsafe DOM sinks,
+  `/primitives` route's auth guard wired identically to `/tokens`. One cosmetic nit taken: the
+  preview page's placeholder API-key demo value looked like a real secret-scanner-trigger pattern
+  (`sk-live-...`) — swapped for an obviously-fake string to avoid false-positive CI/security-tool
+  noise, even though it was never a real secret (local component state, never transmitted).
 
 ## Constraints checklist (re-verify every checkpoint)
 
