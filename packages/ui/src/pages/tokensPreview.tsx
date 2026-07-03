@@ -156,6 +156,15 @@ const MOTION_SAMPLES = [
   { label: "fade", className: "animate-fade", durationMs: tokens.motion.fadeMs },
 ];
 
+const BREAKPOINTS = [
+  { label: "nav", value: tokens.breakpoint.nav, note: "single desktop/mobile shell split" },
+  {
+    label: "loginSplit",
+    value: tokens.breakpoint.loginSplit,
+    note: "login side-by-side / stacked",
+  },
+];
+
 /**
  * Design-system compliance page — renders every Design.md token as a live
  * swatch, built only with the new token-bound Tailwind classes. Serves as
@@ -270,6 +279,21 @@ export function TokensPreview(): React.ReactElement {
               wave-x · {tokens.motion.waveXMs}ms
             </span>
           </div>
+        </div>
+      </Section>
+
+      <Section title="Breakpoints">
+        <div className="flex flex-col gap-2">
+          {BREAKPOINTS.map((b) => (
+            <div
+              key={b.label}
+              className="flex items-center justify-between rounded-lg border border-border bg-surface-2 p-3"
+            >
+              <span className="font-mono text-body-sm font-medium text-fg">{b.label}</span>
+              <span className="font-mono text-caption text-fg-faint">{b.value}px</span>
+              <span className="text-caption text-fg-dim">{b.note}</span>
+            </div>
+          ))}
         </div>
       </Section>
     </main>

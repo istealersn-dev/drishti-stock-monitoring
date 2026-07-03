@@ -98,6 +98,27 @@ each checkpoint, get a go-ahead, implement it, open the PR, then move to the nex
   into `packages/*` and never runs the root `tsconfig.json` that actually includes
   `eslint.config.ts`). Also simplified `tokensPreview.tsx`'s 5 duplicated swatch-array/render
   blocks into one `COLOR_GROUPS` loop.
+- **2026-07-03** — Ran the pre-PR gate (`/code-review --level high` + `/security-review`) on both
+  branches retroactively, per user request — this should run *before* opening a PR on every future
+  checkpoint, not just post-PR `/review`. On `feat/cp1-design-tokens` (3 parallel angles): fixed a
+  dead `tokens.breakpoint.loginSplit` token (defined, never referenced anywhere) by adding a
+  "Breakpoints" section to `tokensPreview.tsx`. Re-confirmed (no new action) the already-documented
+  radius/font/border-strong collision from the `/review` pass. Refuted one claim empirically: the
+  `node.type !== "Literal"` guards in `flagStrayPositionRule` were called dead/unreachable code —
+  removing one and running `tsc` produces a real `TS2339` error, so it's required type narrowing,
+  not dead code.
+  **Deferred, not fixed** (documented judgment call, not a silent drop): two findings cited real
+  CLAUDE.md rules — "every tool function must have at least one unit test" (no test for
+  `isClassNameAttributeAncestor`) and "no `as` casts except after a Zod parse" (the
+  `node as unknown as AstNode` cast). Both rules read, in context, as targeting the *agent's*
+  tool-calling architecture and *application data* boundaries respectively (CLAUDE.md's Testing
+  section pairs "tool function" with "mocked tool responses" and vitest coverage — agent-domain
+  vocabulary; the Zod rule sits under "Code Standards" next to "Errors are values... Result/Either
+  patterns," clearly about parsing external/API data, not AST tooling). Applying either literally
+  here means either standing up net-new root-level test infrastructure (nothing in this repo tests
+  `eslint.config.ts` today) or Zod-validating every ESLint AST node visited (absurd for this
+  domain) — both disproportionate to a token/CSS checkpoint. Left as-is with this reasoning on
+  record; revisit if `eslint.config.ts`'s custom rules grow more complex.
 
 ## Constraints checklist (re-verify every checkpoint)
 
