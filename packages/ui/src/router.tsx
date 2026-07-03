@@ -9,6 +9,7 @@ import {
 import { Shell } from "./components/layout/shell";
 import { isAuthenticated } from "./lib/auth";
 import { Advisor } from "./pages/advisor";
+import { CatalogPreview } from "./pages/catalogPreview";
 import { Dashboard } from "./pages/dashboard";
 import { Gtt } from "./pages/gtt";
 import { Health } from "./pages/health";
@@ -49,6 +50,18 @@ const primitivesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/primitives",
   component: PrimitivesPreview,
+  beforeLoad: () => {
+    if (!isAuthenticated()) {
+      throw redirect({ to: "/login" });
+    }
+  },
+});
+
+// CP3 component catalog page — same standalone/auth-guarded pattern as tokensRoute.
+const catalogRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/catalog",
+  component: CatalogPreview,
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: "/login" });
@@ -127,6 +140,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   tokensRoute,
   primitivesRoute,
+  catalogRoute,
   layoutRoute.addChildren([
     indexRoute,
     holdingsRoute,

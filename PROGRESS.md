@@ -20,8 +20,8 @@ from the spec.
 |---|---|---|---|---|
 | 1 | Monorepo + design tokens | **done, merged** | `feat/cp1-design-tokens` (deleted) | [#25](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/25) |
 | — | Lint baseline fix (found during CP1) | **done, merged** | `fix/lint-baseline` (deleted) | [#26](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/26) |
-| 2 | UI primitives A (Button, Badge, Card, Input, Textarea, StatusDot, Breadcrumb) | in-progress | `feat/cp2-ui-primitives-a` | — |
-| 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | todo | — | — |
+| 2 | UI primitives A (Button, Badge, Card, Input, Textarea, StatusDot, Breadcrumb) | **done, merged** | `feat/cp2-ui-primitives-a` (deleted) | [#27](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/27) |
+| 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | in-progress | `feat/cp3-ui-primitives-b` | — |
 | 4 | App scaffold + responsive shell + Login | todo | — | — |
 | 5 | Ask Drishti (hero, composer, AmbientWave, chat) | todo | — | — |
 | 6 | Dashboard + Holdings | todo | — | — |
@@ -218,6 +218,181 @@ from the spec.
   preview page's placeholder API-key demo value looked like a real secret-scanner-trigger pattern
   (`sk-live-...`) — swapped for an obviously-fake string to avoid false-positive CI/security-tool
   noise, even though it was never a real secret (local component state, never transmitted).
+- **2026-07-04** — CP3: built Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea (all
+  Radix-backed) plus MessageBubble, TypingIndicator, and Table (custom, semantic `<table>`) in
+  `packages/ui/src/components/ui/`. Compound components (Tabs, Dialog, Toast, Table) use a single
+  named export with sub-components attached as static properties (`Tabs.List`, `Dialog.Content`,
+  etc.) rather than multiple named exports per file — satisfies CLAUDE.md's "one export per file"
+  while keeping Radix's compositional ergonomics.
+  **Barrel export decision**: the mission's CP3 line says "barrel export + component catalog
+  page," but CLAUDE.md explicitly and repeatedly bans barrel `index.ts` re-export files ("No
+  barrel files (index.ts re-exports). Direct imports only.") — a direct conflict. Resolved in
+  favor of CLAUDE.md (the project's own non-negotiable convention, and the more specific/binding
+  instruction) — no `index.ts` was created; every primitive is imported directly from its own
+  module, matching CP1/CP2's established pattern. Built the "component catalog page" half of the
+  requirement (`catalogPreview.tsx` + auth-guarded `/catalog` route, same pattern as `/tokens` and
+  `/primitives`) as the discoverability surface instead.
+  **Bugs found via browser verification** (not caught by typecheck/lint, since both were valid
+  TS/React composition that only breaks at the DOM/HTML level): (1) `Dialog.Trigger` wrapped its
+  child in its own `<button>`, and the catalog page passed a `<Button>` (also a `<button>`) as
+  that child — nested `<button>` is invalid HTML, caught via a real browser console hydration
+  error. Fixed with Radix's `asChild` prop (already used correctly for `Tooltip.Trigger`, missed
+  for `Dialog.Trigger`) so Radix merges its trigger behavior onto the child instead of wrapping
+  it. (2) `Switch`'s checked-thumb offset used a raw `translate-x-[22px]` arbitrary value —
+  guardrail-lint-caught immediately, fixed to the token-scale `translate-x-5` (20px, a 2px visual
+  gap from the track edge that's a normal, common toggle appearance, not pixel-perfect-required).
+  (3) The catalog page's `Section` wrapper (`flex flex-col`) defaults to `items-stretch`, so the
+  Dialog's trigger `<Button>` (now unwrapped via `asChild`, no width constraint of its own)
+  stretched to fill the full section width — fixed by adding `items-start` to `Section`.
+  **Testing-environment caveats worth remembering**: this session repeatedly produced *stale*
+  reads (console logs, `getComputedStyle`, even screenshots) that didn't reflect the live page
+  state — e.g. a Switch briefly appeared stuck green after toggling off in three different read
+  attempts, until a clean single fresh read (and a follow-up screenshot) proved it was actually
+  correct. Always double-check a suspicious read with a second, independent read before concluding
+  a real bug. Separately, plain synthetic `.click()` did not reliably trigger Radix's
+  pointer-event-based interaction handlers (Tabs, Toast) — a full `pointerdown`/`mousedown`/
+  `pointerup`/`mouseup`/`click` sequence at the element's real screen coordinates was required.
+  Tooltip's hover-trigger could not be confirmed via synthetic `pointerenter`/`focus` events at
+  all (a known general limitation of CDP-driven `:hover` simulation against libraries with
+  internal hover-tracking) — not treated as a bug given the implementation is a verified
+  byte-for-byte match of Radix's own documented Tooltip pattern and every other interactive
+  primitive tested correctly once the right event sequence was used.
+  Chunk-size build warning (602KB single bundle) noted but not addressed — proper route-based
+  code splitting is CP4's job (TanStack Router lazy routes), not premature to defer here.
+- **2026-07-04** — CP3 pre-PR gate, `/code-review --level high` round 2 (fresh 8-angle pass after
+  round-1 fixes): found and fixed three real issues. **(Critical)** `Button` was a plain function
+  component, not wrapped in `React.forwardRef` — when used as the `asChild` child of a Radix
+  trigger (`Dialog.Trigger`, `Tooltip.Trigger`), Radix has no way to attach its internally-managed
+  ref to the real `<button>` DOM node, breaking positioning (Tooltip) and focus-return-on-close
+  (Dialog). This also explains an unresolved observation from round 1: Tooltip's hover-disclosure
+  never fired in browser testing, previously (incorrectly) written off there as purely a CDP
+  hover-simulation limitation — the review agent reproduced it live (focus/hover on a
+  Tooltip-wrapped icon Button never opened the tooltip) and traced it to the missing ref, a real
+  bug. Fixed by converting `Button` to `forwardRef<HTMLButtonElement, ButtonProperties>`. `Select`'s
+  `mono` prop only applied `font-mono` to the open dropdown's `Item` text, not to the closed-state
+  `Trigger`/`Value` — contradicted Design.md §6 ("mono for model names") for the default, most-seen
+  state. Fixed by adding the same conditional class to `SelectPrimitive.Trigger`. `Switch`'s
+  clickable `Root` was `h-6 w-11` (24×44px) — under Design.md's 44px touch-target minimum on the
+  height axis. Fixed by restructuring to a `h-11 w-11` (44×44px) Root containing a flex-centered,
+  `pointer-events-none` inner `<span>` that renders the actual 24px-tall visible pill track (no
+  `position:absolute` used). All three re-verified live: `getComputedStyle` on the Select trigger
+  now reports `font-family: "JetBrains Mono", ui-monospace, monospace`; `Switch`'s
+  `getBoundingClientRect()` now reports `{ width: 44, height: 44 }`; Dialog open/close (trigger →
+  content → Cancel/Escape) re-tested end-to-end post-fix via the full pointer-event sequence and
+  still works correctly.
+  **Residual note**: even after the `forwardRef` fix, Tooltip's hover- and keyboard-focus-triggered
+  disclosure still could not be confirmed via synthetic `pointerenter`/`.focus()` events in this
+  browser-automation environment (`document.activeElement` correctly showed the icon Button
+  focused, zero console errors, but no `[role="tooltip"]` node ever appeared). The `forwardRef` fix
+  is objectively correct and necessary regardless (Radix requires it structurally for any
+  `asChild`-based trigger), but the remaining gap is attributed to Radix's own internal "genuine
+  keyboard-navigation focus" heuristic, which a raw `.focus()`/`pointerenter` call doesn't satisfy —
+  a known category of automation limitation, not a further code defect. Not investigated further.
+  `pnpm --filter ui typecheck`/`lint`/`build` clean after all three fixes (lint required one
+  `--fix` pass for prettier formatting on the `forwardRef` wrapping).
+- **2026-07-04** — CP3 pre-PR gate, `/code-review --level high` round 3 (full 8-angle pass against
+  the CP3 checkpoint diff vs `main`, run to confirm convergence after round 2's fixes). Two angles
+  (removed-behavior, cross-file tracer, conventions) came back clean. Five candidates were verified
+  individually; three survived (fixed below), two were refuted with direct evidence:
+  - **Refuted**: Button's `icon` variant (32px, `h-8 w-8`) looked inconsistent with Switch's
+    just-fixed 44px touch-target minimum. Checked `project/Design.md` directly — §6 explicitly
+    specs icon buttons at "28–34px square" (a documented, intentional carve-out from §1's general
+    44px touch-first principle), and 32px sits inside that range. No fix needed.
+  - **Refuted**: `Card`/`Dialog`/`Toast` each hand-derive their own "tinted surface" Tailwind class
+    combo (different radius/padding/shadow each time) instead of sharing a helper. `tokens.ts` is
+    explicitly documented as a non-CSS-consumer mirror, not a class-string source, so there's no
+    existing helper being bypassed — and three independent, slightly-varying implementations is
+    exactly the amount of repetition CLAUDE.md's "duplicate twice before extracting" rule says to
+    tolerate before introducing a `surfaceTone()`-style abstraction. Extracting now would be the
+    premature abstraction CLAUDE.md warns against, not a fix for one.
+  - **Fixed (confirmed)**: `Dialog.Content`'s `<DialogPrimitive.Description>` was only rendered
+    when a `description` prop was supplied, but Radix's `DialogContentImpl` unconditionally sets
+    `aria-describedby: context.descriptionId` on the content element regardless (confirmed by
+    reading `@radix-ui/react-dialog`'s source directly) — a Dialog opened without `description`
+    would leave screen readers with a dangling `aria-describedby` reference to an element that was
+    never mounted. Fixed using Radix's own documented pattern for description-less dialogs: spread
+    `{ "aria-describedby": undefined }` onto `DialogPrimitive.Content` only when `description` is
+    `undefined` (props spread after Radix's internal default in `DialogContentImpl`, so the
+    override wins; when `description` is provided, the prop is omitted entirely and Radix's default
+    `descriptionId` — which matches the rendered `Description`'s `id` — applies untouched).
+  - **Fixed (confirmed)**: `Table.Cell`'s `numeric` and `align` props were fully independent —
+    `numeric` only toggled `font-mono tabular-nums`, never touched alignment, so `numeric` without
+    an explicit `align="right"` would render tabular numbers left-aligned (the current catalog page
+    happened to always pass both together, masking the footgun). Fixed by defaulting
+    `align = numeric ? "right" : "left"` (still overridable per-cell) instead of an unconditional
+    `align = "left"` default — matches the table/design-system convention that numeric columns are
+    right-aligned by default.
+  - **Fixed (plausible)**: `Badge` and `Card` (from CP2) were still plain function components with
+    no `forwardRef`, same bug class as the one just fixed on `Button` — not currently triggered
+    (both are only ever rendered as plain children today, never wrapped in a Radix `asChild`
+    trigger), but a realistic landmine the moment either gets wrapped in a future `Tooltip` or
+    `Dialog.Trigger`. Converted both to `forwardRef` (`HTMLSpanElement` for `Badge`; `HTMLElement`
+    for `Card`, since its polymorphic `as="article"|"section"` root has no more specific shared ref
+    type) for the same reason Button needed it.
+  Re-verified live post-fix: `aria-describedby` on the destructive Dialog (which always passes
+  `description`) still resolves to a real, existing DOM element id; Table's numeric P&L/Qty/LTP
+  columns still render right-aligned. `pnpm --filter ui typecheck`/`lint`/`build` all clean (lint:
+  0 errors, the same 4 documented `local/flag-stray-position` overlay warnings as before).
+- **2026-07-04** — CP3 `/security-review` (pre-PR gate, second half): zero findings — pure
+  UI-primitives diff, no backend/network/auth logic, no unsafe DOM sinks, `/catalog` route uses the
+  identical auth guard as existing preview routes, all new `@radix-ui/*` deps verified as official
+  scoped packages. PR opened as [#28](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/28).
+- **2026-07-04** — CP3 post-PR `/review` gate on PR #28 (medium effort, full 8-angle pass). Found
+  the actual root cause of the Tooltip-hover-disclosure mystery documented as an unresolved
+  "automation limitation" caveat in the round-2 entry above — **that caveat was wrong**. The real
+  bug: round 2's `Button` `forwardRef` conversion forwarded the *ref* correctly but never spread
+  the rest of `props` onto the underlying `<button>`, so when Radix's `asChild`/`Slot` merges its
+  own injected props onto a trigger child (`onFocus`, `onPointerMove`, `onPointerLeave`, `onBlur`,
+  `aria-haspopup`, `data-state`, etc. — confirmed by reading `@radix-ui/react-slot`'s `mergeProps`
+  source directly), `Button`'s destructuring silently dropped every one of them since it only ever
+  read 5 named keys. Fixed by intersecting `ButtonBaseProperties` with
+  `Omit<React.ComponentPropsWithoutRef<"button">, ...>` and spreading `...rest` onto the `<button>`
+  (also simplified: `aria-label` no longer needs special-case handling since it now flows through
+  `rest` like any other native attribute). Re-verified live in the browser: dispatching a real
+  `FocusEvent('focus', { bubbles: true })` at the Tooltip-wrapped icon Button now correctly renders
+  `[role="tooltip"]` with the expected text — confirmed via `data-radix-popper-content-wrapper`
+  appearing in the DOM with `z-index: 50`. (Note: plain `element.focus()` still didn't trigger it in
+  this harness — a real, separate CDP/automation quirk where a programmatic `.focus()` call doesn't
+  always synthesize the bubbling `focusin` event Radix listens for; dispatching an explicit
+  `FocusEvent` with `bubbles: true` does. Real keyboard/mouse interaction is unaffected.)
+  Also fixed two smaller findings from the same pass: **z-index/portal-stacking** — `Select.Content`
+  had no `z-index` at all (could render underneath a `Dialog` if a Select is ever nested inside one)
+  and `Toast.Viewport` shared the exact same `z-50` as `Dialog.Content` with no stacking guarantee
+  between a toast and a modal firing concurrently; fixed by giving `Select.Content` `z-50` (matching
+  Dialog/Tooltip) and bumping `Toast.Viewport` to `z-[60]` so notifications always render above
+  modals. **`MessageBubble` missing `forwardRef`** — same latent bug class as the since-fixed
+  Button/Badge/Card, flagged as a plausible landmine for CP5's chat UI (a future timestamp
+  `Tooltip` anchored to a bubble); fixed preemptively since the change is a one-line, low-risk,
+  consistency-preserving addition. Also removed now-redundant `align="right"` props on
+  `catalogPreview.tsx`'s numeric `Table.Cell`s (dead weight now that `align` defaults from
+  `numeric`; re-verified the table still renders right-aligned via the default alone).
+  **Deferred, not fixed**: `Select`/`Switch` (CP3) duplicate the exact labelled-field wrapper
+  markup/props that `Input`/`Textarea` (CP2) already have — a real, byte-for-byte duplication
+  (unlike the refuted Card/Dialog/Toast "tint" finding) that's arguably past the "duplicate twice"
+  threshold CLAUDE.md tolerates before extraction. Not fixed in this PR since it would mean
+  reopening already-merged CP2 files for a pure DRY refactor with no functional/a11y payoff;
+  flagged here as a candidate for a small `FormLabel`-style extraction in a future checkpoint if the
+  pattern repeats again in CP7/CP8's Settings forms. `pnpm --filter ui typecheck`/`lint`/`build` all
+  clean after this round; browser-reverified Dialog `aria-describedby` and Table alignment
+  unaffected by the Table cleanup.
+- **2026-07-04** — CP3 post-PR `/review` convergence pass (round 5, re-run after committing round
+  4's fixes to confirm the loop reaches zero). Two angles independently caught the same real,
+  freshly-introduced bug: round 4's `MessageBubble` `forwardRef` attached to the outer
+  flex-alignment `<div>` while `className` (and all visual bubble styling) stayed on the *inner*
+  `<div>` — ref and className pointed at two different DOM nodes on the same component, silently
+  working today only because the wrapper has exactly one child and no padding so the bounding boxes
+  happen to coincide. This directly undermined the fix's own stated purpose (anchoring a future
+  `Tooltip`/`Dialog.Trigger` to a bubble) — the popover would anchor to the full-width row instead
+  of the visible bubble the moment a wrapper gained a second child or padding. Fixed by moving `ref`
+  onto the inner styled `<div>`, matching Badge/Card's ref+className co-location. Re-ran
+  `pnpm --filter ui typecheck`/`lint`/`build` — all clean, same 4 documented warnings.
+  **Noted but deferred**: this same pass flagged that `z-40`/`z-50` (Dialog, Tooltip, Select) and
+  the newly-added `z-[60]` (Toast) are all raw Tailwind literals with no shared constant — a
+  legitimate but pre-existing-and-worsened "no magic numbers" concern (CLAUDE.md). Not fixed here;
+  introducing a proper z-index token scale is bigger scope than this round warrants and is a better
+  fit for when CP1's `tokens.ts`/`app.css` `@theme` gets revisited or when CP4 adds the next
+  portal-based overlay (Login modal) and the stacking ladder needs a real specification.
+  No other findings survived this round — considered converged.
 
 ## Constraints checklist (re-verify every checkpoint)
 
