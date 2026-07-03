@@ -55,7 +55,7 @@ export function Select({
       <SelectPrimitive.Root value={value} onValueChange={onChange} disabled={disabled}>
         <SelectPrimitive.Trigger
           id={id}
-          className={`flex h-10 items-center justify-between gap-2 rounded-lg border border-border-strong bg-surface-2 px-3 text-body text-fg outline-none transition-colors focus-visible:border-border-focus disabled:cursor-not-allowed disabled:text-fg-faint ${className}`}
+          className={`flex h-10 items-center justify-between gap-2 rounded-lg border border-border-strong bg-surface-2 px-3 text-body text-fg outline-none transition-colors focus-visible:border-border-focus disabled:cursor-not-allowed disabled:text-fg-faint ${mono ? "font-mono" : ""} ${className}`}
         >
           <SelectPrimitive.Value placeholder={placeholder} />
           <SelectPrimitive.Icon>

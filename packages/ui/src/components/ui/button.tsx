@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import type React from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "destructive";
@@ -29,23 +30,30 @@ const VARIANT_CLASS: Record<ButtonVariant | "icon", string> = {
 /**
  * Primary interactive control (Design.md §6). `variant: "icon"` renders a square
  * 32px hit target and requires `aria-label` since it carries no visible text.
+ * Forwards its ref to the underlying `<button>` — required so Radix's `asChild`
+ * (Dialog.Trigger, Tooltip.Trigger, etc.) can reach the real DOM node for
+ * positioning and focus-return behavior.
  * @param props - button configuration; `variant` selects the visual treatment
+ * @param ref - forwarded ref to the underlying `<button>` element
  * @returns Button element
  */
-export function Button(props: ButtonProperties): React.ReactElement {
-  const { type = "button", disabled = false, onClick, className = "", children } = props;
-  const variant = props.variant ?? "secondary";
-  const ariaLabel = props.variant === "icon" ? props["aria-label"] : undefined;
+export const Button = forwardRef<HTMLButtonElement, ButtonProperties>(
+  function Button(props, ref): React.ReactElement {
+    const { type = "button", disabled = false, onClick, className = "", children } = props;
+    const variant = props.variant ?? "secondary";
+    const ariaLabel = props.variant === "icon" ? props["aria-label"] : undefined;
 
-  return (
-    <button
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2 text-body-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[image:none] disabled:bg-surface-2 disabled:text-fg-faint disabled:shadow-none ${VARIANT_CLASS[variant]} ${className}`}
-    >
-      {children}
-    </button>
-  );
-}
+    return (
+      <button
+        ref={ref}
+        type={type}
+        disabled={disabled}
+        onClick={onClick}
+        aria-label={ariaLabel}
+        className={`inline-flex items-center justify-center gap-2 text-body-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[image:none] disabled:bg-surface-2 disabled:text-fg-faint disabled:shadow-none ${VARIANT_CLASS[variant]} ${className}`}
+      >
+        {children}
+      </button>
+    );
+  },
+);

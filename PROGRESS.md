@@ -259,6 +259,37 @@ from the spec.
   primitive tested correctly once the right event sequence was used.
   Chunk-size build warning (602KB single bundle) noted but not addressed — proper route-based
   code splitting is CP4's job (TanStack Router lazy routes), not premature to defer here.
+- **2026-07-04** — CP3 pre-PR gate, `/code-review --level high` round 2 (fresh 8-angle pass after
+  round-1 fixes): found and fixed three real issues. **(Critical)** `Button` was a plain function
+  component, not wrapped in `React.forwardRef` — when used as the `asChild` child of a Radix
+  trigger (`Dialog.Trigger`, `Tooltip.Trigger`), Radix has no way to attach its internally-managed
+  ref to the real `<button>` DOM node, breaking positioning (Tooltip) and focus-return-on-close
+  (Dialog). This also explains an unresolved observation from round 1: Tooltip's hover-disclosure
+  never fired in browser testing, previously (incorrectly) written off there as purely a CDP
+  hover-simulation limitation — the review agent reproduced it live (focus/hover on a
+  Tooltip-wrapped icon Button never opened the tooltip) and traced it to the missing ref, a real
+  bug. Fixed by converting `Button` to `forwardRef<HTMLButtonElement, ButtonProperties>`. `Select`'s
+  `mono` prop only applied `font-mono` to the open dropdown's `Item` text, not to the closed-state
+  `Trigger`/`Value` — contradicted Design.md §6 ("mono for model names") for the default, most-seen
+  state. Fixed by adding the same conditional class to `SelectPrimitive.Trigger`. `Switch`'s
+  clickable `Root` was `h-6 w-11` (24×44px) — under Design.md's 44px touch-target minimum on the
+  height axis. Fixed by restructuring to a `h-11 w-11` (44×44px) Root containing a flex-centered,
+  `pointer-events-none` inner `<span>` that renders the actual 24px-tall visible pill track (no
+  `position:absolute` used). All three re-verified live: `getComputedStyle` on the Select trigger
+  now reports `font-family: "JetBrains Mono", ui-monospace, monospace`; `Switch`'s
+  `getBoundingClientRect()` now reports `{ width: 44, height: 44 }`; Dialog open/close (trigger →
+  content → Cancel/Escape) re-tested end-to-end post-fix via the full pointer-event sequence and
+  still works correctly.
+  **Residual note**: even after the `forwardRef` fix, Tooltip's hover- and keyboard-focus-triggered
+  disclosure still could not be confirmed via synthetic `pointerenter`/`.focus()` events in this
+  browser-automation environment (`document.activeElement` correctly showed the icon Button
+  focused, zero console errors, but no `[role="tooltip"]` node ever appeared). The `forwardRef` fix
+  is objectively correct and necessary regardless (Radix requires it structurally for any
+  `asChild`-based trigger), but the remaining gap is attributed to Radix's own internal "genuine
+  keyboard-navigation focus" heuristic, which a raw `.focus()`/`pointerenter` call doesn't satisfy —
+  a known category of automation limitation, not a further code defect. Not investigated further.
+  `pnpm --filter ui typecheck`/`lint`/`build` clean after all three fixes (lint required one
+  `--fix` pass for prettier formatting on the `forwardRef` wrapping).
 
 ## Constraints checklist (re-verify every checkpoint)
 
