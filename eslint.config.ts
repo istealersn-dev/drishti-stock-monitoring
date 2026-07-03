@@ -5,24 +5,47 @@ import importX from "eslint-plugin-import-x";
 import prettier from "eslint-plugin-prettier/recommended";
 import unicorn from "eslint-plugin-unicorn";
 
+// AST node-type strings used by isClassNameAttributeAncestor's walk, named once so a typo
+// fails to compile as an unused/mismatched literal instead of silently no-op'ing at runtime.
+const NODE_TYPE_JSX_ATTRIBUTE = "JSXAttribute";
+const NODE_TYPE_JSX_IDENTIFIER = "JSXIdentifier";
+const NODE_TYPE_JSX_EXPRESSION_CONTAINER = "JSXExpressionContainer";
+const NODE_TYPE_TEMPLATE_LITERAL = "TemplateLiteral";
+const CLASS_NAME_ATTRIBUTE = "className";
+
 // Plain `eslint`/estree types don't include JSX node types (JSXAttribute, JSXIdentifier,
 // JSXExpressionContainer), so walking the JSX ancestor chain needs a locally-typed escape
 // hatch rather than `Rule.Node` (which can never narrow to "JSXAttribute" — TS2367/TS2339).
+// Accepted tradeoff: the cast has no runtime shape check, but ESLint's Node objects are
+// guaranteed by contract to carry a string `.type`, so this only breaks if ESLint's own AST
+// shape changes — at which point every other selector in this file breaks identically.
 type AstNode = {
   type: string;
   parent?: AstNode;
   name?: { type: string; name: string };
 };
 
+/**
+ * Walks up the AST from a Literal/TemplateElement's parent to find whether it sits inside a
+ * `className` JSX attribute, passing through TemplateLiteral/JSXExpressionContainer wrappers.
+ * @param node - the starting node's parent (undefined at the AST root)
+ * @returns true if the node is nested inside `className={...}` or `className="..."`
+ */
 function isClassNameAttributeAncestor(node: AstNode | undefined): boolean {
   let current = node;
   while (current) {
-    if (current.type === "JSXAttribute") {
-      return current.name?.type === "JSXIdentifier" && current.name.name === "className";
+    if (current.type === NODE_TYPE_JSX_ATTRIBUTE) {
+      return (
+        current.name?.type === NODE_TYPE_JSX_IDENTIFIER &&
+        current.name.name === CLASS_NAME_ATTRIBUTE
+      );
     }
     // Template literals nest as JSXExpressionContainer > TemplateLiteral > TemplateElement —
     // keep walking up through both wrapper types to reach the JSXAttribute.
-    if (current.type === "JSXExpressionContainer" || current.type === "TemplateLiteral") {
+    if (
+      current.type === NODE_TYPE_JSX_EXPRESSION_CONTAINER ||
+      current.type === NODE_TYPE_TEMPLATE_LITERAL
+    ) {
       current = current.parent;
       continue;
     }
@@ -36,6 +59,11 @@ function isClassNameAttributeAncestor(node: AstNode | undefined): boolean {
 // §5) rather than layout-via-position. Kept as its own rule — separate from the error-level
 // no-restricted-syntax block below — because a single no-restricted-syntax invocation can't mix
 // severities across selectors.
+/**
+ * ESLint rule: warns (never errors) when a className contains "absolute"/"fixed", prompting a
+ * human to confirm it's a genuine overlay per Design.md §5 rather than layout-via-position.
+ * @returns the ESLint RuleModule
+ */
 const flagStrayPositionRule: Rule.RuleModule = {
   meta: {
     type: "suggestion",
@@ -45,6 +73,12 @@ const flagStrayPositionRule: Rule.RuleModule = {
     schema: [],
   },
   create(context) {
+    /**
+     * Reports `node` if `text` contains a stray absolute/fixed class and sits in a className attribute.
+     * @param node - the Literal or TemplateElement node to report on
+     * @param text - the literal string content to test against the absolute/fixed pattern
+     * @returns void
+     */
     function checkAndReport(node: Rule.Node, text: string): void {
       if (!/\b(absolute|fixed)\b/.test(text)) return;
       if (!isClassNameAttributeAncestor((node as unknown as AstNode).parent)) return;

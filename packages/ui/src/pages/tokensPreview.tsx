@@ -38,7 +38,7 @@ function Section({ title, children }: SectionProperties): React.ReactElement {
 
 type ColorGroup = {
   title: string;
-  swatches: { label: string; hex: string; swatchClassName: string }[];
+  swatches: SwatchProperties[];
 };
 
 const COLOR_GROUPS: ColorGroup[] = [
