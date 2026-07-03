@@ -7,12 +7,16 @@ covers decision context instead.
 
 Working mode: **plan-first per checkpoint** (user preference, 2026-07-03) — propose a plan for
 each checkpoint, get a go-ahead, implement it, open the PR, then move to the next checkpoint.
+**Full gate per checkpoint** (user confirmed, 2026-07-03): before opening a PR, run `/code-review`
+and `/security-review` on the branch and fix confirmed findings (the pre-PR gate); after opening
+the PR, run `/review <PR#>` and fix until zero (the post-PR gate). Both gates now required for
+every future checkpoint, not just post-PR `/review`.
 
 ## Checkpoints
 
 | CP | Scope | Status | Branch | PR |
 |---|---|---|---|---|
-| 1 | Monorepo + design tokens | pr-open, review-clean, awaiting merge | `feat/cp1-design-tokens` | [#25](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/25) |
+| 1 | Monorepo + design tokens | pr-open, all gates clean, awaiting merge | `feat/cp1-design-tokens` | [#25](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/25) |
 | 2 | UI primitives A (Button, Badge, Card, Input, Textarea, StatusDot, Breadcrumb) | todo | — | — |
 | 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | todo | — | — |
 | 4 | App scaffold + responsive shell + Login | todo | — | — |
@@ -119,6 +123,18 @@ each checkpoint, get a go-ahead, implement it, open the PR, then move to the nex
   `eslint.config.ts` today) or Zod-validating every ESLint AST node visited (absurd for this
   domain) — both disproportionate to a token/CSS checkpoint. Left as-is with this reasoning on
   record; revisit if `eslint.config.ts`'s custom rules grow more complex.
+- **2026-07-03** — `/security-review` on both branches: zero findings on each. Notable check on
+  `feat/cp1-design-tokens`: `project/support.js` (pulled from the design-tool export) contains real
+  `new Function(...)`/remote-script-eval patterns, but confirmed via repo-wide grep it's never
+  imported by any `.ts`/`.tsx` file, never referenced in `vite.config.ts`, and never served as a
+  static asset — dead reference material, not reachable by the running app, so not a live
+  vulnerability. `/code-review` on `fix/lint-baseline`: zero findings (one incidental note — this
+  PR's own commit message said "filename-case" when the actual rule fixed was
+  `unicorn/prevent-abbreviations"; cosmetic, not correcting an already-pushed commit message).
+  **CP1 gate status, final**: `/review` (2 rounds, PR #25) ✓ · `/code-review --level high` (3
+  angles, PR #25) ✓ · `/security-review` (PR #25) ✓ · `/review` (PR #26) ✓ · `/code-review` (PR
+  #26) ✓ · `/security-review` (PR #26) ✓. Both PRs open, all six gate passes clean, ready for
+  merge.
 
 ## Constraints checklist (re-verify every checkpoint)
 
