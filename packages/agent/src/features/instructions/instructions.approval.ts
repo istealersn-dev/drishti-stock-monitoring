@@ -15,17 +15,37 @@ function getClient(): WebClient {
   return _client;
 }
 
-function formatTargets(instruction: ParsedInstruction): string {
+/**
+ * Format an instruction's targets as "T1 ₹680 · T2 ₹800+", or "—" if none.
+ * @param instruction - The parsed buy instruction
+ * @returns The formatted targets string
+ */
+export function formatTargets(instruction: ParsedInstruction): string {
   if (instruction.targets.length === 0) return "—";
   return instruction.targets
     .map((target, index) => `T${index + 1} ₹${target.price}${target.isOpenEnded ? "+" : ""}`)
     .join(" · ");
 }
 
-function formatEntry(instruction: ParsedInstruction): string {
+/**
+ * Format an instruction's entry range as "₹560 – ₹580" (or a single "₹570" when
+ * entryLow equals entryHigh), or "—" if either bound is missing.
+ * @param instruction - The parsed buy instruction
+ * @returns The formatted entry string
+ */
+export function formatEntry(instruction: ParsedInstruction): string {
   if (!instruction.entryLow || !instruction.entryHigh) return "—";
   if (instruction.entryLow === instruction.entryHigh) return `₹${instruction.entryLow}`;
   return `₹${instruction.entryLow} – ₹${instruction.entryHigh}`;
+}
+
+/**
+ * Format an instruction's stop loss as "₹520", or "—" if missing.
+ * @param instruction - The parsed buy instruction
+ * @returns The formatted stop-loss string
+ */
+export function formatStopLoss(instruction: ParsedInstruction): string {
+  return instruction.stopLoss ? `₹${instruction.stopLoss}` : "—";
 }
 
 /**
@@ -35,6 +55,7 @@ function formatEntry(instruction: ParsedInstruction): string {
  * @param resolvedSymbol - The Upstox trading symbol (e.g. "RAMCOSYS-EQ")
  * @param suggestedQty - Agent-calculated suggested quantity
  * @param availableMargin - Current available margin in rupees
+ * @param analysis - AI sanity-check text for the setup, or null if analysis was unavailable
  * @returns A Result containing the Slack message timestamp or a SlackError
  */
 export async function sendApprovalCard(
@@ -43,8 +64,18 @@ export async function sendApprovalCard(
   resolvedSymbol: string,
   suggestedQty: number,
   availableMargin: number,
+  analysis: string | null,
 ): Promise<Result<string, SlackError>> {
   const timeoutMinutes = env.DRISHTI_APPROVAL_TIMEOUT_MINUTES;
+
+  const analysisBlock = analysis
+    ? [
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: `*AI Analysis:*\n${analysis}` },
+        },
+      ]
+    : [];
 
   const blocks = [
     {
@@ -57,10 +88,7 @@ export async function sendApprovalCard(
         { type: "mrkdwn", text: `*Stock:*\n${resolvedSymbol}` },
         { type: "mrkdwn", text: `*Action:*\nBUY` },
         { type: "mrkdwn", text: `*Entry:*\n${formatEntry(instruction)}` },
-        {
-          type: "mrkdwn",
-          text: `*Stop Loss:*\n${instruction.stopLoss ? `₹${instruction.stopLoss}` : "—"}`,
-        },
+        { type: "mrkdwn", text: `*Stop Loss:*\n${formatStopLoss(instruction)}` },
         { type: "mrkdwn", text: `*Targets:*\n${formatTargets(instruction)}` },
         { type: "mrkdwn", text: `*Suggested Qty:*\n${suggestedQty} shares` },
         {
@@ -69,6 +97,7 @@ export async function sendApprovalCard(
         },
       ],
     },
+    ...analysisBlock,
     {
       type: "actions",
       elements: [

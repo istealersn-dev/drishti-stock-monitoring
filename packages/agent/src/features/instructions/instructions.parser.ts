@@ -1,6 +1,7 @@
 import { chat } from "../../llm/llmClient.js";
 import { LlmError, err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
+import { stripJsonCodeFence } from "../../shared/llmResponse.js";
 
 import { ParsedInstructionSchema } from "./instructions.schema.js";
 import type { ParsedInstruction } from "./instructions.schema.js";
@@ -39,7 +40,7 @@ export async function parseInstruction(text: string): Promise<Result<ParsedInstr
       { role: "user", content: text },
     ]);
 
-    const cleaned = response.replace(/```(?:json)?\n?|\n?```/g, "").trim();
+    const cleaned = stripJsonCodeFence(response);
 
     let raw: unknown;
     try {

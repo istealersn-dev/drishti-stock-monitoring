@@ -25,3 +25,10 @@ export const ResolvedStockSchema = z.object({
 });
 
 export type ResolvedStock = z.infer<typeof ResolvedStockSchema>;
+
+export const IntentClassificationSchema = z.object({
+  intent: z.enum(["ORDER", "QUERY", "AMBIGUOUS"]),
+  clarifyingQuestion: z.string().nullable(),
+});
+
+export type IntentClassification = z.infer<typeof IntentClassificationSchema>;
