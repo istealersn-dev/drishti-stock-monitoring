@@ -11,6 +11,7 @@ import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
 import { getWatchlist } from "../features/watchlist/watchlist.service.js";
 import { env } from "../shared/env.js";
 import { logger } from "../shared/logger.js";
+import { createSingleFlightGuard } from "../shared/singleFlight.js";
 
 type MarketBoundary = { hours: number; minutes: number };
 
@@ -42,7 +43,7 @@ export function isMarketOpen(now: Date = new Date()): boolean {
  */
 export function startCron(tick: () => Promise<void>): void {
   const expression = `*/${env.DRISHTI_POLL_INTERVAL_MINUTES} * * * *`;
-  let isRunning = false;
+  const guard = createSingleFlightGuard();
 
   cron.schedule(expression, () => {
     if (!isMarketOpen()) {
@@ -50,20 +51,17 @@ export function startCron(tick: () => Promise<void>): void {
       return;
     }
 
-    if (isRunning) {
-      logger.warn("Skipping poll tick — previous tick still in progress");
-      return;
-    }
-
-    isRunning = true;
-    tick()
+    guard
+      .tryRun(tick)
+      .then((started) => {
+        if (!started) {
+          logger.warn("Skipping poll tick — previous tick still in progress");
+        }
+      })
       .catch((error: unknown) => {
         logger.error("Cron tick failed", {
           error: error instanceof Error ? error.message : String(error),
         });
-      })
-      .finally(() => {
-        isRunning = false;
       });
   });
 

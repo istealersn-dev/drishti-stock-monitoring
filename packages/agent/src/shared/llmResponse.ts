@@ -5,5 +5,8 @@
  * @returns The response with any wrapping code fence removed, trimmed
  */
 export function stripJsonCodeFence(response: string): string {
-  return response.replace(/```(?:json)?\n?|\n?```/gi, "").trim();
+  return response
+    .replace(/^```(?:json)?\n?/i, "")
+    .replace(/\n?```$/i, "")
+    .trim();
 }

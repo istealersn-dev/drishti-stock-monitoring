@@ -6,43 +6,59 @@ import { db } from "../../db/db.js";
 import { agentRuns } from "../../db/schema.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
+import { createSingleFlightGuard } from "../../shared/singleFlight.js";
 
 import { buildFastAgentGraph, buildSlowAgentGraph } from "./agent.graph.js";
 import type { AgentState } from "./agent.state.js";
 
 // Guards the slow (LLM analysis) phase only — separate from the cron's own
-// isRunning guard, which gates the fast phase. This prevents two concurrent LLM
-// analyses (e.g. a slow one from a prior tick still running when a new material
-// event fires) without ever blocking the next tick's SL/target checks, which is
-// exactly the latency risk this split exists to avoid.
-let isSlowPhaseRunning = false;
+// single-flight guard, which gates the fast phase. This prevents two concurrent
+// LLM analyses (e.g. a slow one from a prior tick still running when a new
+// material event fires) without ever blocking the next tick's SL/target checks,
+// which is exactly the latency risk this split exists to avoid.
+const slowPhaseGuard = createSingleFlightGuard();
 
 /**
  * Run the slow phase (LLM portfolio analysis + resulting GTT/alert actions),
  * continuing from the fast phase's resulting state. Never awaited by tick() —
  * runs decoupled so a long analysis call can't delay the next scheduled tick.
+ *
+ * The graph's own nodes handle expected failures internally (they return
+ * Result values and log to agent_logs, never throwing) — the only way this
+ * throws is an unexpected bug. Before the fast/slow split, that kind of
+ * exception propagated up into tick()'s own catch and flipped the run's
+ * agentRuns row to "failed"; since tick() has already marked the row
+ * "completed" by the time this runs, this restores that same visibility by
+ * updating the same row directly on failure, so !status / the dashboard don't
+ * keep reporting a stale "completed" run underneath a broken slow phase.
  * @param fastState - The AgentState produced by the fast phase this tick
  */
 export async function runSlowPhase(fastState: AgentState): Promise<void> {
-  if (isSlowPhaseRunning) {
-    logger.debug("Skipping slow analysis phase — previous slow phase still in progress", {
-      runId: fastState.runId,
-    });
-    return;
-  }
-
-  isSlowPhaseRunning = true;
   try {
-    const slowGraph = buildSlowAgentGraph();
-    await slowGraph.run(fastState);
+    const started = await slowPhaseGuard.tryRun(async () => {
+      const slowGraph = buildSlowAgentGraph();
+      await slowGraph.run(fastState);
+    });
+
+    if (!started) {
+      logger.debug("Skipping slow analysis phase — previous slow phase still in progress", {
+        runId: fastState.runId,
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("Unexpected error in slow analysis phase", {
       runId: fastState.runId,
       error: message,
     });
-  } finally {
-    isSlowPhaseRunning = false;
+    db.update(agentRuns)
+      .set({
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        summary: `Slow phase (LLM analysis) failed: ${message}`,
+      })
+      .where(eq(agentRuns.id, fastState.runId))
+      .run();
   }
 }
 

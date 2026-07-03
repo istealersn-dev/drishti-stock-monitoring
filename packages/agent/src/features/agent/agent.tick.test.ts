@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockFastRun, mockSlowRun, mockInsert, mockUpdate } = vi.hoisted(() => {
+const { mockFastRun, mockSlowRun, mockInsert, mockUpdate, mockSet, mockWhere } = vi.hoisted(() => {
   const run = vi.fn();
   const values = vi.fn(() => ({ run }));
   const insert = vi.fn(() => ({ values }));
@@ -12,6 +12,8 @@ const { mockFastRun, mockSlowRun, mockInsert, mockUpdate } = vi.hoisted(() => {
     mockSlowRun: vi.fn(),
     mockInsert: insert,
     mockUpdate: update,
+    mockSet: set,
+    mockWhere: where,
   };
 });
 
@@ -117,5 +119,17 @@ describe("runSlowPhase", () => {
     mockSlowRun.mockResolvedValueOnce(undefined);
     await runSlowPhase(makeFastState());
     expect(mockSlowRun).toHaveBeenCalledTimes(2);
+  });
+
+  it("flips the agentRuns row to failed when the slow graph throws, so a stale 'completed' status isn't left behind", async () => {
+    mockSlowRun.mockRejectedValueOnce(new Error("llm boom"));
+
+    await runSlowPhase(makeFastState({ runId: "run-42" }));
+
+    expect(mockUpdate).toHaveBeenCalled();
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "failed", summary: expect.stringContaining("llm boom") }),
+    );
+    expect(mockWhere).toHaveBeenCalled();
   });
 });

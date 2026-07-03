@@ -18,4 +18,9 @@ describe("stripJsonCodeFence", () => {
   it("leaves unfenced JSON unchanged", () => {
     expect(stripJsonCodeFence('{"a":1}')).toBe('{"a":1}');
   });
+
+  it("only strips a leading/trailing fence, leaving a literal ``` inside a string value untouched", () => {
+    const input = '```json\n{"reasoning":"see the ```example``` block"}\n```';
+    expect(stripJsonCodeFence(input)).toBe('{"reasoning":"see the ```example``` block"}');
+  });
 });
