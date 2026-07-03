@@ -52,7 +52,8 @@ vi.mock("../portfolio/portfolio.tools.js", () => ({
 
 vi.mock("../websearch/webSearch.tools.js", () => ({ searchWeb: vi.fn() }));
 
-import { ok } from "../../shared/errors.js";
+import { err, ok } from "../../shared/errors.js";
+import { searchWeb } from "../websearch/webSearch.tools.js";
 
 import { askAdvisor, generateTradeSetup } from "./advisor.chain.js";
 import { buildAdvisoryContext } from "./advisor.prompts.js";
@@ -141,6 +142,29 @@ describe("askAdvisor", () => {
     const executors = mockRunToolLoop.mock.calls[0]?.[2] as Record<string, unknown>;
     expect(tools[0]?.function.name).toBe("web_search");
     expect(typeof executors["web_search"]).toBe("function");
+  });
+
+  it("logs a web_search_failed row to agent_logs when the search tool call fails, without throwing", async () => {
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
+    vi.mocked(searchWeb).mockResolvedValue(err(new Error("Tavily request failed: 401")));
+
+    await askAdvisor(request);
+
+    const executors = mockRunToolLoop.mock.calls[0]?.[2] as Record<
+      string,
+      (argumentsJson: string) => Promise<string>
+    >;
+    const resultText = await executors["web_search"]?.(
+      JSON.stringify({ symbol: "RELIANCE", query: "Reliance news" }),
+    );
+
+    expect(resultText).toContain("Web search failed");
+    const allValuesCalls = mockValues.mock.calls as unknown as [{ action?: string }][];
+    const failureLogRow = allValuesCalls.find(
+      (call) => call[0]?.action === "web_search_failed",
+    )?.[0] as { symbol: string; error: string } | undefined;
+    expect(failureLogRow?.symbol).toBe("RELIANCE");
+    expect(failureLogRow?.error).toContain("401");
   });
 
   it("uses an elevated timeout and conversational temperature for local-model inference", async () => {

@@ -51,6 +51,20 @@ describe("searchWeb", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("writes the cache row with an uppercased, trimmed symbol, so case/whitespace variants of the same symbol share one cache entry", async () => {
+    const valuesSpy = vi.fn().mockReturnValue({ onConflictDoUpdate: mockOnConflictDoUpdate });
+    mockDbInsert.mockReturnValue({ values: valuesSpy });
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => ({ query: "reliance news", answer: null, results: [] }),
+    });
+
+    await searchWeb("  reliance  ", "reliance news");
+
+    const writtenRow = valuesSpy.mock.calls[0]?.[0] as { symbol: string };
+    expect(writtenRow.symbol).toBe("RELIANCE");
+  });
+
   it("returns a graceful message and skips fetch when TAVILY_API_KEY is unset", async () => {
     envMock.TAVILY_API_KEY = undefined;
 

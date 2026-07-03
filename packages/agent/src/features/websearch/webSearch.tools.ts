@@ -16,18 +16,34 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// The LLM composes the "symbol" argument itself and may vary case across turns
+// (e.g. "reliance" vs "RELIANCE") even when referring to the same stock — normalize
+// so the cache key is stable for those cases. Genuinely different phrasings (e.g.
+// "RELIANCE" vs "Reliance Industries") still miss the cache; only case/whitespace
+// variance is covered here without pulling in a full symbol-resolution lookup.
+function normalizeSymbol(symbol: string): string {
+  return symbol.trim().toUpperCase();
+}
+
 function readCache(symbol: string): string | undefined {
   const row = db
     .select({ content: webSearchCache.content })
     .from(webSearchCache)
-    .where(and(eq(webSearchCache.symbol, symbol), eq(webSearchCache.date, today())))
+    .where(
+      and(eq(webSearchCache.symbol, normalizeSymbol(symbol)), eq(webSearchCache.date, today())),
+    )
     .get();
   return row?.content;
 }
 
 function writeCache(symbol: string, content: string): void {
   db.insert(webSearchCache)
-    .values({ symbol, date: today(), content, updatedAt: new Date().toISOString() })
+    .values({
+      symbol: normalizeSymbol(symbol),
+      date: today(),
+      content,
+      updatedAt: new Date().toISOString(),
+    })
     .onConflictDoUpdate({
       target: [webSearchCache.symbol, webSearchCache.date],
       set: { content, updatedAt: new Date().toISOString() },
@@ -44,9 +60,11 @@ function formatResults(response: {
 
 /**
  * Search the web for current news/sentiment on a stock, via Tavily. Results are
- * cached per symbol per calendar day, so repeated mentions of the same stock in a
- * session don't re-spend search credits — one search per symbol per day regardless
- * of how many times (or in what phrasing) it's asked about.
+ * cached per normalized symbol (case/whitespace-insensitive) per calendar day, so
+ * repeated mentions of the same stock in a session don't re-spend search credits —
+ * one search per symbol per day regardless of how many times it's asked about, as
+ * long as the LLM refers to it with the same symbol text (a materially different
+ * phrasing, e.g. company name vs ticker, is still a separate cache entry).
  * Returns a friendly unavailable message (never throws) when TAVILY_API_KEY is unset,
  * so a missing key degrades the advisor gracefully instead of breaking it.
  * @param symbol - The trading symbol the search is about, used as the cache key

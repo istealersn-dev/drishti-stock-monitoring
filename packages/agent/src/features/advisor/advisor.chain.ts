@@ -4,7 +4,7 @@ import { and, desc, eq, gte } from "drizzle-orm";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 
 import { db } from "../../db/db.js";
-import { advisoryConversations } from "../../db/schema.js";
+import { advisoryConversations, agentLogs } from "../../db/schema.js";
 import {
   ADVISOR_LLM_TIMEOUT_MS,
   ADVISOR_MAX_TOKENS,
@@ -13,6 +13,7 @@ import {
   chatOnce,
 } from "../../llm/llmClient.js";
 import { runToolLoop } from "../../llm/toolLoop.js";
+import { env } from "../../shared/env.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import { logger } from "../../shared/logger.js";
@@ -33,11 +34,15 @@ import type { AdvisoryRequest, AdvisoryResponse, TradeSetup } from "./advisor.sc
  * Execute the web_search tool call: parse the model's raw JSON arguments, run the
  * search, and always return a string (never throw) — a malformed args payload or a
  * search failure degrades to an error message the model can see and work around,
- * rather than aborting the whole advisor reply.
- * @param argsJson - Raw JSON arguments string from the model's tool call
+ * rather than aborting the whole advisor reply. A genuine Tavily-side failure (not a
+ * malformed-args case, which is model output rather than an external-service error)
+ * is logged to agent_logs so failures are diagnosable rather than silently swallowed.
+ * @param argumentsJson - Raw JSON arguments string from the model's tool call
+ * @param runId - Correlation id for the agent_logs row, since the advisory flow has
+ *   no agent-run id of its own
  * @returns The search result text, or a description of what went wrong
  */
-async function executeWebSearch(argumentsJson: string): Promise<string> {
+async function executeWebSearch(argumentsJson: string, runId: string): Promise<string> {
   let parsedArguments: unknown;
   try {
     parsedArguments = JSON.parse(argumentsJson);
@@ -51,7 +56,22 @@ async function executeWebSearch(argumentsJson: string): Promise<string> {
   }
 
   const result = await searchWeb(arguments_.data.symbol, arguments_.data.query);
-  return result.ok ? result.value : `Web search failed: ${result.error.message}`;
+  if (!result.ok) {
+    db.insert(agentLogs)
+      .values({
+        runId,
+        symbol: arguments_.data.symbol,
+        action: "web_search_failed",
+        reasoning: null,
+        dryRun: env.DRISHTI_DRY_RUN,
+        error: result.error.message,
+        createdAt: new Date().toISOString(),
+      })
+      .run();
+    return `Web search failed: ${result.error.message}`;
+  }
+
+  return result.value;
 }
 
 const MAX_HISTORY_TURNS = 8;
@@ -136,6 +156,7 @@ export async function askAdvisor(
 
     const history = loadHistory(request.sessionId);
     const userContext = buildAdvisoryContext(holdings, request.question);
+    const runId = randomUUID();
 
     const userAt = new Date().toISOString();
     const answer = await runToolLoop(
@@ -145,7 +166,10 @@ export async function askAdvisor(
         { role: "user", content: userContext },
       ],
       [webSearchToolDefinition],
-      { [webSearchToolDefinition.function.name]: executeWebSearch },
+      {
+        [webSearchToolDefinition.function.name]: (argumentsJson: string) =>
+          executeWebSearch(argumentsJson, runId),
+      },
       {
         maxTokens: ADVISOR_MAX_TOKENS,
         timeoutMs: ADVISOR_LLM_TIMEOUT_MS,
