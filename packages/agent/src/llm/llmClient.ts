@@ -30,6 +30,17 @@ export const TRADE_SETUP_MAX_TOKENS = 4096;
 // fast rather than inheriting the 120s default sized for much heavier prompts.
 export const SYMBOL_RESOLVE_TIMEOUT_MS = 30_000;
 
+// Single-shot ORDER/QUERY/AMBIGUOUS classification of an @mention — cheap and small,
+// fails fast so a slow classifier never stalls the mention reply.
+export const INTENT_CLASSIFICATION_MAX_TOKENS = 200;
+export const INTENT_CLASSIFICATION_TIMEOUT_MS = 20_000;
+
+// Buy-approval sanity check (2-3 sentences + one web_search round) run synchronously
+// before the approval card is sent — tighter than the advisor's 180s since it sits
+// in the approval-send path and must never be the reason a card is delayed for long.
+export const INSTRUCTION_ANALYSIS_MAX_TOKENS = 400;
+export const INSTRUCTION_ANALYSIS_TIMEOUT_MS = 60_000;
+
 const client = new OpenAI({
   baseURL: env.LM_STUDIO_BASE_URL + "/v1",
   apiKey: "lm-studio",
