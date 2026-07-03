@@ -11,76 +11,96 @@ import { createGTT } from "../gtt/gtt.tools.js";
 
 import type { SlBreach } from "./stopLoss.detector.js";
 
-const SL_EXIT_CREATED_ACTION = "sl_exit_gtt_created"; // logged only on a successful GTT create
-const SL_EXIT_FAILED_ACTION = "sl_exit_gtt_failed"; // logged on failure — never gates dedup, so failures keep retrying
+const SL_EXIT_CREATED_ACTION = "sl_exit_gtt_created"; // logged only on a successful GTT create — gates re-creating the GTT
+const SL_EXIT_FAILED_ACTION = "sl_exit_gtt_failed"; // logged on create failure — never gates dedup, so creation keeps retrying
+const SL_EXIT_ALERTED_ACTION = "sl_exit_alerted"; // logged only once pushAlert confirms delivery — gates re-sending the alert
 
 /**
  * Handle a single stop-loss breach: create a GTT exit order, alert Slack, and log to DB.
- * Skips entirely if a GTT was already successfully created for this symbol within the
- * last trading session, so a breach that persists across multiple poll ticks only
- * triggers one order and one alert per session. A failed create is never deduped, so
- * it keeps retrying every tick until it succeeds.
+ * GTT creation and alert delivery are deduped independently, each keyed to the last
+ * trading session:
+ * - If a GTT was already successfully created for this symbol, it is not re-created
+ *   (avoids stacking duplicate exit orders on Upstox for a breach that persists
+ *   across multiple poll ticks). A failed create is never deduped, so it keeps
+ *   retrying every tick until it succeeds.
+ * - If the Slack alert for that GTT hasn't been confirmed delivered yet (e.g. the
+ *   previous tick's pushAlert failed), it is retried without touching the GTT —
+ *   so a transient Slack outage can't permanently swallow an SL breach notification.
  * When DRISHTI_DRY_RUN=true, the GTT API call is skipped but all logs and DB rows are written.
  * @param breach - The detected SL breach
  * @param runId - Current agent run ID for log correlation
  */
 export async function handleSlBreach(breach: SlBreach, runId: string): Promise<void> {
   const { holding, lastTradedPrice, slThreshold } = breach;
+  const symbol = holding.trading_symbol;
   const now = new Date().toISOString();
 
-  if (wasRecentlyAlerted(SL_EXIT_CREATED_ACTION, holding.trading_symbol, TRADING_DAY_MS)) {
-    logger.debug("handleSlBreach: suppressing duplicate — GTT already created this session", {
-      symbol: holding.trading_symbol,
+  const gttAlreadyCreated = wasRecentlyAlerted(SL_EXIT_CREATED_ACTION, symbol, TRADING_DAY_MS);
+  const alertAlreadySent = wasRecentlyAlerted(SL_EXIT_ALERTED_ACTION, symbol, TRADING_DAY_MS);
+
+  if (gttAlreadyCreated && alertAlreadySent) {
+    logger.debug("handleSlBreach: suppressing duplicate — already handled this session", {
+      symbol,
     });
     return;
   }
 
-  const request = buildSlExitRequest(holding, slThreshold);
-  const gttResult = await createGTT(request);
+  let gttResult: { ok: true; value: string } | { ok: false; error: { message: string } };
 
-  const gttRowId = crypto.randomUUID();
-  db.insert(gttOrders)
-    .values({
-      id: gttRowId,
-      symbol: holding.trading_symbol,
-      type: "sl_exit",
-      triggerPrice: slThreshold,
-      limitPrice: request.limit_price,
-      quantity: holding.quantity,
-      status: gttResult.ok ? "active" : "failed",
-      approvalId: null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .run();
+  if (gttAlreadyCreated) {
+    gttResult = { ok: true, value: "GTT already created earlier this session" };
+  } else {
+    const request = buildSlExitRequest(holding, slThreshold);
+    gttResult = await createGTT(request);
 
-  const reasoning = gttResult.ok
-    ? `LTP ₹${lastTradedPrice} breached SL ₹${slThreshold}. GTT: ${gttResult.value}`
-    : `LTP ₹${lastTradedPrice} breached SL ₹${slThreshold}. GTT create failed: ${gttResult.error.message}`;
+    db.insert(gttOrders)
+      .values({
+        id: crypto.randomUUID(),
+        symbol,
+        type: "sl_exit",
+        triggerPrice: slThreshold,
+        limitPrice: request.limit_price,
+        quantity: holding.quantity,
+        status: gttResult.ok ? "active" : "failed",
+        approvalId: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
 
-  db.insert(agentLogs)
-    .values({
-      runId,
-      symbol: holding.trading_symbol,
-      action: gttResult.ok ? SL_EXIT_CREATED_ACTION : SL_EXIT_FAILED_ACTION,
-      reasoning,
+    const reasoning = gttResult.ok
+      ? `LTP ₹${lastTradedPrice} breached SL ₹${slThreshold}. GTT: ${gttResult.value}`
+      : `LTP ₹${lastTradedPrice} breached SL ₹${slThreshold}. GTT create failed: ${gttResult.error.message}`;
+
+    db.insert(agentLogs)
+      .values({
+        runId,
+        symbol,
+        action: gttResult.ok ? SL_EXIT_CREATED_ACTION : SL_EXIT_FAILED_ACTION,
+        reasoning,
+        dryRun: env.DRISHTI_DRY_RUN,
+        error: gttResult.ok ? null : gttResult.error.message,
+        createdAt: now,
+      })
+      .run();
+
+    logger.info("SL breach handled", {
+      symbol,
+      lastTradedPrice,
+      slThreshold,
       dryRun: env.DRISHTI_DRY_RUN,
-      error: gttResult.ok ? null : gttResult.error.message,
-      createdAt: now,
-    })
-    .run();
+      gttOk: gttResult.ok,
+    });
+  }
 
-  logger.info("SL breach handled", {
-    symbol: holding.trading_symbol,
-    lastTradedPrice,
-    slThreshold,
-    dryRun: env.DRISHTI_DRY_RUN,
-    gttOk: gttResult.ok,
-  });
+  // A GTT already in place and already notified about needs no further action. A failed
+  // create is always (re-)alerted below — that's ongoing signal, not noise — so this only
+  // short-circuits once the GTT is confirmed active and the alert already went out.
+  if (gttResult.ok && alertAlreadySent) return;
 
   const dryRunNote = env.DRISHTI_DRY_RUN ? " ⚠️ *DRY RUN — no GTT placed*" : "";
   const alertMessage = [
-    `🚨 *SL BREACH — ${holding.trading_symbol}*`,
+    `🚨 *SL BREACH — ${symbol}*`,
     `LTP: ₹${lastTradedPrice}  |  SL: ₹${slThreshold}  |  Qty: ${holding.quantity}`,
     gttResult.ok
       ? `✅ GTT exit placed${dryRunNote}`
@@ -90,8 +110,23 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
   const alertResult = await pushAlert(alertMessage);
   if (!alertResult.ok) {
     logger.error("Failed to push SL breach alert", {
-      symbol: holding.trading_symbol,
+      symbol,
       error: alertResult.error.message,
     });
+    return;
+  }
+
+  if (gttResult.ok) {
+    db.insert(agentLogs)
+      .values({
+        runId,
+        symbol,
+        action: SL_EXIT_ALERTED_ACTION,
+        reasoning: alertMessage,
+        dryRun: env.DRISHTI_DRY_RUN,
+        error: null,
+        createdAt: new Date().toISOString(),
+      })
+      .run();
   }
 }

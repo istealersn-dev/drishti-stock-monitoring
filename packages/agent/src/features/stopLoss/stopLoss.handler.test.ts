@@ -52,21 +52,23 @@ const makeHolding = (overrides: Partial<Holding> = {}): Holding => ({
 });
 
 describe("handleSlBreach", () => {
+  let valuesSpy: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    mockDbInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({ run: mockDbRun }),
-    });
+    valuesSpy = vi.fn().mockReturnValue({ run: mockDbRun });
+    mockDbInsert.mockReturnValue({ values: valuesSpy });
     mockDbSelect.mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({ get: mockDbGet }),
       }),
     });
+    // Default: neither the GTT-created nor the alerted dedup gate has fired yet.
     mockDbGet.mockReturnValue(undefined);
     mockPushAlert.mockResolvedValue({ ok: true, value: "ts-123" });
   });
 
-  it("writes two DB rows (gtt_orders + agent_logs) and pushes alert on success", async () => {
+  it("fresh breach: creates GTT, sends alert, and writes all three log rows", async () => {
     mockCreateGTT.mockResolvedValue({ ok: true, value: "[DRY_RUN] would create GTT..." });
 
     await handleSlBreach(
@@ -75,9 +77,16 @@ describe("handleSlBreach", () => {
     );
 
     expect(mockCreateGTT).toHaveBeenCalledOnce();
-    expect(mockDbInsert).toHaveBeenCalledTimes(2);
-    expect(mockDbRun).toHaveBeenCalledTimes(2);
     expect(mockPushAlert).toHaveBeenCalledOnce();
+    expect(mockDbInsert).toHaveBeenCalledTimes(3); // gtt_orders + sl_exit_gtt_created + sl_exit_alerted
+
+    const gttRowValues = valuesSpy.mock.calls[0]?.[0] as { status: string };
+    expect(gttRowValues.status).toBe("active");
+
+    const actions = valuesSpy.mock.calls
+      .slice(1)
+      .map((call) => (call[0] as { action: string }).action);
+    expect(actions).toEqual(["sl_exit_gtt_created", "sl_exit_alerted"]);
   });
 
   it("alert message contains symbol, LTP, and DRY RUN note", async () => {
@@ -94,28 +103,29 @@ describe("handleSlBreach", () => {
     expect(alert).toContain("DRY RUN");
   });
 
-  it("still writes DB rows and alerts when GTT create fails, with status 'failed'", async () => {
+  it("GTT create fails: writes 'failed' status and action, still alerts every time (no alerted-dedup row)", async () => {
     mockCreateGTT.mockResolvedValue({ ok: false, error: { message: "network timeout" } });
-    const valuesSpy = vi.fn().mockReturnValue({ run: mockDbRun });
-    mockDbInsert.mockReturnValue({ values: valuesSpy });
 
     await handleSlBreach(
       { holding: makeHolding(), lastTradedPrice: 850, slThreshold: 900 },
       "run-003",
     );
 
-    expect(mockDbInsert).toHaveBeenCalledTimes(2);
     expect(mockPushAlert).toHaveBeenCalledOnce();
-
     const alert = mockPushAlert.mock.calls[0]?.[0] as string;
     expect(alert).toContain("failed");
 
+    // Only gtt_orders + sl_exit_gtt_failed rows — no sl_exit_alerted row, since a failed
+    // create should keep alerting every tick rather than being deduped.
+    expect(mockDbInsert).toHaveBeenCalledTimes(2);
     const gttRowValues = valuesSpy.mock.calls[0]?.[0] as { status: string };
     expect(gttRowValues.status).toBe("failed");
+    const logRowValues = valuesSpy.mock.calls[1]?.[0] as { action: string };
+    expect(logRowValues.action).toBe("sl_exit_gtt_failed");
   });
 
-  it("skips GTT creation and alert when an active sl_exit GTT already exists", async () => {
-    mockDbGet.mockReturnValue({ id: "existing-gtt-id" });
+  it("skips entirely when both GTT-created and alerted dedup rows already exist this session", async () => {
+    mockDbGet.mockReturnValue({ id: "existing-row-id" });
 
     await handleSlBreach(
       { holding: makeHolding(), lastTradedPrice: 880, slThreshold: 900 },
@@ -127,17 +137,36 @@ describe("handleSlBreach", () => {
     expect(mockPushAlert).not.toHaveBeenCalled();
   });
 
-  it("inserts gtt_orders row with status 'active' when GTT create succeeds", async () => {
-    mockCreateGTT.mockResolvedValue({ ok: true, value: "[DRY_RUN] would create GTT..." });
-    const valuesSpy = vi.fn().mockReturnValue({ run: mockDbRun });
-    mockDbInsert.mockReturnValue({ values: valuesSpy });
+  it("retries the alert without recreating the GTT when the GTT was already created but not yet alerted", async () => {
+    // First check (GTT-created gate) hits, second check (alerted gate) misses.
+    mockDbGet.mockReturnValueOnce({ id: "existing-gtt-log-id" }).mockReturnValueOnce(undefined);
 
     await handleSlBreach(
       { holding: makeHolding(), lastTradedPrice: 880, slThreshold: 900 },
       "run-005",
     );
 
-    const gttRowValues = valuesSpy.mock.calls[0]?.[0] as { status: string };
-    expect(gttRowValues.status).toBe("active");
+    expect(mockCreateGTT).not.toHaveBeenCalled();
+    expect(mockPushAlert).toHaveBeenCalledOnce();
+    // Only the sl_exit_alerted row is written — no new gtt_orders/sl_exit_gtt_created rows.
+    expect(mockDbInsert).toHaveBeenCalledTimes(1);
+    const logRowValues = valuesSpy.mock.calls[0]?.[0] as { action: string };
+    expect(logRowValues.action).toBe("sl_exit_alerted");
+  });
+
+  it("does not write the alerted-dedup row when pushAlert fails, so the next tick retries", async () => {
+    mockCreateGTT.mockResolvedValue({ ok: true, value: "[DRY_RUN] would create GTT..." });
+    mockPushAlert.mockResolvedValue({ ok: false, error: { message: "Slack down" } });
+
+    await handleSlBreach(
+      { holding: makeHolding(), lastTradedPrice: 880, slThreshold: 900 },
+      "run-006",
+    );
+
+    // gtt_orders + sl_exit_gtt_created only — no sl_exit_alerted row, since delivery
+    // was never confirmed.
+    expect(mockDbInsert).toHaveBeenCalledTimes(2);
+    const actions = valuesSpy.mock.calls.map((call) => (call[0] as { action?: string }).action);
+    expect(actions).not.toContain("sl_exit_alerted");
   });
 });
