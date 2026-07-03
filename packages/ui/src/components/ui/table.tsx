@@ -82,8 +82,8 @@ type TableCellProperties = {
 
 function TableCell({
   children,
-  align = "left",
   numeric = false,
+  align = numeric ? "right" : "left",
   className = "",
 }: TableCellProperties): React.ReactElement {
   return (

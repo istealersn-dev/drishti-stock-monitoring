@@ -46,6 +46,7 @@ function DialogContent({
         className="fixed inset-0 z-40 bg-[color:rgb(10_10_10_/_0.7)] data-[state=open]:animate-fade"
       />
       <DialogPrimitive.Content
+        {...(description === undefined ? { "aria-describedby": undefined } : {})}
         className={`fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border p-5 shadow-card outline-none data-[state=open]:animate-fade ${tone === "destructive" ? "border-neg-ring bg-neg-tint" : "border-border-strong bg-surface"} ${className}`}
       >
         <div className="flex items-start justify-between gap-3">

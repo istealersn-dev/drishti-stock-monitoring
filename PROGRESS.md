@@ -290,6 +290,49 @@ from the spec.
   a known category of automation limitation, not a further code defect. Not investigated further.
   `pnpm --filter ui typecheck`/`lint`/`build` clean after all three fixes (lint required one
   `--fix` pass for prettier formatting on the `forwardRef` wrapping).
+- **2026-07-04** — CP3 pre-PR gate, `/code-review --level high` round 3 (full 8-angle pass against
+  the CP3 checkpoint diff vs `main`, run to confirm convergence after round 2's fixes). Two angles
+  (removed-behavior, cross-file tracer, conventions) came back clean. Five candidates were verified
+  individually; three survived (fixed below), two were refuted with direct evidence:
+  - **Refuted**: Button's `icon` variant (32px, `h-8 w-8`) looked inconsistent with Switch's
+    just-fixed 44px touch-target minimum. Checked `project/Design.md` directly — §6 explicitly
+    specs icon buttons at "28–34px square" (a documented, intentional carve-out from §1's general
+    44px touch-first principle), and 32px sits inside that range. No fix needed.
+  - **Refuted**: `Card`/`Dialog`/`Toast` each hand-derive their own "tinted surface" Tailwind class
+    combo (different radius/padding/shadow each time) instead of sharing a helper. `tokens.ts` is
+    explicitly documented as a non-CSS-consumer mirror, not a class-string source, so there's no
+    existing helper being bypassed — and three independent, slightly-varying implementations is
+    exactly the amount of repetition CLAUDE.md's "duplicate twice before extracting" rule says to
+    tolerate before introducing a `surfaceTone()`-style abstraction. Extracting now would be the
+    premature abstraction CLAUDE.md warns against, not a fix for one.
+  - **Fixed (confirmed)**: `Dialog.Content`'s `<DialogPrimitive.Description>` was only rendered
+    when a `description` prop was supplied, but Radix's `DialogContentImpl` unconditionally sets
+    `aria-describedby: context.descriptionId` on the content element regardless (confirmed by
+    reading `@radix-ui/react-dialog`'s source directly) — a Dialog opened without `description`
+    would leave screen readers with a dangling `aria-describedby` reference to an element that was
+    never mounted. Fixed using Radix's own documented pattern for description-less dialogs: spread
+    `{ "aria-describedby": undefined }` onto `DialogPrimitive.Content` only when `description` is
+    `undefined` (props spread after Radix's internal default in `DialogContentImpl`, so the
+    override wins; when `description` is provided, the prop is omitted entirely and Radix's default
+    `descriptionId` — which matches the rendered `Description`'s `id` — applies untouched).
+  - **Fixed (confirmed)**: `Table.Cell`'s `numeric` and `align` props were fully independent —
+    `numeric` only toggled `font-mono tabular-nums`, never touched alignment, so `numeric` without
+    an explicit `align="right"` would render tabular numbers left-aligned (the current catalog page
+    happened to always pass both together, masking the footgun). Fixed by defaulting
+    `align = numeric ? "right" : "left"` (still overridable per-cell) instead of an unconditional
+    `align = "left"` default — matches the table/design-system convention that numeric columns are
+    right-aligned by default.
+  - **Fixed (plausible)**: `Badge` and `Card` (from CP2) were still plain function components with
+    no `forwardRef`, same bug class as the one just fixed on `Button` — not currently triggered
+    (both are only ever rendered as plain children today, never wrapped in a Radix `asChild`
+    trigger), but a realistic landmine the moment either gets wrapped in a future `Tooltip` or
+    `Dialog.Trigger`. Converted both to `forwardRef` (`HTMLSpanElement` for `Badge`; `HTMLElement`
+    for `Card`, since its polymorphic `as="article"|"section"` root has no more specific shared ref
+    type) for the same reason Button needed it.
+  Re-verified live post-fix: `aria-describedby` on the destructive Dialog (which always passes
+  `description`) still resolves to a real, existing DOM element id; Table's numeric P&L/Qty/LTP
+  columns still render right-aligned. `pnpm --filter ui typecheck`/`lint`/`build` all clean (lint:
+  0 errors, the same 4 documented `local/flag-stray-position` overlay warnings as before).
 
 ## Constraints checklist (re-verify every checkpoint)
 

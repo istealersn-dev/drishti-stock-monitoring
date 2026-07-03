@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import type React from "react";
 
 type BadgeVariant = "pos" | "neg" | "warn" | "info" | "neutral";
@@ -34,14 +35,13 @@ const DOT_CLASS: Record<BadgeVariant, string> = {
  * @param props.className - additional classes
  * @returns Badge element
  */
-export function Badge({
-  variant = "neutral",
-  dot = false,
-  children,
-  className = "",
-}: BadgeProperties): React.ReactElement {
+export const Badge = forwardRef<HTMLSpanElement, BadgeProperties>(function Badge(
+  { variant = "neutral", dot = false, children, className = "" },
+  ref,
+): React.ReactElement {
   return (
     <span
+      ref={ref}
       className={`inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-0.5 font-mono text-micro font-medium ${VARIANT_CLASS[variant]} ${className}`}
     >
       {dot && (
@@ -50,4 +50,4 @@ export function Badge({
       {children}
     </span>
   );
-}
+});

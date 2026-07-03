@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import type React from "react";
 
 type CardProperties = {
@@ -19,19 +20,17 @@ type CardProperties = {
  * @param props.className - additional classes
  * @returns Card element
  */
-export function Card({
-  as = "article",
-  danger = false,
-  shadow = false,
-  children,
-  className = "",
-}: CardProperties): React.ReactElement {
+export const Card = forwardRef<HTMLElement, CardProperties>(function Card(
+  { as = "article", danger = false, shadow = false, children, className = "" },
+  ref,
+): React.ReactElement {
   const Tag = as;
   return (
     <Tag
+      ref={ref}
       className={`rounded-2xl border p-4 ${danger ? "border-neg-ring bg-neg-tint" : "border-border-strong bg-surface"} ${shadow ? "shadow-card" : ""} ${className}`}
     >
       {children}
     </Tag>
   );
-}
+});
