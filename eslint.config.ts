@@ -164,7 +164,17 @@ export default [
     // Design-system guardrails (project/handoff.md §1/§7): token-bound components only.
     // Scoped to the new design-system files each checkpoint touches — widen this glob as
     // CP2-CP8 migrate more of packages/ui off the legacy indigo system (see PROGRESS.md).
-    files: ["packages/ui/src/pages/tokensPreview.tsx"],
+    files: [
+      "packages/ui/src/pages/tokensPreview.tsx",
+      "packages/ui/src/pages/primitivesPreview.tsx",
+      "packages/ui/src/components/ui/button.tsx",
+      "packages/ui/src/components/ui/badge.tsx",
+      "packages/ui/src/components/ui/card.tsx",
+      "packages/ui/src/components/ui/input.tsx",
+      "packages/ui/src/components/ui/textarea.tsx",
+      "packages/ui/src/components/ui/statusDot.tsx",
+      "packages/ui/src/components/ui/breadcrumb.tsx",
+    ],
     plugins: {
       local: { rules: { "flag-stray-position": flagStrayPositionRule } },
     },
