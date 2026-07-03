@@ -35,6 +35,7 @@ function formatEntry(instruction: ParsedInstruction): string {
  * @param resolvedSymbol - The Upstox trading symbol (e.g. "RAMCOSYS-EQ")
  * @param suggestedQty - Agent-calculated suggested quantity
  * @param availableMargin - Current available margin in rupees
+ * @param analysis - AI sanity-check text for the setup, or null if analysis was unavailable
  * @returns A Result containing the Slack message timestamp or a SlackError
  */
 export async function sendApprovalCard(
@@ -43,8 +44,18 @@ export async function sendApprovalCard(
   resolvedSymbol: string,
   suggestedQty: number,
   availableMargin: number,
+  analysis: string | null,
 ): Promise<Result<string, SlackError>> {
   const timeoutMinutes = env.DRISHTI_APPROVAL_TIMEOUT_MINUTES;
+
+  const analysisBlock = analysis
+    ? [
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: `*AI Analysis:*\n${analysis}` },
+        },
+      ]
+    : [];
 
   const blocks = [
     {
@@ -69,6 +80,7 @@ export async function sendApprovalCard(
         },
       ],
     },
+    ...analysisBlock,
     {
       type: "actions",
       elements: [

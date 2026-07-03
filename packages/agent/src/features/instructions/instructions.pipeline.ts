@@ -7,6 +7,7 @@ import { fetchMargins } from "../portfolio/portfolio.tools.js";
 import { validateConcentration } from "../validator/validator.concentration.js";
 import { validateRiskReward } from "../validator/validator.rr.js";
 
+import { analyzeBuyInstruction } from "./instructions.analysis.js";
 import { sendApprovalCard } from "./instructions.approval.js";
 import { calculateSuggestedQty } from "./instructions.executor.js";
 import { parseInstruction } from "./instructions.parser.js";
@@ -62,6 +63,9 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     return { ok: false, error: rrResult.reason };
   }
 
+  const analysisResult = await analyzeBuyInstruction(instruction, resolved.tradingSymbol);
+  const analysis = analysisResult.ok ? analysisResult.value : null;
+
   const marginResult = await fetchMargins();
   const availableMargin = marginResult.ok ? marginResult.value.available_margin : 0;
   const entryHigh = instruction.entryHigh ?? 0;
@@ -99,6 +103,7 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     resolved.tradingSymbol,
     suggestedQty,
     availableMargin,
+    analysis,
   );
   if (!cardResult.ok) {
     logger.error("Failed to send approval card", { approvalId, error: cardResult.error.message });
