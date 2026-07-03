@@ -4,9 +4,10 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
-import { TRADING_DAY_MS, wasRecentlyAlerted } from "../../shared/dedup.js";
+import { wasRecentlyAlerted } from "../../shared/dedup.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
+import { TRADING_DAY_MS } from "../../shared/timeWindows.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
 import { buildSlExitRequest } from "../gtt/gtt.service.js";
 import { createGTT } from "../gtt/gtt.tools.js";
@@ -127,11 +128,6 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
       gttOk: gttResult.ok,
     });
   }
-
-  // A GTT already in place and already notified about needs no further action. A failed
-  // create is always (re-)alerted below — that's ongoing signal, not noise — so this only
-  // short-circuits once the GTT is confirmed active and the alert already went out.
-  if (gttResult.ok && alertAlreadySent) return;
 
   const dryRunNote = env.DRISHTI_DRY_RUN ? " ⚠️ *DRY RUN — no GTT placed*" : "";
   const alertMessage = [

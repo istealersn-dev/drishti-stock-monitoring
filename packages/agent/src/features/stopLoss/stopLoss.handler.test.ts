@@ -158,6 +158,24 @@ describe("handleSlBreach", () => {
     expect(logRowValues.action).toBe("sl_exit_alerted");
   });
 
+  it("always alerts a freshly created GTT, even if a stale alerted-dedup row exists from an earlier breach on this symbol", async () => {
+    // No active GTT (e.g. the previous one was cancelled/modified elsewhere), but an
+    // sl_exit_alerted row from that earlier, now-resolved breach is still inside the
+    // trading-day window. A brand-new GTT created now must still get its own alert —
+    // the stale dedup row must not swallow notification of a genuinely new order.
+    mockDbGet.mockReturnValueOnce(undefined).mockReturnValueOnce({ id: "stale-alerted-row-id" });
+    mockCreateGTT.mockResolvedValue({ ok: true, value: "[DRY_RUN] would create GTT..." });
+
+    await handleSlBreach(
+      { holding: makeHolding(), lastTradedPrice: 880, slThreshold: 900 },
+      "run-007",
+    );
+
+    expect(mockCreateGTT).toHaveBeenCalledOnce();
+    expect(mockPushAlert).toHaveBeenCalledOnce();
+    expect(mockDbInsert).toHaveBeenCalledTimes(3); // gtt_orders + sl_exit_gtt_created + sl_exit_alerted
+  });
+
   it("does not write the alerted-dedup row when pushAlert fails, so the next tick retries", async () => {
     mockCreateGTT.mockResolvedValue({ ok: true, value: "[DRY_RUN] would create GTT..." });
     mockPushAlert.mockResolvedValue({ ok: false, error: { message: "Slack down" } });

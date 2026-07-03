@@ -3,8 +3,6 @@ import { and, eq, gte } from "drizzle-orm";
 import { db } from "../db/db.js";
 import { agentLogs } from "../db/schema.js";
 
-export const TRADING_DAY_MS = 8 * 60 * 60 * 1000; // 8 h window — covers one full market session
-
 /**
  * Returns true if an agent_log row with the given action+symbol already exists
  * within the cooldown window. Read-only — callers are responsible for writing the
