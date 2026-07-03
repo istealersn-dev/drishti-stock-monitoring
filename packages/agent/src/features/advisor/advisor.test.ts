@@ -265,6 +265,16 @@ describe("recordConversationTurn", () => {
       new Date(rows?.[0]?.createdAt ?? "").getTime(),
     );
   });
+
+  it("never throws when the DB write fails, so it can't cause a spurious error after a reply already succeeded", () => {
+    mockTransaction.mockImplementation(() => {
+      throw new Error("disk I/O error");
+    });
+
+    expect(() =>
+      recordConversationTurn("session-x", "slack", "question text", "answer text"),
+    ).not.toThrow();
+  });
 });
 
 describe("buildAdvisoryContext", () => {

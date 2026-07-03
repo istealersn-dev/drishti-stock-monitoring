@@ -94,7 +94,10 @@ function loadHistory(sessionId: string): ChatCompletionMessageParam[] {
  * (e.g. the intent classifier's clarifying question, or askAdvisor after its own
  * LLM call completes) use this so a later reply in the same thread has
  * conversational context via loadHistory instead of looking like a fresh,
- * context-free question.
+ * context-free question. Never throws — this is best-effort persistence for
+ * conversational continuity, called after the user-facing reply has already
+ * been sent, so a write failure here must never surface as a second,
+ * misleading "something went wrong" error on top of a reply that succeeded.
  * @param sessionId - The session to record the turn under
  * @param channel - Originating channel, for the conversation row
  * @param userText - The user's message
@@ -114,28 +117,33 @@ export function recordConversationTurn(
   // row, which two independent Date.now() reads don't guarantee.
   const assistantAt = new Date(userAt.getTime() + 1);
 
-  db.transaction((tx) => {
-    tx.insert(advisoryConversations)
-      .values([
-        {
-          id: randomUUID(),
-          sessionId,
-          role: "user",
-          content: userText,
-          channel,
-          createdAt: userAt.toISOString(),
-        },
-        {
-          id: randomUUID(),
-          sessionId,
-          role: "assistant",
-          content: assistantText,
-          channel,
-          createdAt: assistantAt.toISOString(),
-        },
-      ])
-      .run();
-  });
+  try {
+    db.transaction((tx) => {
+      tx.insert(advisoryConversations)
+        .values([
+          {
+            id: randomUUID(),
+            sessionId,
+            role: "user",
+            content: userText,
+            channel,
+            createdAt: userAt.toISOString(),
+          },
+          {
+            id: randomUUID(),
+            sessionId,
+            role: "assistant",
+            content: assistantText,
+            channel,
+            createdAt: assistantAt.toISOString(),
+          },
+        ])
+        .run();
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("recordConversationTurn: failed to persist turn", { sessionId, error: message });
+  }
 }
 
 /**
