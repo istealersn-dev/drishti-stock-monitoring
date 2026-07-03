@@ -179,17 +179,11 @@ export function CatalogPreview(): React.ReactElement {
                 <Table.Row key={row.symbol}>
                   <Table.Cell className="font-mono uppercase">{row.symbol}</Table.Cell>
                   <Table.Cell>{row.exchange}</Table.Cell>
-                  <Table.Cell align="right" numeric>
-                    {row.qty}
-                  </Table.Cell>
-                  <Table.Cell align="right" numeric>
+                  <Table.Cell numeric>{row.qty}</Table.Cell>
+                  <Table.Cell numeric>
                     ₹{row.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </Table.Cell>
-                  <Table.Cell
-                    align="right"
-                    numeric
-                    className={row.pnl >= 0 ? "text-pos" : "text-neg"}
-                  >
+                  <Table.Cell numeric className={row.pnl >= 0 ? "text-pos" : "text-neg"}>
                     {row.pnl >= 0 ? "+" : "−"}₹
                     {Math.abs(row.pnl).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                   </Table.Cell>

@@ -333,6 +333,48 @@ from the spec.
   `description`) still resolves to a real, existing DOM element id; Table's numeric P&L/Qty/LTP
   columns still render right-aligned. `pnpm --filter ui typecheck`/`lint`/`build` all clean (lint:
   0 errors, the same 4 documented `local/flag-stray-position` overlay warnings as before).
+- **2026-07-04** — CP3 `/security-review` (pre-PR gate, second half): zero findings — pure
+  UI-primitives diff, no backend/network/auth logic, no unsafe DOM sinks, `/catalog` route uses the
+  identical auth guard as existing preview routes, all new `@radix-ui/*` deps verified as official
+  scoped packages. PR opened as [#28](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/28).
+- **2026-07-04** — CP3 post-PR `/review` gate on PR #28 (medium effort, full 8-angle pass). Found
+  the actual root cause of the Tooltip-hover-disclosure mystery documented as an unresolved
+  "automation limitation" caveat in the round-2 entry above — **that caveat was wrong**. The real
+  bug: round 2's `Button` `forwardRef` conversion forwarded the *ref* correctly but never spread
+  the rest of `props` onto the underlying `<button>`, so when Radix's `asChild`/`Slot` merges its
+  own injected props onto a trigger child (`onFocus`, `onPointerMove`, `onPointerLeave`, `onBlur`,
+  `aria-haspopup`, `data-state`, etc. — confirmed by reading `@radix-ui/react-slot`'s `mergeProps`
+  source directly), `Button`'s destructuring silently dropped every one of them since it only ever
+  read 5 named keys. Fixed by intersecting `ButtonBaseProperties` with
+  `Omit<React.ComponentPropsWithoutRef<"button">, ...>` and spreading `...rest` onto the `<button>`
+  (also simplified: `aria-label` no longer needs special-case handling since it now flows through
+  `rest` like any other native attribute). Re-verified live in the browser: dispatching a real
+  `FocusEvent('focus', { bubbles: true })` at the Tooltip-wrapped icon Button now correctly renders
+  `[role="tooltip"]` with the expected text — confirmed via `data-radix-popper-content-wrapper`
+  appearing in the DOM with `z-index: 50`. (Note: plain `element.focus()` still didn't trigger it in
+  this harness — a real, separate CDP/automation quirk where a programmatic `.focus()` call doesn't
+  always synthesize the bubbling `focusin` event Radix listens for; dispatching an explicit
+  `FocusEvent` with `bubbles: true` does. Real keyboard/mouse interaction is unaffected.)
+  Also fixed two smaller findings from the same pass: **z-index/portal-stacking** — `Select.Content`
+  had no `z-index` at all (could render underneath a `Dialog` if a Select is ever nested inside one)
+  and `Toast.Viewport` shared the exact same `z-50` as `Dialog.Content` with no stacking guarantee
+  between a toast and a modal firing concurrently; fixed by giving `Select.Content` `z-50` (matching
+  Dialog/Tooltip) and bumping `Toast.Viewport` to `z-[60]` so notifications always render above
+  modals. **`MessageBubble` missing `forwardRef`** — same latent bug class as the since-fixed
+  Button/Badge/Card, flagged as a plausible landmine for CP5's chat UI (a future timestamp
+  `Tooltip` anchored to a bubble); fixed preemptively since the change is a one-line, low-risk,
+  consistency-preserving addition. Also removed now-redundant `align="right"` props on
+  `catalogPreview.tsx`'s numeric `Table.Cell`s (dead weight now that `align` defaults from
+  `numeric`; re-verified the table still renders right-aligned via the default alone).
+  **Deferred, not fixed**: `Select`/`Switch` (CP3) duplicate the exact labelled-field wrapper
+  markup/props that `Input`/`Textarea` (CP2) already have — a real, byte-for-byte duplication
+  (unlike the refuted Card/Dialog/Toast "tint" finding) that's arguably past the "duplicate twice"
+  threshold CLAUDE.md tolerates before extraction. Not fixed in this PR since it would mean
+  reopening already-merged CP2 files for a pure DRY refactor with no functional/a11y payoff;
+  flagged here as a candidate for a small `FormLabel`-style extraction in a future checkpoint if the
+  pattern repeats again in CP7/CP8's Settings forms. `pnpm --filter ui typecheck`/`lint`/`build` all
+  clean after this round; browser-reverified Dialog `aria-describedby` and Table alignment
+  unaffected by the Table cleanup.
 
 ## Constraints checklist (re-verify every checkpoint)
 

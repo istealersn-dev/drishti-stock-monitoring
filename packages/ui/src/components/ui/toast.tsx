@@ -9,7 +9,7 @@ function ToastProvider({ children }: ToastProviderProperties): React.ReactElemen
   return (
     <ToastPrimitive.Provider swipeDirection="right">
       {children}
-      <ToastPrimitive.Viewport className="fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2 outline-none" />
+      <ToastPrimitive.Viewport className="fixed bottom-4 right-4 z-[60] flex w-full max-w-sm flex-col gap-2 outline-none" />
     </ToastPrimitive.Provider>
   );
 }
