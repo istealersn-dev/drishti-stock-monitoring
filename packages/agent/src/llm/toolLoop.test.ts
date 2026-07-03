@@ -87,11 +87,15 @@ describe("runToolLoop", () => {
     ).rejects.toThrow(/exceeded/i);
   });
 
-  it("returns an empty string when the final message has null content", async () => {
+  it("throws instead of silently returning an empty string when the final message has null content", async () => {
     mockChatWithTools.mockResolvedValue({ content: null, tool_calls: undefined });
 
-    const result = await runToolLoop([{ role: "user", content: "hi" }], [], {});
+    await expect(runToolLoop([{ role: "user", content: "hi" }], [], {})).rejects.toThrow(/empty/i);
+  });
 
-    expect(result).toBe("");
+  it("throws when the final message has blank/whitespace-only content", async () => {
+    mockChatWithTools.mockResolvedValue({ content: "   ", tool_calls: undefined });
+
+    await expect(runToolLoop([{ role: "user", content: "hi" }], [], {})).rejects.toThrow(/empty/i);
   });
 });

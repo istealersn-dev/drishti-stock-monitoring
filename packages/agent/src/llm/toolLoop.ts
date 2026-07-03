@@ -42,7 +42,11 @@ export async function runToolLoop(
     );
 
     if (!message.tool_calls || message.tool_calls.length === 0) {
-      return message.content?.trim() ?? "";
+      const content = message.content?.trim();
+      if (!content) {
+        throw new LlmError("LM Studio returned an empty final answer");
+      }
+      return content;
     }
 
     conversation.push({
