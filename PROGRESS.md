@@ -12,7 +12,7 @@ each checkpoint, get a go-ahead, implement it, open the PR, then move to the nex
 
 | CP | Scope | Status | Branch | PR |
 |---|---|---|---|---|
-| 1 | Monorepo + design tokens | pr-open | `feat/cp1-design-tokens` | pending push |
+| 1 | Monorepo + design tokens | pr-open, review-clean, awaiting merge | `feat/cp1-design-tokens` | [#25](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/25) |
 | 2 | UI primitives A (Button, Badge, Card, Input, Textarea, StatusDot, Breadcrumb) | todo | — | — |
 | 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | todo | — | — |
 | 4 | App scaffold + responsive shell + Login | todo | — | — |
@@ -70,8 +70,21 @@ each checkpoint, get a go-ahead, implement it, open the PR, then move to the nex
   errors: missing return type in `packages/agent/src/features/slack-commands/slackCommands.handlers.ts`,
   an abbreviated variable name in `packages/ui/src/components/layout/topbar.tsx`, and a missing
   `include` entry in `packages/token-refresh/tsconfig.json` for its `vitest.config.ts`). Fixed in
-  a separate `fix/lint-baseline` branch/PR per the "one concern per PR" rule, rather than bundling
-  into CP1.
+  a separate `fix/lint-baseline` branch, [PR #26](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/26),
+  per the "one concern per PR" rule, rather than bundling into CP1. `/review` (2-angle pass) on
+  PR #26 came back clean — zero findings, no fixes needed. Also fixed the `token-refresh` gap
+  correctly: added `packages/token-refresh/tsconfig.tooling.json` (mirroring the existing
+  `packages/agent/tsconfig.tooling.json` pattern) rather than adding `vitest.config.ts` to the
+  package's real build tsconfig, which has `rootDir: "src"` and would hard-error (`TS6059`) on a
+  root-level file. Noted for later (not acted on, not required by any stated rule): a future
+  cleanup could consolidate all per-package `tsconfig.tooling.json` files into one root-level
+  glob in `eslint.config.ts`'s `parserOptions.project` — deferred as its own, separately-verified
+  change per the reviewing agent's own recommendation.
+  Also discovered while running tests locally: `packages/agent`'s test suite has 3 files that
+  fail in this worktree due to missing `.env` (Upstox/Slack credential validation) and missing
+  native `better-sqlite3` bindings — confirmed identical on unmodified `main`, so this is a local
+  dev-environment gap, not a code issue. Not fixed (out of scope for both PRs); flagging here in
+  case it surprises the next session. `packages/token-refresh`'s test suite is fully green.
 - **2026-07-03** — `/review` on PR #25 (5-angle medium-effort pass) surfaced and fixed: missing
   JetBrains Mono weight 400 import (legacy pages using `font-mono` with no explicit weight were
   silently falling back to the system monospace font), a `prefers-reduced-motion` CSS override
