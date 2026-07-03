@@ -1,8 +1,9 @@
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
 import { isMarketOpen } from "../../scheduler/cron.js";
+import { TRADING_DAY_MS, wasRecentlyAlerted } from "../../shared/dedup.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
@@ -23,34 +24,8 @@ import type { AgentState } from "./agent.state.js";
 const GTT_LIMIT_BUFFER = 0.995;
 
 const ALERT_ONLY_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour between repeated alert_only alerts
-const TRADING_DAY_MS = 8 * 60 * 60 * 1000; // 8 h window — covers one full market session
 const PORTFOLIO_SENTINEL = "__portfolio__"; // symbol key for portfolio-level agent_logs rows
 const LLM_ANALYSE_GATE_ACTION = "llm_analyse_gate"; // marks an attempted (not necessarily successful) LLM analysis, for fallback cadence
-
-/**
- * Returns true if an agent_log row with the given action+symbol already exists
- * within the cooldown window. Read-only — callers are responsible for writing the
- * dedup row (with the same action+symbol) only after confirming alert delivery.
- * @param action - The agent_logs action string to check
- * @param symbol - The trading symbol, or PORTFOLIO_SENTINEL for portfolio-level events
- * @param windowMs - Cooldown duration in milliseconds
- * @returns true if a matching log row exists within the window
- */
-function wasRecentlyAlerted(action: string, symbol: string, windowMs: number): boolean {
-  const since = new Date(Date.now() - windowMs).toISOString();
-  const row = db
-    .select({ id: agentLogs.id })
-    .from(agentLogs)
-    .where(
-      and(
-        eq(agentLogs.action, action),
-        eq(agentLogs.symbol, symbol),
-        gte(agentLogs.createdAt, since),
-      ),
-    )
-    .get();
-  return row !== undefined;
-}
 
 /** Fetch holdings and LTP; populate state or append to errors on failure. */
 async function fetchPortfolioNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {

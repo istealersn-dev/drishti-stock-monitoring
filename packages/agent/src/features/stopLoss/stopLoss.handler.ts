@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
+import { TRADING_DAY_MS, wasRecentlyAlerted } from "../../shared/dedup.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
@@ -10,8 +11,15 @@ import { createGTT } from "../gtt/gtt.tools.js";
 
 import type { SlBreach } from "./stopLoss.detector.js";
 
+const SL_EXIT_CREATED_ACTION = "sl_exit_gtt_created"; // logged only on a successful GTT create
+const SL_EXIT_FAILED_ACTION = "sl_exit_gtt_failed"; // logged on failure — never gates dedup, so failures keep retrying
+
 /**
  * Handle a single stop-loss breach: create a GTT exit order, alert Slack, and log to DB.
+ * Skips entirely if a GTT was already successfully created for this symbol within the
+ * last trading session, so a breach that persists across multiple poll ticks only
+ * triggers one order and one alert per session. A failed create is never deduped, so
+ * it keeps retrying every tick until it succeeds.
  * When DRISHTI_DRY_RUN=true, the GTT API call is skipped but all logs and DB rows are written.
  * @param breach - The detected SL breach
  * @param runId - Current agent run ID for log correlation
@@ -19,6 +27,13 @@ import type { SlBreach } from "./stopLoss.detector.js";
 export async function handleSlBreach(breach: SlBreach, runId: string): Promise<void> {
   const { holding, lastTradedPrice, slThreshold } = breach;
   const now = new Date().toISOString();
+
+  if (wasRecentlyAlerted(SL_EXIT_CREATED_ACTION, holding.trading_symbol, TRADING_DAY_MS)) {
+    logger.debug("handleSlBreach: suppressing duplicate — GTT already created this session", {
+      symbol: holding.trading_symbol,
+    });
+    return;
+  }
 
   const request = buildSlExitRequest(holding, slThreshold);
   const gttResult = await createGTT(request);
@@ -32,7 +47,7 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
       triggerPrice: slThreshold,
       limitPrice: request.limit_price,
       quantity: holding.quantity,
-      status: "active",
+      status: gttResult.ok ? "active" : "failed",
       approvalId: null,
       createdAt: now,
       updatedAt: now,
@@ -47,7 +62,7 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
     .values({
       runId,
       symbol: holding.trading_symbol,
-      action: "sl_exit_gtt_created",
+      action: gttResult.ok ? SL_EXIT_CREATED_ACTION : SL_EXIT_FAILED_ACTION,
       reasoning,
       dryRun: env.DRISHTI_DRY_RUN,
       error: gttResult.ok ? null : gttResult.error.message,
