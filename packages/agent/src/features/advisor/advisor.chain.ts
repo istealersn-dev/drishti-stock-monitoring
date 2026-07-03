@@ -89,6 +89,64 @@ function loadHistory(sessionId: string): ChatCompletionMessageParam[] {
 }
 
 /**
+ * Persist a user/assistant turn pair under a session id. This function itself
+ * never calls the LLM — callers that already have both sides of the exchange
+ * (e.g. the intent classifier's clarifying question, or askAdvisor after its own
+ * LLM call completes) use this so a later reply in the same thread has
+ * conversational context via loadHistory instead of looking like a fresh,
+ * context-free question. Never throws — this is best-effort persistence for
+ * conversational continuity, called after the user-facing reply has already
+ * been sent, so a write failure here must never surface as a second,
+ * misleading "something went wrong" error on top of a reply that succeeded.
+ * @param sessionId - The session to record the turn under
+ * @param channel - Originating channel, for the conversation row
+ * @param userText - The user's message
+ * @param assistantText - Drishti's reply
+ * @returns void
+ */
+export function recordConversationTurn(
+  sessionId: string,
+  channel: string,
+  userText: string,
+  assistantText: string,
+): void {
+  const userAt = new Date();
+  // Force strict ordering even if both rows land in the same millisecond —
+  // loadHistory's ORDER BY createdAt + "starts on assistant" pairing recovery
+  // (see below) assumes the user row always sorts before its paired assistant
+  // row, which two independent Date.now() reads don't guarantee.
+  const assistantAt = new Date(userAt.getTime() + 1);
+
+  try {
+    db.transaction((tx) => {
+      tx.insert(advisoryConversations)
+        .values([
+          {
+            id: randomUUID(),
+            sessionId,
+            role: "user",
+            content: userText,
+            channel,
+            createdAt: userAt.toISOString(),
+          },
+          {
+            id: randomUUID(),
+            sessionId,
+            role: "assistant",
+            content: assistantText,
+            channel,
+            createdAt: assistantAt.toISOString(),
+          },
+        ])
+        .run();
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("recordConversationTurn: failed to persist turn", { sessionId, error: message });
+  }
+}
+
+/**
  * Answer a portfolio advisory question using the Drishti persona.
  * Loads the last 24h of conversation history for the session to maintain multi-turn context.
  * The question and answer are persisted as two rows (role "user" and "assistant")
@@ -112,7 +170,6 @@ export async function askAdvisor(
     const userContext = buildAdvisoryContext(holdings, request.question);
     const runId = randomUUID();
 
-    const userAt = new Date().toISOString();
     const answer = await runToolLoop(
       [
         { role: "system", content: SEBI_ADVISOR_SYSTEM_PROMPT },
@@ -132,30 +189,7 @@ export async function askAdvisor(
         temperature: ADVISOR_TEMPERATURE,
       },
     );
-    const assistantAt = new Date().toISOString();
-
-    db.transaction((tx) => {
-      tx.insert(advisoryConversations)
-        .values({
-          id: randomUUID(),
-          sessionId: request.sessionId,
-          role: "user",
-          content: request.question,
-          channel: request.channel,
-          createdAt: userAt,
-        })
-        .run();
-      tx.insert(advisoryConversations)
-        .values({
-          id: randomUUID(),
-          sessionId: request.sessionId,
-          role: "assistant",
-          content: answer,
-          channel: request.channel,
-          createdAt: assistantAt,
-        })
-        .run();
-    });
+    recordConversationTurn(request.sessionId, request.channel, request.question, answer);
 
     return ok({ answer, sessionId: request.sessionId });
   } catch (e) {

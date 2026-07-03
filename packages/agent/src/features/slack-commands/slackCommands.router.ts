@@ -7,6 +7,7 @@ import { db } from "../../db/db.js";
 import { slackSessions } from "../../db/schema.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
+import { recordConversationTurn } from "../advisor/advisor.chain.js";
 import { BUY_INSTRUCTION_REGEX, classifyIntent } from "../instructions/instructions.intent.js";
 import { submitBuyInstruction } from "../instructions/instructions.pipeline.js";
 
@@ -133,22 +134,18 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
 
       if (classification.intent === "ORDER") {
         const result = await submitBuyInstruction(question, channel);
-        if (!result.ok) {
-          await say({
-            text: `⚠️ Could not process instruction: ${result.error}`,
-            thread_ts: replyThreadTs,
-          });
-        } else {
-          await say({
-            text: `✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`,
-            thread_ts: replyThreadTs,
-          });
-        }
+        const resultText = !result.ok
+          ? `⚠️ Could not process instruction: ${result.error}`
+          : `✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`;
+        await say({ text: resultText, thread_ts: replyThreadTs });
+        // Persist this exchange (see recordConversationTurn doc) so a thread reply
+        // like "why that stop loss?" has context instead of looking brand-new.
+        recordConversationTurn(sessionId, channel, question, resultText);
       } else if (classification.intent === "AMBIGUOUS") {
-        await say({
-          text: classification.clarifyingQuestion || GENERIC_CLARIFYING_QUESTION,
-          thread_ts: replyThreadTs,
-        });
+        const clarifyingQuestion = classification.clarifyingQuestion || GENERIC_CLARIFYING_QUESTION;
+        await say({ text: clarifyingQuestion, thread_ts: replyThreadTs });
+        // Persist so a thread reply has context via loadHistory (see recordConversationTurn doc).
+        recordConversationTurn(sessionId, channel, question, clarifyingQuestion);
       } else {
         await handleAsk(question, say, client, { sessionId, threadTs: replyThreadTs });
       }

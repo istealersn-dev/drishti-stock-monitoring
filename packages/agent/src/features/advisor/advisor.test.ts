@@ -55,7 +55,7 @@ vi.mock("../websearch/webSearch.tools.js", () => ({ searchWeb: vi.fn() }));
 import { err, ok } from "../../shared/errors.js";
 import { searchWeb } from "../websearch/webSearch.tools.js";
 
-import { askAdvisor, generateTradeSetup } from "./advisor.chain.js";
+import { askAdvisor, generateTradeSetup, recordConversationTurn } from "./advisor.chain.js";
 import { buildAdvisoryContext } from "./advisor.prompts.js";
 import type { AdvisoryRequest } from "./advisor.schema.js";
 
@@ -95,18 +95,18 @@ beforeEach(() => {
 });
 
 describe("askAdvisor", () => {
-  it("saves two rows in a single transaction", async () => {
+  it("saves a user/assistant row pair in a single transaction", async () => {
     mockRunToolLoop.mockResolvedValue("Hold for now; SL at 520.");
     await askAdvisor(request);
     expect(mockTransaction).toHaveBeenCalledOnce();
-    expect(mockInsert).toHaveBeenCalledTimes(2);
-    expect(mockRun).toHaveBeenCalledTimes(2);
-    const userRow = (mockValues.mock.calls as unknown as [Record<string, string>][])[0]?.[0];
-    const assistantRow = (mockValues.mock.calls as unknown as [Record<string, string>][])[1]?.[0];
-    expect(userRow?.["role"]).toBe("user");
-    expect(userRow?.["sessionId"]).toBe("session-1");
-    expect(assistantRow?.["role"]).toBe("assistant");
-    expect(assistantRow?.["sessionId"]).toBe("session-1");
+    expect(mockInsert).toHaveBeenCalledOnce();
+    expect(mockRun).toHaveBeenCalledOnce();
+    const rows = (mockValues.mock.calls as unknown as [Record<string, string>[]][])[0]?.[0];
+    expect(rows).toHaveLength(2);
+    expect(rows?.[0]?.["role"]).toBe("user");
+    expect(rows?.[0]?.["sessionId"]).toBe("session-1");
+    expect(rows?.[1]?.["role"]).toBe("assistant");
+    expect(rows?.[1]?.["sessionId"]).toBe("session-1");
   });
 
   it("returns ok with the answer when chat succeeds", async () => {
@@ -244,6 +244,36 @@ describe("askAdvisor", () => {
     const messages = mockRunToolLoop.mock.calls[0]?.[0] as Array<{ role: string }>;
     const history = messages.slice(1, -1);
     expect(history).toHaveLength(0);
+  });
+});
+
+describe("recordConversationTurn", () => {
+  it("inserts a strictly-ordered user/assistant pair even when computed back-to-back", () => {
+    recordConversationTurn("session-x", "slack", "question text", "answer text");
+
+    expect(mockTransaction).toHaveBeenCalledOnce();
+    expect(mockInsert).toHaveBeenCalledOnce();
+    expect(mockValues).toHaveBeenCalledOnce();
+
+    const rows = (
+      mockValues.mock.calls as unknown as [{ role: string; createdAt: string }[]][]
+    )[0]?.[0];
+    expect(rows).toHaveLength(2);
+    expect(rows?.[0]?.role).toBe("user");
+    expect(rows?.[1]?.role).toBe("assistant");
+    expect(new Date(rows?.[1]?.createdAt ?? "").getTime()).toBeGreaterThan(
+      new Date(rows?.[0]?.createdAt ?? "").getTime(),
+    );
+  });
+
+  it("never throws when the DB write fails, so it can't cause a spurious error after a reply already succeeded", () => {
+    mockTransaction.mockImplementation(() => {
+      throw new Error("disk I/O error");
+    });
+
+    expect(() =>
+      recordConversationTurn("session-x", "slack", "question text", "answer text"),
+    ).not.toThrow();
   });
 });
 
