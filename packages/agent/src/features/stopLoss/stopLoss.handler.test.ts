@@ -63,7 +63,7 @@ describe("handleSlBreach", () => {
         where: vi.fn().mockReturnValue({ get: mockDbGet }),
       }),
     });
-    // Default: neither the GTT-created nor the alerted dedup gate has fired yet.
+    // Default: no active GTT exists yet and the alerted dedup gate hasn't fired.
     mockDbGet.mockReturnValue(undefined);
     mockPushAlert.mockResolvedValue({ ok: true, value: "ts-123" });
   });
@@ -124,7 +124,7 @@ describe("handleSlBreach", () => {
     expect(logRowValues.action).toBe("sl_exit_gtt_failed");
   });
 
-  it("skips entirely when both GTT-created and alerted dedup rows already exist this session", async () => {
+  it("skips entirely when an active GTT exists and the alerted dedup row already exists this session", async () => {
     mockDbGet.mockReturnValue({ id: "existing-row-id" });
 
     await handleSlBreach(
@@ -137,9 +137,13 @@ describe("handleSlBreach", () => {
     expect(mockPushAlert).not.toHaveBeenCalled();
   });
 
-  it("retries the alert without recreating the GTT when the GTT was already created but not yet alerted", async () => {
-    // First check (GTT-created gate) hits, second check (alerted gate) misses.
-    mockDbGet.mockReturnValueOnce({ id: "existing-gtt-log-id" }).mockReturnValueOnce(undefined);
+  it("retries the alert without recreating the GTT when it's already active but not yet alerted", async () => {
+    // First check (hasActiveSlExitGtt) hits, second check (alerted gate) misses. Unlike
+    // the alert dedup, hasActiveSlExitGtt takes no time window, so this holds no matter
+    // how long the breach persists — a breach spanning multiple trading sessions (e.g. a
+    // stock stuck at a circuit limit for days) must never get a second exit GTT stacked
+    // on top of the first just because a time-based window would have elapsed.
+    mockDbGet.mockReturnValueOnce({ id: "existing-gtt-row-id" }).mockReturnValueOnce(undefined);
 
     await handleSlBreach(
       { holding: makeHolding(), lastTradedPrice: 880, slThreshold: 900 },
