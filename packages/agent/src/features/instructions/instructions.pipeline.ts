@@ -35,7 +35,7 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     return { ok: false, error: parseResult.error.message };
   }
 
-  const instruction = parseResult.value;
+  const { instruction, actionDisagreement } = parseResult.value;
 
   const resolveResult = await resolveSymbol(instruction.stockName);
   if (!resolveResult.ok) {
@@ -104,6 +104,7 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     suggestedQty,
     availableMargin,
     analysis,
+    actionDisagreement,
   );
   if (!cardResult.ok) {
     logger.error("Failed to send approval card", { approvalId, error: cardResult.error.message });

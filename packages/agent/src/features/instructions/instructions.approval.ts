@@ -56,6 +56,9 @@ export function formatStopLoss(instruction: ParsedInstruction): string {
  * @param suggestedQty - Agent-calculated suggested quantity
  * @param availableMargin - Current available margin in rupees
  * @param analysis - AI sanity-check text for the setup, or null if analysis was unavailable
+ * @param actionDisagreement - Non-null when the parser's model disagreed with the
+ *   forced BUY action (e.g. extracted "SELL"/"EXIT"), surfaced as a warning block
+ *   so the approver sees the anomaly before deciding
  * @returns A Result containing the Slack message timestamp or a SlackError
  */
 export async function sendApprovalCard(
@@ -65,6 +68,7 @@ export async function sendApprovalCard(
   suggestedQty: number,
   availableMargin: number,
   analysis: string | null,
+  actionDisagreement: string | null = null,
 ): Promise<Result<string, SlackError>> {
   const timeoutMinutes = env.DRISHTI_APPROVAL_TIMEOUT_MINUTES;
 
@@ -77,11 +81,24 @@ export async function sendApprovalCard(
       ]
     : [];
 
+  const disagreementBlock = actionDisagreement
+    ? [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `🚩 *Flagged:* The parser's model extracted action=\`${actionDisagreement}\` for this text, not BUY. Double-check this is really a buy instruction before approving.`,
+          },
+        },
+      ]
+    : [];
+
   const blocks = [
     {
       type: "header",
       text: { type: "plain_text", text: "🟡 Buy Instruction — Awaiting Approval", emoji: true },
     },
+    ...disagreementBlock,
     {
       type: "section",
       fields: [

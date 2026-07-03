@@ -38,12 +38,27 @@ Output schema:
 If entryLow === entryHigh (single price given), set both to that price.
 If any required field is missing, set it to null.`;
 
+export type ParsedInstructionWithDisagreement = {
+  instruction: ParsedInstruction;
+  /**
+   * Non-null when the model's own action extraction disagreed with the forced
+   * "BUY" (e.g. it extracted "SELL"/"EXIT"), which can mean the intent
+   * classifier upstream misrouted a sell/exit instruction as ORDER. Surfaced on
+   * the approval card so a human sees the anomaly at decision time, not just in
+   * agent_logs after the fact.
+   */
+  actionDisagreement: string | null;
+};
+
 /**
  * Parse a natural-language buy instruction using the local LLM.
  * @param text - Raw instruction text (e.g. "Ramco Systems Buy 560-580 SL 520 Tgt 680 800+")
- * @returns A Result containing the parsed instruction or an LlmError
+ * @returns A Result containing the parsed instruction (plus any action-field
+ *   disagreement) or an LlmError
  */
-export async function parseInstruction(text: string): Promise<Result<ParsedInstruction, LlmError>> {
+export async function parseInstruction(
+  text: string,
+): Promise<Result<ParsedInstructionWithDisagreement, LlmError>> {
   try {
     const response = await chat([
       { role: "system", content: SYSTEM_PROMPT },
@@ -76,7 +91,9 @@ export async function parseInstruction(text: string): Promise<Result<ParsedInstr
     // rather than quietly turning into a buy approval card.
     const rawActionResult = RawActionSchema.safeParse(raw);
     const rawAction = rawActionResult.success ? rawActionResult.data.action : undefined;
+    let actionDisagreement: string | null = null;
     if (rawAction != null && rawAction !== "BUY") {
+      actionDisagreement = String(rawAction);
       logger.warn("parseInstruction: model disagreed with forced action=BUY", {
         text: text.slice(0, 100),
         modelAction: rawAction,
@@ -104,7 +121,7 @@ export async function parseInstruction(text: string): Promise<Result<ParsedInstr
       return err(new LlmError(`LLM response failed schema validation: ${parsed.error.message}`));
     }
 
-    return ok(parsed.data);
+    return ok({ instruction: parsed.data, actionDisagreement });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return err(new LlmError(`Failed to parse instruction: ${message}`));
