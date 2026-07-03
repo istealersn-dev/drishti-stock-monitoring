@@ -301,7 +301,7 @@ export async function handleAsk(
   const result = await askAdvisor({ question, sessionId: options.sessionId, channel: "slack" });
   const finalText = result.ok
     ? `> ${question}\n\n${result.value.answer}`
-    : (() => {
+    : ((): string => {
         logCommandError("advisor_ask", result.error.message);
         return `⚠️ Advisory query failed: ${result.error.message}`;
       })();
