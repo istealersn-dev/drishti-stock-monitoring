@@ -1,47 +1,51 @@
-import React from "react";
+import type React from "react";
 
-type BadgeVariant = "success" | "danger" | "warning" | "default" | "primary";
+type BadgeVariant = "pos" | "neg" | "warn" | "info" | "neutral";
 
 type BadgeProperties = {
   variant?: BadgeVariant;
   dot?: boolean;
   children: React.ReactNode;
+  className?: string;
 };
 
-const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  success: "bg-success/10 text-success-text border border-success/20",
-  danger: "bg-danger/10 text-danger-text border border-danger/30",
-  warning: "bg-warning/10 text-warning border border-warning/40",
-  primary: "bg-primary-bg text-primary-text border border-primary-border",
-  default: "bg-bg-inset text-text-muted border border-border-dim",
+const VARIANT_CLASS: Record<BadgeVariant, string> = {
+  pos: "bg-pos-tint text-pos border-pos-ring",
+  neg: "bg-neg-tint text-neg border-neg-ring",
+  warn: "bg-warn-tint text-warn border-warn-ring",
+  info: "bg-info-tint text-info border-info-ring",
+  neutral: "bg-surface-2 text-fg-muted border-border-strong",
 };
 
-const DOT_VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  success: "bg-success",
-  danger: "bg-danger",
-  warning: "bg-warning",
-  primary: "bg-primary",
-  default: "bg-text-muted",
+const DOT_CLASS: Record<BadgeVariant, string> = {
+  pos: "bg-pos",
+  neg: "bg-neg",
+  warn: "bg-warn",
+  info: "bg-info",
+  neutral: "bg-fg-muted",
 };
 
 /**
- * Small status badge / pill component.
- * @param props.variant - Color variant (default: default)
- * @param props.dot - Show a pulsing dot indicator
- * @param props.children - Badge label content
+ * Tinted status/tag pill (Design.md §6) — covers status pills, exchange tags
+ * (NSE/BSE), product tags (MTF/CNC), and count badges via `variant` + `dot`.
+ * @param props.variant - semantic tint (default: neutral)
+ * @param props.dot - show a small status dot before the label
+ * @param props.children - badge label (mono, per spec)
+ * @param props.className - additional classes
  * @returns Badge element
  */
 export function Badge({
-  variant = "default",
+  variant = "neutral",
   dot = false,
   children,
+  className = "",
 }: BadgeProperties): React.ReactElement {
   return (
-    <span className={`badge-pill ${VARIANT_CLASSES[variant]}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-0.5 font-mono text-micro font-medium ${VARIANT_CLASS[variant]} ${className}`}
+    >
       {dot && (
-        <span
-          className={`inline-block h-1.5 w-1.5 animate-blink-drk rounded-full ${DOT_VARIANT_CLASSES[variant]}`}
-        />
+        <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${DOT_CLASS[variant]}`} />
       )}
       {children}
     </span>

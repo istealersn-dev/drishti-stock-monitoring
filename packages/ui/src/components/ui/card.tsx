@@ -1,30 +1,37 @@
-import React from "react";
-
-type CardAccent = "indigo" | "success" | "warning" | "danger" | "none";
+import type React from "react";
 
 type CardProperties = {
-  accent?: CardAccent;
-  padding?: boolean;
+  as?: "article" | "section";
+  danger?: boolean;
+  shadow?: boolean;
   children: React.ReactNode;
   className?: string;
 };
 
 /**
- * Surface card with optional top-accent stripe matching the design system.
- * @param props.accent - Top accent stripe color (default: none)
- * @param props.padding - Apply standard 16px padding (default: true)
- * @param props.children - Card content
- * @param props.className - Additional classes
- * @returns Card container element
+ * Grouped content region (Design.md §6) — semantic `<article>`/`<section>`,
+ * never a bare `<div>`. `danger` applies the neg-tint/neg-ring destructive
+ * treatment (Danger Zone cards, expired approvals).
+ * @param props.as - root element (default: article)
+ * @param props.danger - destructive/danger-zone treatment
+ * @param props.shadow - apply shadow-card elevation
+ * @param props.children - card content
+ * @param props.className - additional classes
+ * @returns Card element
  */
 export function Card({
-  accent = "none",
-  padding = true,
+  as = "article",
+  danger = false,
+  shadow = false,
   children,
   className = "",
 }: CardProperties): React.ReactElement {
-  const accentClass = accent !== "none" ? `card-accent-${accent}` : "";
+  const Tag = as;
   return (
-    <div className={`card ${accentClass} ${padding ? "p-4" : ""} ${className}`}>{children}</div>
+    <Tag
+      className={`rounded-2xl border p-4 ${danger ? "border-neg-ring bg-neg-tint" : "border-border-strong bg-surface"} ${shadow ? "shadow-card" : ""} ${className}`}
+    >
+      {children}
+    </Tag>
   );
 }

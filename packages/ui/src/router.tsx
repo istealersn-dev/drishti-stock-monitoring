@@ -16,6 +16,7 @@ import { Holdings } from "./pages/holdings";
 import { Instructions } from "./pages/instructions";
 import { Login } from "./pages/login";
 import { Logs } from "./pages/logs";
+import { PrimitivesPreview } from "./pages/primitivesPreview";
 import { Settings } from "./pages/settings";
 import { TokensPreview } from "./pages/tokensPreview";
 import { Watchlist } from "./pages/watchlist";
@@ -36,6 +37,18 @@ const tokensRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/tokens",
   component: TokensPreview,
+  beforeLoad: () => {
+    if (!isAuthenticated()) {
+      throw redirect({ to: "/login" });
+    }
+  },
+});
+
+// CP2 primitives compliance page — same standalone/auth-guarded pattern as tokensRoute.
+const primitivesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/primitives",
+  component: PrimitivesPreview,
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: "/login" });
@@ -113,6 +126,7 @@ const settingsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   tokensRoute,
+  primitivesRoute,
   layoutRoute.addChildren([
     indexRoute,
     holdingsRoute,
