@@ -37,6 +37,15 @@ acts as a control panel.
   Do NOT use the BF16 variant — it requires significantly more RAM.
   Avoid Qwen3/Qwen3.5 — LM Studio has open bugs where thinking mode cannot
   be disabled, leaving content always empty (issues #1990, #16945).
+  Note: `google/gemma-4-12b-qat` also runs in thinking mode on this LM Studio
+  deployment (confirmed 2026-07-03) — it emits chain-of-thought into a
+  `reasoning_content` field, which can starve `content` empty on small
+  `max_tokens` budgets (under ~500) even though it isn't one of the models
+  flagged above. Use `reasoning_effort: "none"` (LM Studio/llama.cpp vendor
+  field, not in the OpenAI SDK's typed `ReasoningEffort` union — requires a
+  raw fetch call, see `chatOnceNoReasoning` in `llmClient.ts`) for any new
+  low-token-budget prompt, and verify via a raw API call first rather than
+  assuming a model is reasoning-free.
   Cap context length at 8K for portfolio analysis prompts — the full 256K window
   is unnecessary and wastes RAM headroom.
   Gemini 2.5 Flash was used as a temporary stand-in for the advisor persona /
@@ -82,6 +91,15 @@ The instruction parser must extract:
 Qty is never in the instruction. The agent calculates suggested qty from
 available cash/margin at the midpoint entry price and includes it in the
 Slack approval card.
+
+The word "Buy" is recommended but **not required** — `parseInstruction` forces
+`action: "BUY"` regardless of what the model extracts, since it's only ever
+invoked after the intent classifier has already determined the message is an
+order (e.g. `"Goldbees 120-123 SL 110 Tgt 140-170"` parses fine with no "Buy").
+The one place "Buy" *is* effectively required is the regex fallback
+(`BUY_INSTRUCTION_REGEX = /\bbuy\b.*\d/i`) used only when the LLM classifier
+itself is unavailable — keep that word in your instructions as good practice
+so a classifier outage doesn't leave you without an order-routing signal.
 
 ---
 

@@ -49,7 +49,20 @@ export async function parseInstruction(text: string): Promise<Result<ParsedInstr
       return err(new LlmError(`LLM returned non-JSON: ${cleaned.slice(0, 120)}`));
     }
 
-    const parsed = ParsedInstructionSchema.safeParse(raw);
+    // Force action to "BUY" regardless of what the model returned for this field.
+    // parseInstruction is only ever invoked after the intent classifier has already
+    // determined the message is a buy order (see instructions.intent.ts / CLAUDE.md's
+    // "SELL is handled autonomously via SL" — this parser never handles SELL), so
+    // requiring the model to also echo back the literal string "BUY" is redundant
+    // and fails whenever the input doesn't literally contain the word "buy" (e.g.
+    // "Goldbees 120-123 SL 110 Tgt 140-170", which the classifier still correctly
+    // routed as an order given the price-level format).
+    const withForcedAction = {
+      ...(typeof raw === "object" && raw !== null ? raw : {}),
+      action: "BUY",
+    };
+
+    const parsed = ParsedInstructionSchema.safeParse(withForcedAction);
     if (!parsed.success) {
       return err(new LlmError(`LLM response failed schema validation: ${parsed.error.message}`));
     }

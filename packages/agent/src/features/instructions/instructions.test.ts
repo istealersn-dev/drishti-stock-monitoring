@@ -106,6 +106,27 @@ describe("parseInstruction", () => {
     expect(lastTarget?.price).toBe(900);
   });
 
+  it("forces action to BUY even when the input has no literal 'buy' word and the LLM returns null", async () => {
+    mockChat.mockResolvedValue(
+      JSON.stringify({
+        stockName: "Goldbees",
+        action: null,
+        entryLow: 120,
+        entryHigh: 123,
+        stopLoss: 110,
+        targets: [
+          { price: 140, isOpenEnded: false },
+          { price: 170, isOpenEnded: true },
+        ],
+      }),
+    );
+
+    const result = await parseInstruction("Goldbees 120-123 SL 110 Tgt 140-170");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.action).toBe("BUY");
+  });
+
   it("returns err when LLM returns invalid JSON", async () => {
     mockChat.mockResolvedValue("Sorry, I cannot parse that.");
 
