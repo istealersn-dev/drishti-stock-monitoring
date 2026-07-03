@@ -20,6 +20,7 @@ import { SlackMessageShape } from "./features/slack-commands/slackCommands.schem
 import { startAdvisorCrons, startCron } from "./scheduler/cron.js";
 import { env } from "./shared/env.js";
 import { logger } from "./shared/logger.js";
+import { MENTION_PREFIX_REGEX } from "./shared/slackMention.js";
 
 async function tick(): Promise<void> {
   const runId = crypto.randomUUID();
@@ -81,6 +82,12 @@ async function main(): Promise<void> {
 
   // Plain-message buy instructions in command/alert channels.
   // Requires "buy" + at least one digit (price) to avoid misrouting advisory questions.
+  // Skips @mentions entirely — those are handled exclusively by the app_mention
+  // handler's LLM classifier (registerSlackCommands), which Slack fires as a
+  // *separate* event for the same message. Without this guard, a buy instruction
+  // sent as "@drishti Buy X 100 SL 90" triggered both handlers independently,
+  // risking two separate submitBuyInstruction calls (and potentially two approval
+  // cards) for the same instruction.
   const BUY_INSTRUCTION = /\bbuy\b.*\d/i;
   const buyChannels = new Set([env.SLACK_ALERT_CHANNEL_ID, env.SLACK_COMMAND_CHANNEL_ID]);
   boltApp.message(async ({ message }) => {
@@ -89,7 +96,8 @@ async function main(): Promise<void> {
     if (!parsed.success) return;
     const { channel, text } = parsed.data;
     if (!channel || !buyChannels.has(channel) || !text) return;
-    if (/^!/.test(text) || /^\//.test(text) || !BUY_INSTRUCTION.test(text)) return;
+    if (/^!/.test(text) || /^\//.test(text) || MENTION_PREFIX_REGEX.test(text.trim())) return;
+    if (!BUY_INSTRUCTION.test(text)) return;
     const result = await submitBuyInstruction(text, channel);
     if (!result.ok) {
       logger.error("Plain-message buy instruction failed", { channel, error: result.error });
