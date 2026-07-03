@@ -99,20 +99,29 @@ export async function chatOnce(
  * Send a chat completion request with tool definitions to LM Studio.
  * @param messages - The conversation messages
  * @param tools - Tool definitions for the model to call
+ * @param maxTokens - Max completion tokens; defaults to 2048
+ * @param timeoutMs - Request timeout; defaults to 120s
+ * @param temperature - Sampling temperature; defaults to 0.1
  * @returns The full choice object including any tool calls
  */
 export async function chatWithTools(
   messages: ChatCompletionMessageParam[],
   tools: ChatCompletionTool[],
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  timeoutMs: number = LLM_TIMEOUT_MS,
+  temperature: number = DEFAULT_TEMPERATURE,
 ): Promise<OpenAI.Chat.Completions.ChatCompletionMessage> {
-  const response = await client.chat.completions.create({
-    model: env.LM_MODEL,
-    messages,
-    tools,
-    max_tokens: DEFAULT_MAX_TOKENS,
-    temperature: DEFAULT_TEMPERATURE,
-    stream: false,
-  });
+  const response = await client.chat.completions.create(
+    {
+      model: env.LM_MODEL,
+      messages,
+      tools,
+      max_tokens: maxTokens,
+      temperature,
+      stream: false,
+    },
+    { timeout: timeoutMs },
+  );
 
   const message = response.choices[0]?.message;
   if (message == null) {

@@ -10,13 +10,16 @@ import {
   ADVISOR_MAX_TOKENS,
   ADVISOR_TEMPERATURE,
   TRADE_SETUP_MAX_TOKENS,
-  chat,
   chatOnce,
 } from "../../llm/llmClient.js";
+import { runToolLoop } from "../../llm/toolLoop.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import { logger } from "../../shared/logger.js";
 import { fetchHoldings } from "../portfolio/portfolio.tools.js";
+import { WebSearchToolArgumentsSchema } from "../websearch/webSearch.schema.js";
+import { webSearchToolDefinition } from "../websearch/webSearch.toolDefinition.js";
+import { searchWeb } from "../websearch/webSearch.tools.js";
 
 import {
   SEBI_ADVISOR_SYSTEM_PROMPT,
@@ -25,6 +28,31 @@ import {
 } from "./advisor.prompts.js";
 import { TradeSetupSchema } from "./advisor.schema.js";
 import type { AdvisoryRequest, AdvisoryResponse, TradeSetup } from "./advisor.schema.js";
+
+/**
+ * Execute the web_search tool call: parse the model's raw JSON arguments, run the
+ * search, and always return a string (never throw) — a malformed args payload or a
+ * search failure degrades to an error message the model can see and work around,
+ * rather than aborting the whole advisor reply.
+ * @param argsJson - Raw JSON arguments string from the model's tool call
+ * @returns The search result text, or a description of what went wrong
+ */
+async function executeWebSearch(argumentsJson: string): Promise<string> {
+  let parsedArguments: unknown;
+  try {
+    parsedArguments = JSON.parse(argumentsJson);
+  } catch {
+    return "Invalid search arguments — could not parse.";
+  }
+
+  const arguments_ = WebSearchToolArgumentsSchema.safeParse(parsedArguments);
+  if (!arguments_.success) {
+    return `Invalid search arguments: ${arguments_.error.message}`;
+  }
+
+  const result = await searchWeb(arguments_.data.symbol, arguments_.data.query);
+  return result.ok ? result.value : `Web search failed: ${result.error.message}`;
+}
 
 const MAX_HISTORY_TURNS = 8;
 const MAX_HISTORY_CHARS = 6000; // caps resent token volume regardless of turn count
@@ -110,15 +138,19 @@ export async function askAdvisor(
     const userContext = buildAdvisoryContext(holdings, request.question);
 
     const userAt = new Date().toISOString();
-    const answer = await chat(
+    const answer = await runToolLoop(
       [
         { role: "system", content: SEBI_ADVISOR_SYSTEM_PROMPT },
         ...history,
         { role: "user", content: userContext },
       ],
-      ADVISOR_MAX_TOKENS,
-      ADVISOR_LLM_TIMEOUT_MS,
-      ADVISOR_TEMPERATURE,
+      [webSearchToolDefinition],
+      { [webSearchToolDefinition.function.name]: executeWebSearch },
+      {
+        maxTokens: ADVISOR_MAX_TOKENS,
+        timeoutMs: ADVISOR_LLM_TIMEOUT_MS,
+        temperature: ADVISOR_TEMPERATURE,
+      },
     );
     const assistantAt = new Date().toISOString();
 

@@ -15,6 +15,20 @@
       "when": 1782600000000,
       "tag": "0001_agent_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782786765000,
+      "tag": "0002_advisor_phase",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1783057214802,
+      "tag": "0003_web_search_cache",
+      "breakpoints": true
     }
   ]
 }

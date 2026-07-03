@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const {
-  mockChat,
+  mockRunToolLoop,
   mockChatOnce,
   mockRun,
   mockValues,
@@ -17,7 +17,7 @@ const {
     callback({ insert });
   });
   return {
-    mockChat: vi.fn(),
+    mockRunToolLoop: vi.fn(),
     mockChatOnce: vi.fn(),
     mockRun: run,
     mockValues: values,
@@ -29,13 +29,14 @@ const {
 });
 
 vi.mock("../../llm/llmClient.js", () => ({
-  chat: mockChat,
   chatOnce: mockChatOnce,
   ADVISOR_LLM_TIMEOUT_MS: 180_000,
   ADVISOR_MAX_TOKENS: 1500,
   ADVISOR_TEMPERATURE: 0.7,
   TRADE_SETUP_MAX_TOKENS: 4096,
 }));
+
+vi.mock("../../llm/toolLoop.js", () => ({ runToolLoop: mockRunToolLoop }));
 
 vi.mock("../../db/db.js", () => ({
   db: { insert: mockInsert, transaction: mockTransaction, select: mockDbSelect },
@@ -48,6 +49,8 @@ vi.mock("../../shared/logger.js", () => ({
 vi.mock("../portfolio/portfolio.tools.js", () => ({
   fetchHoldings: mockFetchHoldings,
 }));
+
+vi.mock("../websearch/webSearch.tools.js", () => ({ searchWeb: vi.fn() }));
 
 import { ok } from "../../shared/errors.js";
 
@@ -92,7 +95,7 @@ beforeEach(() => {
 
 describe("askAdvisor", () => {
   it("saves two rows in a single transaction", async () => {
-    mockChat.mockResolvedValue("Hold for now; SL at 520.");
+    mockRunToolLoop.mockResolvedValue("Hold for now; SL at 520.");
     await askAdvisor(request);
     expect(mockTransaction).toHaveBeenCalledOnce();
     expect(mockInsert).toHaveBeenCalledTimes(2);
@@ -106,7 +109,7 @@ describe("askAdvisor", () => {
   });
 
   it("returns ok with the answer when chat succeeds", async () => {
-    mockChat.mockResolvedValue("Hold for now; SL at 520.");
+    mockRunToolLoop.mockResolvedValue("Hold for now; SL at 520.");
     const result = await askAdvisor(request);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -115,7 +118,7 @@ describe("askAdvisor", () => {
   });
 
   it("returns err when chat throws", async () => {
-    mockChat.mockRejectedValue(new Error("connection refused"));
+    mockRunToolLoop.mockRejectedValue(new Error("connection refused"));
     const result = await askAdvisor(request);
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -123,26 +126,34 @@ describe("askAdvisor", () => {
   });
 
   it("sends the system prompt and question as the first and last messages", async () => {
-    mockChat.mockResolvedValue("Hold for now.");
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
     await askAdvisor(request);
-    const messages = mockChat.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    const messages = mockRunToolLoop.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
     expect(messages[0]?.role).toBe("system");
     expect(messages.at(-1)?.role).toBe("user");
     expect(messages.at(-1)?.content).toContain(request.question);
   });
 
-  it("uses an elevated timeout and conversational temperature for local-model inference", async () => {
-    mockChat.mockResolvedValue("Hold for now.");
+  it("passes the web_search tool definition and executor to the tool loop", async () => {
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
     await askAdvisor(request);
-    const [, maxTokens, timeoutMs, temperature] = mockChat.mock.calls[0] as [
-      unknown,
-      number,
-      number,
-      number,
-    ];
-    expect(maxTokens).toBe(1500);
-    expect(timeoutMs).toBe(180_000);
-    expect(temperature).toBe(0.7);
+    const tools = mockRunToolLoop.mock.calls[0]?.[1] as { function: { name: string } }[];
+    const executors = mockRunToolLoop.mock.calls[0]?.[2] as Record<string, unknown>;
+    expect(tools[0]?.function.name).toBe("web_search");
+    expect(typeof executors["web_search"]).toBe("function");
+  });
+
+  it("uses an elevated timeout and conversational temperature for local-model inference", async () => {
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
+    await askAdvisor(request);
+    const options = mockRunToolLoop.mock.calls[0]?.[3] as {
+      maxTokens: number;
+      timeoutMs: number;
+      temperature: number;
+    };
+    expect(options.maxTokens).toBe(1500);
+    expect(options.timeoutMs).toBe(180_000);
+    expect(options.temperature).toBe(0.7);
   });
 
   it("never sends history starting on an assistant turn, even if the newest row alone exceeds the char budget", async () => {
@@ -169,11 +180,11 @@ describe("askAdvisor", () => {
         }),
       }),
     });
-    mockChat.mockResolvedValue("Hold for now.");
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
 
     await askAdvisor(request);
 
-    const messages = mockChat.mock.calls[0]?.[0] as Array<{ role: string }>;
+    const messages = mockRunToolLoop.mock.calls[0]?.[0] as Array<{ role: string }>;
     const history = messages.slice(1, -1);
     // Must keep the paired user question rather than dropping the whole turn.
     expect(history).toHaveLength(2);
@@ -202,11 +213,11 @@ describe("askAdvisor", () => {
         }),
       }),
     });
-    mockChat.mockResolvedValue("Hold for now.");
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
 
     await askAdvisor(request);
 
-    const messages = mockChat.mock.calls[0]?.[0] as Array<{ role: string }>;
+    const messages = mockRunToolLoop.mock.calls[0]?.[0] as Array<{ role: string }>;
     const history = messages.slice(1, -1);
     expect(history).toHaveLength(0);
   });
