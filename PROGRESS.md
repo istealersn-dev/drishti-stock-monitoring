@@ -156,18 +156,25 @@ every future checkpoint, not just post-PR `/review`.
   keeping the route standalone (outside the legacy-styled Shell layout) but no longer
   unauthenticated. Verified end-to-end in the browser: unauthenticated request to `/tokens`
   redirects to `/login`; authenticated request renders the page.
-  **Infra note**: mid-review, the working tree got silently corrupted (reverted toward `main`,
-  losing all of CP1's uncommitted-context) — almost certainly a parallel background review
-  subagent running a Bash `git` command against this same shared (non-isolated) working directory.
-  Commit history was unaffected (confirmed `HEAD` matched `origin` exactly) and nothing was lost;
-  recovered via `git checkout HEAD -- .` after `git reset --hard` was blocked by a permission
-  setting even after user confirmation. Worth remembering: running many parallel Bash-capable
-  subagents against one shared working tree carries real risk of this kind of collision — future
-  heavy-parallel-review sessions should consider whether agents actually need Bash/git access, or
-  should get isolated worktrees.
-  **CP1 gate status, final (after round 2)**: `/code-review --level high` re-run on
-  `feat/cp1-design-tokens` — 2 new findings, both fixed and verified. All six gate passes clean.
-  Both PRs open, ready for merge.
+  **Infra note**: mid-review, the working tree twice appeared corrupted (reverted toward `main`,
+  losing CP1's changes on disk) — both times traced to a background review subagent doing its own
+  file-level testing (e.g. temporarily reverting a file to compare against `main`, or adding a
+  throwaway test edit to verify a Tailwind breakpoint) against this same shared (non-isolated)
+  working directory. The first occurrence's cause wasn't directly confirmed; the second was —
+  the agent's own final report described adding a temporary test edit and reverting it, and
+  `git status` was clean immediately after. Commit history was never at risk either time
+  (`HEAD` matched `origin` exactly both times). First recovery used `git checkout HEAD -- .` after
+  `git reset --hard` was blocked by a permission setting even after user confirmation. Worth
+  remembering for future heavy-parallel-review sessions: subagents with Bash access doing
+  comparative file analysis against a shared working tree can cause visible (if often
+  self-correcting) mutations — worth checking `git status`/file content directly rather than
+  trusting an agent's report alone when this pattern is suspected, and considering isolated
+  worktrees for review agents that need to run git commands.
+  **CP1 gate status, final (after 3 rounds)**: `/code-review --level high` re-run twice more on
+  `feat/cp1-design-tokens` after the initial pass — round 2 found 2 new issues (both fixed,
+  verified in-browser); round 3 (live-tested, not just static reading) found zero. Loop genuinely
+  converged this time — previously only `/review` had been looped to a clean re-pass, not
+  `/code-review`. All six gate types clean. Both PRs open, ready for merge.
 
 ## Constraints checklist (re-verify every checkpoint)
 
