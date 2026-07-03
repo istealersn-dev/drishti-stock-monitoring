@@ -25,6 +25,10 @@ vi.mock("../advisor/advisor.chain.js", () => ({
 
 vi.mock("../instructions/instructions.pipeline.js", () => ({
   submitBuyInstruction: mockSubmitBuyInstruction,
+  formatSubmitResultMessage: (result: { ok: boolean; symbol?: string; error?: string }): string =>
+    result.ok
+      ? `✅ Approval card sent for *${result.symbol}* — check <#C_ALERTS> to approve.`
+      : `⚠️ Could not process instruction: ${result.error}`,
 }));
 
 vi.mock("./slackCommands.handlers.js", () => ({

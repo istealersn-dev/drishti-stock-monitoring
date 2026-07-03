@@ -1,6 +1,7 @@
 import { chatOnce, PORTFOLIO_MAX_TOKENS, PORTFOLIO_LLM_TIMEOUT_MS } from "../../llm/llmClient.js";
 import { LlmError, err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
+import { stripJsonCodeFence } from "../../shared/llmResponse.js";
 import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 import type { StockSlConfig } from "../stopLoss/stopLoss.config.js";
 
@@ -84,10 +85,7 @@ export async function analysePortfolio(
     return err(new LlmError(message));
   }
 
-  const cleaned = raw
-    .replace(/^```(?:json)?\n?/i, "")
-    .replace(/\n?```$/i, "")
-    .trim();
+  const cleaned = stripJsonCodeFence(raw);
 
   let parsed: unknown;
   try {
