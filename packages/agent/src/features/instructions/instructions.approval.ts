@@ -15,6 +15,31 @@ function getClient(): WebClient {
   return _client;
 }
 
+const MAX_DISAGREEMENT_LENGTH = 40;
+
+/**
+ * Escape Slack mrkdwn special characters and strip backticks from a value
+ * that will be interpolated into a mrkdwn block, so it can't break out of the
+ * surrounding formatting or inject a link (`<url|label>`). Slack's own mrkdwn
+ * escaping only requires `&`/`<`/`>`; backticks are additionally stripped
+ * here since they aren't escapable and could otherwise close the code span
+ * early. Also truncates, since the source (the parser LLM's raw "action"
+ * field extraction from user-supplied instruction text — see
+ * instructions.parser.ts) is unconstrained free text, not a fixed enum.
+ * @param value - The raw value to render inside a Slack mrkdwn block
+ * @returns The escaped, truncated value
+ */
+function escapeForApprovalCard(value: string): string {
+  const escaped = value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/`/g, "");
+  return escaped.length > MAX_DISAGREEMENT_LENGTH
+    ? `${escaped.slice(0, MAX_DISAGREEMENT_LENGTH)}…`
+    : escaped;
+}
+
 /**
  * Format an instruction's targets as "T1 ₹680 · T2 ₹800+", or "—" if none.
  * @param instruction - The parsed buy instruction
@@ -87,7 +112,7 @@ export async function sendApprovalCard(
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `🚩 *Flagged:* The parser's model extracted action=\`${actionDisagreement}\` for this text, not BUY. Double-check this is really a buy instruction before approving.`,
+            text: `🚩 *Flagged:* The parser's model extracted action=\`${escapeForApprovalCard(actionDisagreement)}\` for this text, not BUY. Double-check this is really a buy instruction before approving.`,
           },
         },
       ]
