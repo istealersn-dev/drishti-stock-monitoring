@@ -134,23 +134,17 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
 
       if (classification.intent === "ORDER") {
         const result = await submitBuyInstruction(question, channel);
-        if (!result.ok) {
-          await say({
-            text: `⚠️ Could not process instruction: ${result.error}`,
-            thread_ts: replyThreadTs,
-          });
-        } else {
-          await say({
-            text: `✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`,
-            thread_ts: replyThreadTs,
-          });
-        }
+        const resultText = !result.ok
+          ? `⚠️ Could not process instruction: ${result.error}`
+          : `✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`;
+        await say({ text: resultText, thread_ts: replyThreadTs });
+        // Persist this exchange (see recordConversationTurn doc) so a thread reply
+        // like "why that stop loss?" has context instead of looking brand-new.
+        recordConversationTurn(sessionId, channel, question, resultText);
       } else if (classification.intent === "AMBIGUOUS") {
         const clarifyingQuestion = classification.clarifyingQuestion || GENERIC_CLARIFYING_QUESTION;
         await say({ text: clarifyingQuestion, thread_ts: replyThreadTs });
-        // Persist this exchange so a reply in this thread has context via loadHistory —
-        // otherwise handleAsk sees the follow-up with zero history and answers as if
-        // it were a brand-new, unrelated question.
+        // Persist so a thread reply has context via loadHistory (see recordConversationTurn doc).
         recordConversationTurn(sessionId, channel, question, clarifyingQuestion);
       } else {
         await handleAsk(question, say, client, { sessionId, threadTs: replyThreadTs });

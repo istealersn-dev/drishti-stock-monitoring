@@ -123,6 +123,12 @@ describe("app_mention handler", () => {
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({ text: expect.stringContaining("Approval card sent") }),
     );
+    expect(mockRecordConversationTurn).toHaveBeenCalledWith(
+      expect.any(String),
+      "C1",
+      "Ramco Systems Buy 560-580 SL 520 Tgt 680 800+",
+      expect.stringContaining("Approval card sent"),
+    );
   });
 
   it("asks a clarifying question when intent is AMBIGUOUS, never calls handleAsk or submitBuyInstruction, but still tracks the thread", async () => {

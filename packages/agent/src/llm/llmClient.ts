@@ -3,10 +3,11 @@ import type {
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from "openai/resources/chat/completions.js";
-import { z } from "zod";
 
 import { env } from "../shared/env.js";
 import { LlmError } from "../shared/errors.js";
+
+import { ChatCompletionResponseSchema } from "./llmClient.schema.js";
 
 const DEFAULT_MAX_TOKENS = 2048;
 const LLM_TIMEOUT_MS = 120_000;
@@ -110,18 +111,6 @@ export async function chatOnce(
   );
 }
 
-const ChatCompletionResponseSchema = z.object({
-  choices: z
-    .array(
-      z.object({
-        message: z.object({
-          content: z.string().nullable().optional(),
-        }),
-      }),
-    )
-    .min(1),
-});
-
 /**
  * Send a single-turn chat completion to LM Studio with its "thinking" phase disabled
  * via `reasoning_effort: "none"`. Some locally-hosted models (confirmed: this
@@ -145,46 +134,38 @@ export async function chatOnceNoReasoning(
   userContent: string,
   options: { maxTokens?: number; timeoutMs?: number; temperature?: number } = {},
 ): Promise<string> {
-  const controller = new AbortController();
-  const timeoutMs = options.timeoutMs ?? LLM_TIMEOUT_MS;
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const response = await fetch(`${env.LM_STUDIO_BASE_URL}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: env.LM_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
+      temperature: options.temperature ?? DEFAULT_TEMPERATURE,
+      stream: false,
+      reasoning_effort: "none",
+    }),
+    signal: AbortSignal.timeout(options.timeoutMs ?? LLM_TIMEOUT_MS),
+  });
 
-  try {
-    const response = await fetch(`${env.LM_STUDIO_BASE_URL}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: env.LM_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
-        temperature: options.temperature ?? DEFAULT_TEMPERATURE,
-        stream: false,
-        reasoning_effort: "none",
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new LlmError(`LM Studio request failed: ${response.statusText}`);
-    }
-
-    const body: unknown = await response.json();
-    const parsed = ChatCompletionResponseSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new LlmError(`LM Studio response parse error: ${parsed.error.message}`);
-    }
-
-    const content = parsed.data.choices[0]?.message.content;
-    if (!content?.trim()) {
-      throw new LlmError("LM Studio returned an empty response");
-    }
-    return content.trim();
-  } finally {
-    clearTimeout(timeout);
+  if (!response.ok) {
+    throw new LlmError(`LM Studio request failed: ${response.statusText}`);
   }
+
+  const body: unknown = await response.json();
+  const parsed = ChatCompletionResponseSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new LlmError(`LM Studio response parse error: ${parsed.error.message}`);
+  }
+
+  const content = parsed.data.choices[0]?.message.content;
+  if (!content?.trim()) {
+    throw new LlmError("LM Studio returned an empty response");
+  }
+  return content.trim();
 }
 
 /**
