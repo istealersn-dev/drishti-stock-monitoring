@@ -17,6 +17,7 @@ import { Instructions } from "./pages/instructions";
 import { Login } from "./pages/login";
 import { Logs } from "./pages/logs";
 import { Settings } from "./pages/settings";
+import { TokensPreview } from "./pages/tokensPreview";
 import { Watchlist } from "./pages/watchlist";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
@@ -25,6 +26,21 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: Login,
+});
+
+// Design-system compliance page. Kept as a standalone root-level route (not nested
+// under layoutRoute) so it doesn't render inside the legacy-styled Shell chrome — but
+// it still needs the same auth guard as every other page, since it ships in the
+// production build like the rest of the app.
+const tokensRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/tokens",
+  component: TokensPreview,
+  beforeLoad: () => {
+    if (!isAuthenticated()) {
+      throw redirect({ to: "/login" });
+    }
+  },
 });
 
 // All authenticated routes live under this layout route.
@@ -96,6 +112,7 @@ const settingsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  tokensRoute,
   layoutRoute.addChildren([
     indexRoute,
     holdingsRoute,

@@ -1081,3 +1081,184 @@ body {
     background: var(--color-primary);
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   New design system (project/Design.md) — gold-branded, token-bound.
+   Coexists with the legacy indigo tokens/classes above; those are
+   retired page-by-page as each checkpoint (CP2–CP8) rebuilds it.
+   No `--spacing-*` overrides: Design.md §4 uses Tailwind's default
+   4px-based spacing scale as-is.
+   ══════════════════════════════════════════════════════════════════ */
+@theme {
+  /* surfaces */
+  --color-bg-base: #0a0a0a;
+  --color-bg-chrome: #0d0d0c;
+  --color-surface: #161513;
+  --color-surface-2: #131210;
+  --color-surface-3: #121110;
+  --color-surface-input: #151412;
+  --color-surface-hover: #1b1a17;
+
+  /* borders */
+  --color-border: #242320;
+  --color-border-strong: #2b2925;
+  --color-border-muted: #2a2825;
+  --color-border-focus: #c8a24a;
+
+  /* text */
+  --color-fg: #efece4;
+  --color-fg-soft: #e6e2d8;
+  --color-fg-muted: #9a9a9a;
+  --color-fg-dim: #8a8a8a;
+  --color-fg-faint: #6a6a6a;
+  --color-fg-ghost: #4a463e;
+
+  /* brand (gold) */
+  --color-gold: #c8a24a;
+  --color-gold-deep: #9a7a2e;
+  --color-gold-bright: #e2c584;
+  --color-gold-tint: #ecd5a0;
+  --color-gold-line: #cbb460;
+  --gradient-gold: linear-gradient(135deg, #c8a24a, #9a7a2e);
+
+  /* semantic */
+  --color-pos: #22c55e;
+  --color-neg: #ef4444;
+  --color-neg-soft: #f87171;
+  --color-warn: #f59e0b;
+  --color-info: #93b0f7;
+
+  /* tinted fills — Design.md §2: color-mix 10-14% fill / 35-42% ring border */
+  --color-pos-tint: color-mix(in srgb, var(--color-pos) 12%, transparent);
+  --color-pos-ring: color-mix(in srgb, var(--color-pos) 38%, transparent);
+  --color-neg-tint: color-mix(in srgb, var(--color-neg) 12%, transparent);
+  --color-neg-ring: color-mix(in srgb, var(--color-neg) 38%, transparent);
+  --color-warn-tint: color-mix(in srgb, var(--color-warn) 12%, transparent);
+  --color-warn-ring: color-mix(in srgb, var(--color-warn) 38%, transparent);
+  --color-info-tint: color-mix(in srgb, var(--color-info) 12%, transparent);
+  --color-info-ring: color-mix(in srgb, var(--color-info) 38%, transparent);
+
+  /* radius */
+  --radius-xs: 5px;
+  --radius-sm: 6px;
+  --radius-md: 7px;
+  --radius-lg: 8px;
+  --radius-xl: 9px;
+  --radius-2xl: 11px;
+  --radius-3xl: 14px;
+  --radius-pill: 999px;
+
+  /* elevation */
+  --shadow-card: 0 12px 38px rgb(0 0 0 / 0.42);
+  --shadow-gold: 0 4px 14px rgb(200 162 74 / 0.3);
+  --shadow-ring-gold: 0 0 0 1px color-mix(in srgb, var(--color-gold) 40%, transparent);
+  --shadow-glow-pos: 0 0 8px var(--color-pos);
+  --shadow-glow-neg: 0 0 8px var(--color-neg);
+  --shadow-glow-warn: 0 0 8px var(--color-warn);
+  --shadow-glow-info: 0 0 8px var(--color-info);
+
+  /* type scale — Design.md §3 */
+  --text-display: 35px;
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.025em;
+  --text-h1: 22px;
+  --text-h1--line-height: 1.25;
+  --text-h1--letter-spacing: -0.02em;
+  --text-title: 18px;
+  --text-title--line-height: 1.3;
+  --text-title--letter-spacing: -0.015em;
+  --text-subtitle: 15px;
+  --text-subtitle--line-height: 1.45;
+  --text-body: 13.5px;
+  --text-body--line-height: 1.5;
+  --text-body-sm: 12.5px;
+  --text-body-sm--line-height: 1.5;
+  --text-caption: 11.5px;
+  --text-caption--line-height: 1.45;
+  --text-micro: 10.5px;
+  --text-micro--line-height: 1.4;
+  --text-eyebrow: 10.5px;
+  --text-eyebrow--line-height: 1.3;
+  --text-eyebrow--letter-spacing: 0.1em;
+
+  /* fonts (self-hosted — see main.tsx @fontsource imports) */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* the single shell breakpoint, plus login's secondary split (Design.md §5) */
+  --breakpoint-nav: 760px;
+  --breakpoint-login-split: 820px;
+
+  /* motion — durations lifted verbatim from project/Drishti.dc.html's drk-* keyframes */
+  --animate-wave-x: wave-x 17s ease-in-out -5s infinite alternate;
+  --animate-wave-y: wave-y 22s ease-in-out -8s infinite alternate;
+  --animate-breathe: breathe 17s ease-in-out infinite;
+  --animate-pulse: pulse 2.4s ease-in-out infinite;
+  --animate-spin: spin 0.65s linear infinite;
+  --animate-fade: fade 0.2s ease-out;
+}
+
+@keyframes wave-x {
+  from {
+    transform: translateX(-28px);
+  }
+  to {
+    transform: translateX(28px);
+  }
+}
+
+@keyframes wave-y {
+  from {
+    transform: translateY(-22px);
+  }
+  to {
+    transform: translateY(22px);
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Design.md §4/§7: freeze ambient wave/breathe, keep instant state changes (pulse/spin/fade
+     are status/loading feedback, not ambient decoration, so they're left running). */
+  .animate-wave-x,
+  .animate-wave-y,
+  .animate-breathe {
+    animation: none !important;
+  }
+}
