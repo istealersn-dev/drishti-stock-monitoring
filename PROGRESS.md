@@ -43,20 +43,48 @@ each checkpoint, get a go-ahead, implement it, open the PR, then move to the nex
   pm2-managed `drishti-agent` process in production. Full replace during CP1–CP8 does not risk the
   live agent, Slack approval flow, or SL-exit automation.
 - **2026-07-03** — CP1 implemented additively: new gold-branded `@theme` tokens/keyframes appended
-  to `app.css` alongside the untouched legacy indigo system (no name collisions), so `pnpm dev:ui`
-  stays fully working on old pages throughout CP1–CP3. New `/tokens` route added as a standalone
-  compliance/preview page. Guardrail lint (ban style attr, ban hex/px, warn on stray
-  absolute/fixed) scoped to `packages/ui/src/pages/tokensPreview.tsx` only for CP1; widen the glob
-  each checkpoint as more files migrate. Verified via computed-style inspection in the preview
-  browser (exact hex/radius/shadow/animation-duration matches) — screenshots of the token page
-  looked misleadingly dark/low-contrast due to JPEG compression of a near-black palette, so
-  computed-style checks were used instead, per near-black-on-black nature of the design.
+  to `app.css` alongside the legacy indigo system, so `pnpm dev:ui` stays fully working on old
+  pages throughout CP1–CP3. New `/tokens` route added as a standalone compliance/preview page.
+  Guardrail lint (ban style attr, ban hex/px in both plain-string and template-literal
+  `className`, warn on stray absolute/fixed) scoped to `packages/ui/src/pages/tokensPreview.tsx`
+  only for CP1; widen the glob each checkpoint as more files migrate. Verified via computed-style
+  inspection in the preview browser (exact hex/radius/shadow/animation-duration matches) —
+  screenshots of the token page looked misleadingly dark/low-contrast due to JPEG compression of a
+  near-black palette, so computed-style checks were used instead, per near-black-on-black nature
+  of the design.
+  **Correction (post-`/review`)**: "no name collisions" was wrong for four tokens —
+  `--radius-xs/sm/md/lg/xl/2xl/3xl/pill`, `--font-sans`, `--font-mono`, and
+  `--color-border-strong` share names with the legacy `@theme` block (both systems independently
+  used Tailwind's conventional `rounded-*`/`font-*` utility naming; `border-strong` is a
+  coincidental name match). Tailwind v4 keeps only the later declaration for a given custom
+  property, so the new (Design.md) values are now authoritative everywhere, including on
+  not-yet-migrated pages (confirmed via `vite build` output: `--radius-xl` → `9px` not legacy's
+  `8px`; `--color-border-strong` → `#2b2925` not legacy's `#232323`). Measured delta is small
+  (1–4px radius, ~3% RGB shift on a near-black border) and confirmed visually negligible
+  (`/login` screenshot unchanged). Chose to accept this rather than rename tokens (would create
+  spec drift from handoff.md's literal variable names) or touch legacy files outside CP1's scope
+  (`login.tsx`, `gtt.tsx`, `app.css`'s legacy block) — but the actual color/surface/text/semantic
+  palette tokens (`bg-*`, `surface-*`, `fg-*`, `gold-*`, `pos`/`neg`/`warn`/`info`) genuinely have
+  zero collisions, confirmed via full name diff of both `@theme` blocks.
 - **2026-07-03** — Found `pnpm lint` already failing on `main` (3 pre-existing, CP1-unrelated
   errors: missing return type in `packages/agent/src/features/slack-commands/slackCommands.handlers.ts`,
   an abbreviated variable name in `packages/ui/src/components/layout/topbar.tsx`, and a missing
   `include` entry in `packages/token-refresh/tsconfig.json` for its `vitest.config.ts`). Fixed in
   a separate `fix/lint-baseline` branch/PR per the "one concern per PR" rule, rather than bundling
   into CP1.
+- **2026-07-03** — `/review` on PR #25 (5-angle medium-effort pass) surfaced and fixed: missing
+  JetBrains Mono weight 400 import (legacy pages using `font-mono` with no explicit weight were
+  silently falling back to the system monospace font), a `prefers-reduced-motion` CSS override
+  that targeted nonexistent `.ambient`/`.breathe` classNames instead of the real
+  `animate-wave-x`/`animate-wave-y`/`animate-breathe` utility classes (reduced-motion users were
+  still getting the ambient animation), guardrail lint regex selectors that only matched plain
+  string `Literal` nodes and silently no-op'd on template-literal classNames (the dominant pattern
+  in `tokensPreview.tsx` itself), and a real TS strict-mode violation in the custom
+  `flagStrayPositionRule` (`node.parent` narrowed against a JSX-specific type that plain
+  `eslint`/estree types don't include — invisible to `pnpm typecheck` because it only recurses
+  into `packages/*` and never runs the root `tsconfig.json` that actually includes
+  `eslint.config.ts`). Also simplified `tokensPreview.tsx`'s 5 duplicated swatch-array/render
+  blocks into one `COLOR_GROUPS` loop.
 
 ## Constraints checklist (re-verify every checkpoint)
 

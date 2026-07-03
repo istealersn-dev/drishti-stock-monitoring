@@ -36,46 +36,84 @@ function Section({ title, children }: SectionProperties): React.ReactElement {
   );
 }
 
-const SURFACE_SWATCHES = [
-  { label: "bg-base", hex: tokens.color.bgBase, swatchClassName: "bg-bg-base" },
-  { label: "bg-chrome", hex: tokens.color.bgChrome, swatchClassName: "bg-bg-chrome" },
-  { label: "surface", hex: tokens.color.surface, swatchClassName: "bg-surface" },
-  { label: "surface-2", hex: tokens.color.surface2, swatchClassName: "bg-surface-2" },
-  { label: "surface-3", hex: tokens.color.surface3, swatchClassName: "bg-surface-3" },
-  { label: "surface-input", hex: tokens.color.surfaceInput, swatchClassName: "bg-surface-input" },
-  { label: "surface-hover", hex: tokens.color.surfaceHover, swatchClassName: "bg-surface-hover" },
-];
+type ColorGroup = {
+  title: string;
+  swatches: { label: string; hex: string; swatchClassName: string }[];
+};
 
-const BORDER_SWATCHES = [
-  { label: "border", hex: tokens.color.border, swatchClassName: "bg-border" },
-  { label: "border-strong", hex: tokens.color.borderStrong, swatchClassName: "bg-border-strong" },
-  { label: "border-muted", hex: tokens.color.borderMuted, swatchClassName: "bg-border-muted" },
-  { label: "border-focus", hex: tokens.color.borderFocus, swatchClassName: "bg-border-focus" },
-];
-
-const TEXT_SWATCHES = [
-  { label: "fg", hex: tokens.color.fg, swatchClassName: "bg-fg" },
-  { label: "fg-soft", hex: tokens.color.fgSoft, swatchClassName: "bg-fg-soft" },
-  { label: "fg-muted", hex: tokens.color.fgMuted, swatchClassName: "bg-fg-muted" },
-  { label: "fg-dim", hex: tokens.color.fgDim, swatchClassName: "bg-fg-dim" },
-  { label: "fg-faint", hex: tokens.color.fgFaint, swatchClassName: "bg-fg-faint" },
-  { label: "fg-ghost", hex: tokens.color.fgGhost, swatchClassName: "bg-fg-ghost" },
-];
-
-const BRAND_SWATCHES = [
-  { label: "gold", hex: tokens.color.gold, swatchClassName: "bg-gold" },
-  { label: "gold-deep", hex: tokens.color.goldDeep, swatchClassName: "bg-gold-deep" },
-  { label: "gold-bright", hex: tokens.color.goldBright, swatchClassName: "bg-gold-bright" },
-  { label: "gold-tint", hex: tokens.color.goldTint, swatchClassName: "bg-gold-tint" },
-  { label: "gold-line", hex: tokens.color.goldLine, swatchClassName: "bg-gold-line" },
-];
-
-const SEMANTIC_SWATCHES = [
-  { label: "pos", hex: tokens.color.pos, swatchClassName: "bg-pos" },
-  { label: "neg", hex: tokens.color.neg, swatchClassName: "bg-neg" },
-  { label: "neg-soft", hex: tokens.color.negSoft, swatchClassName: "bg-neg-soft" },
-  { label: "warn", hex: tokens.color.warn, swatchClassName: "bg-warn" },
-  { label: "info", hex: tokens.color.info, swatchClassName: "bg-info" },
+const COLOR_GROUPS: ColorGroup[] = [
+  {
+    title: "Surfaces",
+    swatches: [
+      { label: "bg-base", hex: tokens.color.bgBase, swatchClassName: "bg-bg-base" },
+      { label: "bg-chrome", hex: tokens.color.bgChrome, swatchClassName: "bg-bg-chrome" },
+      { label: "surface", hex: tokens.color.surface, swatchClassName: "bg-surface" },
+      { label: "surface-2", hex: tokens.color.surface2, swatchClassName: "bg-surface-2" },
+      { label: "surface-3", hex: tokens.color.surface3, swatchClassName: "bg-surface-3" },
+      {
+        label: "surface-input",
+        hex: tokens.color.surfaceInput,
+        swatchClassName: "bg-surface-input",
+      },
+      {
+        label: "surface-hover",
+        hex: tokens.color.surfaceHover,
+        swatchClassName: "bg-surface-hover",
+      },
+    ],
+  },
+  {
+    title: "Borders",
+    swatches: [
+      { label: "border", hex: tokens.color.border, swatchClassName: "bg-border" },
+      {
+        label: "border-strong",
+        hex: tokens.color.borderStrong,
+        swatchClassName: "bg-border-strong",
+      },
+      {
+        label: "border-muted",
+        hex: tokens.color.borderMuted,
+        swatchClassName: "bg-border-muted",
+      },
+      {
+        label: "border-focus",
+        hex: tokens.color.borderFocus,
+        swatchClassName: "bg-border-focus",
+      },
+    ],
+  },
+  {
+    title: "Text",
+    swatches: [
+      { label: "fg", hex: tokens.color.fg, swatchClassName: "bg-fg" },
+      { label: "fg-soft", hex: tokens.color.fgSoft, swatchClassName: "bg-fg-soft" },
+      { label: "fg-muted", hex: tokens.color.fgMuted, swatchClassName: "bg-fg-muted" },
+      { label: "fg-dim", hex: tokens.color.fgDim, swatchClassName: "bg-fg-dim" },
+      { label: "fg-faint", hex: tokens.color.fgFaint, swatchClassName: "bg-fg-faint" },
+      { label: "fg-ghost", hex: tokens.color.fgGhost, swatchClassName: "bg-fg-ghost" },
+    ],
+  },
+  {
+    title: "Brand (gold)",
+    swatches: [
+      { label: "gold", hex: tokens.color.gold, swatchClassName: "bg-gold" },
+      { label: "gold-deep", hex: tokens.color.goldDeep, swatchClassName: "bg-gold-deep" },
+      { label: "gold-bright", hex: tokens.color.goldBright, swatchClassName: "bg-gold-bright" },
+      { label: "gold-tint", hex: tokens.color.goldTint, swatchClassName: "bg-gold-tint" },
+      { label: "gold-line", hex: tokens.color.goldLine, swatchClassName: "bg-gold-line" },
+    ],
+  },
+  {
+    title: "Semantic",
+    swatches: [
+      { label: "pos", hex: tokens.color.pos, swatchClassName: "bg-pos" },
+      { label: "neg", hex: tokens.color.neg, swatchClassName: "bg-neg" },
+      { label: "neg-soft", hex: tokens.color.negSoft, swatchClassName: "bg-neg-soft" },
+      { label: "warn", hex: tokens.color.warn, swatchClassName: "bg-warn" },
+      { label: "info", hex: tokens.color.info, swatchClassName: "bg-info" },
+    ],
+  },
 ];
 
 const RADIUS_SWATCHES = [
@@ -134,62 +172,41 @@ export function TokensPreview(): React.ReactElement {
         </p>
       </header>
 
-      <Section title="Surfaces">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {SURFACE_SWATCHES.map((s) => (
-            <Swatch key={s.label} label={s.label} hex={s.hex} swatchClassName={s.swatchClassName} />
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Borders">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {BORDER_SWATCHES.map((s) => (
-            <Swatch key={s.label} label={s.label} hex={s.hex} swatchClassName={s.swatchClassName} />
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Text">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {TEXT_SWATCHES.map((s) => (
-            <Swatch key={s.label} label={s.label} hex={s.hex} swatchClassName={s.swatchClassName} />
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Brand (gold)">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {BRAND_SWATCHES.map((s) => (
-            <Swatch key={s.label} label={s.label} hex={s.hex} swatchClassName={s.swatchClassName} />
-          ))}
-        </div>
-        <div className="flex h-9 w-32 items-center justify-center rounded-md font-mono text-caption text-fg shadow-gold [background-image:var(--gradient-gold)]">
-          gradient-gold
-        </div>
-      </Section>
-
-      <Section title="Semantic">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {SEMANTIC_SWATCHES.map((s) => (
-            <Swatch key={s.label} label={s.label} hex={s.hex} swatchClassName={s.swatchClassName} />
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-pos-ring bg-pos-tint p-3 text-body-sm text-pos">
-            pos-tint / pos-ring
+      {COLOR_GROUPS.map((group) => (
+        <Section key={group.title} title={group.title}>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {group.swatches.map((s) => (
+              <Swatch
+                key={s.label}
+                label={s.label}
+                hex={s.hex}
+                swatchClassName={s.swatchClassName}
+              />
+            ))}
           </div>
-          <div className="rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg">
-            neg-tint / neg-ring
-          </div>
-          <div className="rounded-lg border border-warn-ring bg-warn-tint p-3 text-body-sm text-warn">
-            warn-tint / warn-ring
-          </div>
-          <div className="rounded-lg border border-info-ring bg-info-tint p-3 text-body-sm text-info">
-            info-tint / info-ring
-          </div>
-        </div>
-      </Section>
+          {group.title === "Brand (gold)" && (
+            <div className="flex h-9 w-32 items-center justify-center rounded-md font-mono text-caption text-fg shadow-gold [background-image:var(--gradient-gold)]">
+              gradient-gold
+            </div>
+          )}
+          {group.title === "Semantic" && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-pos-ring bg-pos-tint p-3 text-body-sm text-pos">
+                pos-tint / pos-ring
+              </div>
+              <div className="rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg">
+                neg-tint / neg-ring
+              </div>
+              <div className="rounded-lg border border-warn-ring bg-warn-tint p-3 text-body-sm text-warn">
+                warn-tint / warn-ring
+              </div>
+              <div className="rounded-lg border border-info-ring bg-info-tint p-3 text-body-sm text-info">
+                info-tint / info-ring
+              </div>
+            </div>
+          )}
+        </Section>
+      ))}
 
       <Section title="Radius">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

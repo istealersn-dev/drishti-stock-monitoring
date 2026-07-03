@@ -1253,8 +1253,11 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ambient,
-  .breathe {
+  /* Design.md §4/§7: freeze ambient wave/breathe, keep instant state changes (pulse/spin/fade
+     are status/loading feedback, not ambient decoration, so they're left running). */
+  .animate-wave-x,
+  .animate-wave-y,
+  .animate-breathe {
     animation: none !important;
   }
 }
