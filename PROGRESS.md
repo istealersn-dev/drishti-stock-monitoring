@@ -375,6 +375,24 @@ from the spec.
   pattern repeats again in CP7/CP8's Settings forms. `pnpm --filter ui typecheck`/`lint`/`build` all
   clean after this round; browser-reverified Dialog `aria-describedby` and Table alignment
   unaffected by the Table cleanup.
+- **2026-07-04** — CP3 post-PR `/review` convergence pass (round 5, re-run after committing round
+  4's fixes to confirm the loop reaches zero). Two angles independently caught the same real,
+  freshly-introduced bug: round 4's `MessageBubble` `forwardRef` attached to the outer
+  flex-alignment `<div>` while `className` (and all visual bubble styling) stayed on the *inner*
+  `<div>` — ref and className pointed at two different DOM nodes on the same component, silently
+  working today only because the wrapper has exactly one child and no padding so the bounding boxes
+  happen to coincide. This directly undermined the fix's own stated purpose (anchoring a future
+  `Tooltip`/`Dialog.Trigger` to a bubble) — the popover would anchor to the full-width row instead
+  of the visible bubble the moment a wrapper gained a second child or padding. Fixed by moving `ref`
+  onto the inner styled `<div>`, matching Badge/Card's ref+className co-location. Re-ran
+  `pnpm --filter ui typecheck`/`lint`/`build` — all clean, same 4 documented warnings.
+  **Noted but deferred**: this same pass flagged that `z-40`/`z-50` (Dialog, Tooltip, Select) and
+  the newly-added `z-[60]` (Toast) are all raw Tailwind literals with no shared constant — a
+  legitimate but pre-existing-and-worsened "no magic numbers" concern (CLAUDE.md). Not fixed here;
+  introducing a proper z-index token scale is bigger scope than this round warrants and is a better
+  fit for when CP1's `tokens.ts`/`app.css` `@theme` gets revisited or when CP4 adds the next
+  portal-based overlay (Login modal) and the stacking ladder needs a real specification.
+  No other findings survived this round — considered converged.
 
 ## Constraints checklist (re-verify every checkpoint)
 
