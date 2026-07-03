@@ -17,6 +17,7 @@ import { Instructions } from "./pages/instructions";
 import { Login } from "./pages/login";
 import { Logs } from "./pages/logs";
 import { Settings } from "./pages/settings";
+import { TokensPreview } from "./pages/tokensPreview";
 import { Watchlist } from "./pages/watchlist";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
@@ -25,6 +26,13 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: Login,
+});
+
+// Design-system compliance page — no auth guard, standalone (CP1).
+const tokensRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/tokens",
+  component: TokensPreview,
 });
 
 // All authenticated routes live under this layout route.
@@ -96,6 +104,7 @@ const settingsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  tokensRoute,
   layoutRoute.addChildren([
     indexRoute,
     holdingsRoute,
