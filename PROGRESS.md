@@ -218,6 +218,47 @@ from the spec.
   preview page's placeholder API-key demo value looked like a real secret-scanner-trigger pattern
   (`sk-live-...`) — swapped for an obviously-fake string to avoid false-positive CI/security-tool
   noise, even though it was never a real secret (local component state, never transmitted).
+- **2026-07-04** — CP3: built Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea (all
+  Radix-backed) plus MessageBubble, TypingIndicator, and Table (custom, semantic `<table>`) in
+  `packages/ui/src/components/ui/`. Compound components (Tabs, Dialog, Toast, Table) use a single
+  named export with sub-components attached as static properties (`Tabs.List`, `Dialog.Content`,
+  etc.) rather than multiple named exports per file — satisfies CLAUDE.md's "one export per file"
+  while keeping Radix's compositional ergonomics.
+  **Barrel export decision**: the mission's CP3 line says "barrel export + component catalog
+  page," but CLAUDE.md explicitly and repeatedly bans barrel `index.ts` re-export files ("No
+  barrel files (index.ts re-exports). Direct imports only.") — a direct conflict. Resolved in
+  favor of CLAUDE.md (the project's own non-negotiable convention, and the more specific/binding
+  instruction) — no `index.ts` was created; every primitive is imported directly from its own
+  module, matching CP1/CP2's established pattern. Built the "component catalog page" half of the
+  requirement (`catalogPreview.tsx` + auth-guarded `/catalog` route, same pattern as `/tokens` and
+  `/primitives`) as the discoverability surface instead.
+  **Bugs found via browser verification** (not caught by typecheck/lint, since both were valid
+  TS/React composition that only breaks at the DOM/HTML level): (1) `Dialog.Trigger` wrapped its
+  child in its own `<button>`, and the catalog page passed a `<Button>` (also a `<button>`) as
+  that child — nested `<button>` is invalid HTML, caught via a real browser console hydration
+  error. Fixed with Radix's `asChild` prop (already used correctly for `Tooltip.Trigger`, missed
+  for `Dialog.Trigger`) so Radix merges its trigger behavior onto the child instead of wrapping
+  it. (2) `Switch`'s checked-thumb offset used a raw `translate-x-[22px]` arbitrary value —
+  guardrail-lint-caught immediately, fixed to the token-scale `translate-x-5` (20px, a 2px visual
+  gap from the track edge that's a normal, common toggle appearance, not pixel-perfect-required).
+  (3) The catalog page's `Section` wrapper (`flex flex-col`) defaults to `items-stretch`, so the
+  Dialog's trigger `<Button>` (now unwrapped via `asChild`, no width constraint of its own)
+  stretched to fill the full section width — fixed by adding `items-start` to `Section`.
+  **Testing-environment caveats worth remembering**: this session repeatedly produced *stale*
+  reads (console logs, `getComputedStyle`, even screenshots) that didn't reflect the live page
+  state — e.g. a Switch briefly appeared stuck green after toggling off in three different read
+  attempts, until a clean single fresh read (and a follow-up screenshot) proved it was actually
+  correct. Always double-check a suspicious read with a second, independent read before concluding
+  a real bug. Separately, plain synthetic `.click()` did not reliably trigger Radix's
+  pointer-event-based interaction handlers (Tabs, Toast) — a full `pointerdown`/`mousedown`/
+  `pointerup`/`mouseup`/`click` sequence at the element's real screen coordinates was required.
+  Tooltip's hover-trigger could not be confirmed via synthetic `pointerenter`/`focus` events at
+  all (a known general limitation of CDP-driven `:hover` simulation against libraries with
+  internal hover-tracking) — not treated as a bug given the implementation is a verified
+  byte-for-byte match of Radix's own documented Tooltip pattern and every other interactive
+  primitive tested correctly once the right event sequence was used.
+  Chunk-size build warning (602KB single bundle) noted but not addressed — proper route-based
+  code splitting is CP4's job (TanStack Router lazy routes), not premature to defer here.
 
 ## Constraints checklist (re-verify every checkpoint)
 
