@@ -1,12 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
 
-const { mockChatOnce } = vi.hoisted(() => ({ mockChatOnce: vi.fn() }));
+const { mockChatOnce, mockValues, mockInsert } = vi.hoisted(() => {
+  const run = vi.fn();
+  const values = vi.fn(() => ({ run }));
+  const insert = vi.fn(() => ({ values }));
+  return { mockChatOnce: vi.fn(), mockValues: values, mockInsert: insert };
+});
 
 vi.mock("../../llm/llmClient.js", () => ({
   chatOnce: mockChatOnce,
   INTENT_CLASSIFICATION_MAX_TOKENS: 200,
   INTENT_CLASSIFICATION_TIMEOUT_MS: 20_000,
 }));
+
+vi.mock("../../db/db.js", () => ({ db: { insert: mockInsert } }));
+
+vi.mock("../../shared/env.js", () => ({ env: { DRISHTI_DRY_RUN: false } }));
 
 import { classifyIntent } from "./instructions.intent.js";
 
@@ -65,5 +74,19 @@ describe("classifyIntent", () => {
 
     const result = await classifyIntent("what's the news on Infosys");
     expect(result.intent).toBe("QUERY");
+  });
+
+  it("logs an intent_classification_failed row to agent_logs when the LLM call throws", async () => {
+    mockChatOnce.mockRejectedValue(new Error("connection refused"));
+
+    await classifyIntent("what's the news on Infosys");
+
+    expect(mockInsert).toHaveBeenCalled();
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "intent_classification_failed",
+        error: "connection refused",
+      }),
+    );
   });
 });

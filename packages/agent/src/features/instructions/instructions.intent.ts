@@ -1,8 +1,13 @@
+import { randomUUID } from "node:crypto";
+
+import { db } from "../../db/db.js";
+import { agentLogs } from "../../db/schema.js";
 import {
   INTENT_CLASSIFICATION_MAX_TOKENS,
   INTENT_CLASSIFICATION_TIMEOUT_MS,
   chatOnce,
 } from "../../llm/llmClient.js";
+import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 
 import { INTENT_CLASSIFICATION_SYSTEM_PROMPT } from "./instructions.prompts.js";
@@ -67,6 +72,17 @@ export async function classifyIntent(text: string): Promise<IntentClassification
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn("Intent classifier call failed — falling back to regex", { error: message });
+    db.insert(agentLogs)
+      .values({
+        runId: randomUUID(),
+        symbol: null,
+        action: "intent_classification_failed",
+        reasoning: null,
+        dryRun: env.DRISHTI_DRY_RUN,
+        error: message,
+        createdAt: new Date().toISOString(),
+      })
+      .run();
     return classifyByRegex(text);
   }
 }
