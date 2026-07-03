@@ -28,6 +28,7 @@ function resolveStatusVariant(status: string): string {
   if (status === "active") return "active";
   if (status === "triggered") return "triggered";
   if (status === "cancelled") return "cancelled";
+  if (status === "failed") return "failed";
   return "default";
 }
 
