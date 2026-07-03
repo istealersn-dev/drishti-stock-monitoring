@@ -20,8 +20,8 @@ from the spec.
 |---|---|---|---|---|
 | 1 | Monorepo + design tokens | **done, merged** | `feat/cp1-design-tokens` (deleted) | [#25](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/25) |
 | — | Lint baseline fix (found during CP1) | **done, merged** | `fix/lint-baseline` (deleted) | [#26](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/26) |
-| 2 | UI primitives A (Button, Badge, Card, Input, Textarea, StatusDot, Breadcrumb) | in-progress | `feat/cp2-ui-primitives-a` | — |
-| 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | todo | — | — |
+| 2 | UI primitives A (Button, Badge, Card, Input, Textarea, StatusDot, Breadcrumb) | **done, merged** | `feat/cp2-ui-primitives-a` (deleted) | [#27](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/27) |
+| 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | in-progress | `feat/cp3-ui-primitives-b` | — |
 | 4 | App scaffold + responsive shell + Login | todo | — | — |
 | 5 | Ask Drishti (hero, composer, AmbientWave, chat) | todo | — | — |
 | 6 | Dashboard + Holdings | todo | — | — |
