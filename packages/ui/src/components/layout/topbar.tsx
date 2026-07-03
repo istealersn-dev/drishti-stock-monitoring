@@ -62,21 +62,21 @@ export function Topbar({
 }: TopbarProperties): React.ReactElement {
   const navigate = useNavigate();
   const [spinning, setSpinning] = useState(false);
-  const spinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const spinTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return (): void => {
-      if (spinTimerRef.current !== null) clearTimeout(spinTimerRef.current);
+      if (spinTimerReference.current !== null) clearTimeout(spinTimerReference.current);
     };
   }, []);
 
   const { variant, label } = resolveStatus(dryRun, agentStatus);
 
   const handleRefresh = (): void => {
-    if (spinTimerRef.current !== null) clearTimeout(spinTimerRef.current);
+    if (spinTimerReference.current !== null) clearTimeout(spinTimerReference.current);
     setSpinning(true);
     onRefresh();
-    spinTimerRef.current = setTimeout(() => {
+    spinTimerReference.current = setTimeout(() => {
       setSpinning(false);
     }, 800);
   };
