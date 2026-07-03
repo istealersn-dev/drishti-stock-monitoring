@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 
+import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
 import { createApproval, setApprovalSlackTs } from "../approval/approval.store.js";
@@ -15,6 +16,19 @@ import { resolveSymbol } from "./instructions.resolver.js";
 
 export type SubmitResult =
   { ok: true; approvalId: string; symbol: string } | { ok: false; error: string };
+
+/**
+ * Format a submitBuyInstruction result as the Slack reply text shown at both entry
+ * points (the @mention classifier and the /drishti slash command), so the copy
+ * can't drift between the two.
+ * @param result - The result of submitBuyInstruction
+ * @returns The Slack reply text
+ */
+export function formatSubmitResultMessage(result: SubmitResult): string {
+  return result.ok
+    ? `✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`
+    : `⚠️ Could not process instruction: ${result.error}`;
+}
 
 /**
  * Parse, resolve, and enqueue a buy instruction from any channel (Slack or UI).
@@ -35,7 +49,7 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     return { ok: false, error: parseResult.error.message };
   }
 
-  const instruction = parseResult.value;
+  const { instruction, actionDisagreement } = parseResult.value;
 
   const resolveResult = await resolveSymbol(instruction.stockName);
   if (!resolveResult.ok) {
@@ -104,6 +118,7 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     suggestedQty,
     availableMargin,
     analysis,
+    actionDisagreement,
   );
   if (!cardResult.ok) {
     logger.error("Failed to send approval card", { approvalId, error: cardResult.error.message });

@@ -43,13 +43,13 @@ describe("parseInstruction", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    expect(result.value.stockName).toBe("Ramco Systems");
-    expect(result.value.action).toBe("BUY");
-    expect(result.value.entryLow).toBe(560);
-    expect(result.value.entryHigh).toBe(580);
-    expect(result.value.stopLoss).toBe(520);
-    expect(result.value.targets).toHaveLength(2);
-    expect(result.value.targets[1]?.isOpenEnded).toBe(true);
+    expect(result.value.instruction.stockName).toBe("Ramco Systems");
+    expect(result.value.instruction.action).toBe("BUY");
+    expect(result.value.instruction.entryLow).toBe(560);
+    expect(result.value.instruction.entryHigh).toBe(580);
+    expect(result.value.instruction.stopLoss).toBe(520);
+    expect(result.value.instruction.targets).toHaveLength(2);
+    expect(result.value.instruction.targets[1]?.isOpenEnded).toBe(true);
   });
 
   it("handles single entry price (entryLow === entryHigh)", async () => {
@@ -67,8 +67,8 @@ describe("parseInstruction", () => {
     const result = await parseInstruction("TATAMOTORS buy 780 SL 740 tgt 850");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.entryLow).toBe(780);
-    expect(result.value.entryHigh).toBe(780);
+    expect(result.value.instruction.entryLow).toBe(780);
+    expect(result.value.instruction.entryHigh).toBe(780);
   });
 
   it("handles missing T2 (single target only)", async () => {
@@ -86,8 +86,8 @@ describe("parseInstruction", () => {
     const result = await parseInstruction("Buy HDFCBANK 1600-1650 sl 1550 target 1800");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.targets).toHaveLength(1);
-    expect(result.value.targets[0]?.isOpenEnded).toBe(false);
+    expect(result.value.instruction.targets).toHaveLength(1);
+    expect(result.value.instruction.targets[0]?.isOpenEnded).toBe(false);
   });
 
   it("handles open-ended T2 (900+)", async () => {
@@ -108,7 +108,7 @@ describe("parseInstruction", () => {
     const result = await parseInstruction("INFY buy 780-800 SL 750 tgt 850 900+");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const lastTarget = result.value.targets.at(-1);
+    const lastTarget = result.value.instruction.targets.at(-1);
     expect(lastTarget?.isOpenEnded).toBe(true);
     expect(lastTarget?.price).toBe(900);
   });
@@ -131,7 +131,7 @@ describe("parseInstruction", () => {
     const result = await parseInstruction("Goldbees 120-123 SL 110 Tgt 140-170");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.action).toBe("BUY");
+    expect(result.value.instruction.action).toBe("BUY");
   });
 
   it("returns err when LLM returns invalid JSON", async () => {
@@ -167,7 +167,8 @@ describe("parseInstruction", () => {
     const result = await parseInstruction("Sell Reliance 2500-2600 SL 2650 Tgt 2400");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.action).toBe("BUY");
+    expect(result.value.instruction.action).toBe("BUY");
+    expect(result.value.actionDisagreement).toBe("SELL");
 
     expect(mockInsert).toHaveBeenCalled();
     const insertedRow = (
@@ -175,6 +176,24 @@ describe("parseInstruction", () => {
     )[0]?.[0];
     expect(insertedRow?.action).toBe("buy_action_field_overridden");
     expect(insertedRow?.error).toContain("SELL");
+  });
+
+  it("returns a null actionDisagreement when the model's action matches BUY", async () => {
+    mockChat.mockResolvedValue(
+      JSON.stringify({
+        stockName: "Reliance",
+        action: "BUY",
+        entryLow: 2500,
+        entryHigh: 2600,
+        stopLoss: 2450,
+        targets: [{ price: 2700, isOpenEnded: false }],
+      }),
+    );
+
+    const result = await parseInstruction("Reliance Buy 2500-2600 SL 2450 Tgt 2700");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.actionDisagreement).toBeNull();
   });
 
   it("returns err when LLM call throws", async () => {
@@ -203,7 +222,7 @@ describe("parseInstruction", () => {
     const result = await parseInstruction("WIPRO buy 300-310 SL 280 tgt 350");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.stockName).toBe("WIPRO");
+    expect(result.value.instruction.stockName).toBe("WIPRO");
   });
 });
 

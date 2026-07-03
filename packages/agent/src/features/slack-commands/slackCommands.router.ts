@@ -5,12 +5,14 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../../db/db.js";
 import { slackSessions } from "../../db/schema.js";
-import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { MENTION_PREFIX_REGEX } from "../../shared/slackMention.js";
 import { recordConversationTurn } from "../advisor/advisor.chain.js";
 import { BUY_INSTRUCTION_REGEX, classifyIntent } from "../instructions/instructions.intent.js";
-import { submitBuyInstruction } from "../instructions/instructions.pipeline.js";
+import {
+  formatSubmitResultMessage,
+  submitBuyInstruction,
+} from "../instructions/instructions.pipeline.js";
 
 import { routeCommand } from "./slackCommands.command.js";
 import {
@@ -134,9 +136,7 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
 
       if (classification.intent === "ORDER") {
         const result = await submitBuyInstruction(question, channel);
-        const resultText = !result.ok
-          ? `⚠️ Could not process instruction: ${result.error}`
-          : `✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`;
+        const resultText = formatSubmitResultMessage(result);
         await say({ text: resultText, thread_ts: replyThreadTs });
         // Persist this exchange (see recordConversationTurn doc) so a thread reply
         // like "why that stop loss?" has context instead of looking brand-new.
@@ -211,13 +211,7 @@ export function registerSlackCommands(app: App, commandChannelId: string): void 
       } else if (BUY_INSTRUCTION_REGEX.test(sub)) {
         await reply("📥 Received buy instruction — parsing…");
         const result = await submitBuyInstruction(command.text.trim(), command.channel_id);
-        if (!result.ok) {
-          await reply(`⚠️ Could not process instruction: ${result.error}`);
-        } else {
-          await reply(
-            `✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`,
-          );
-        }
+        await reply(formatSubmitResultMessage(result));
       } else {
         // Anything unrecognised → ask Drishti, store the thread as a session
         const sessionId = crypto.randomUUID();

@@ -67,4 +67,34 @@ describe("sendApprovalCard", () => {
     const analysisBlock = blocks.find((block) => block.text?.text.includes("AI Analysis"));
     expect(analysisBlock).toBeUndefined();
   });
+
+  it("includes a flagged warning block when actionDisagreement is set", async () => {
+    await sendApprovalCard("approval-3", instruction, "RAMCOSYS-EQ", 100, 50_000, null, "SELL");
+
+    const blocks = blocksFromCall();
+    const flagBlock = blocks.find((block) => block.text?.text.includes("Flagged"));
+    expect(flagBlock).toBeDefined();
+    expect(flagBlock?.text?.text).toContain("SELL");
+  });
+
+  it("escapes Slack mrkdwn special characters and strips backticks from actionDisagreement", async () => {
+    const payload = "SELL`<https://evil.example|x>";
+    await sendApprovalCard("approval-5", instruction, "RAMCOSYS-EQ", 100, 50_000, null, payload);
+
+    const blocks = blocksFromCall();
+    const flagBlock = blocks.find((block) => block.text?.text.includes("Flagged"));
+    expect(flagBlock).toBeDefined();
+    const text = flagBlock?.text?.text ?? "";
+    expect(text).not.toContain("<https://evil.example|x>");
+    expect(text).not.toContain("`<");
+    expect(text).toContain("&lt;https://evil.example|x&gt;");
+  });
+
+  it("omits the flagged warning block when actionDisagreement is null", async () => {
+    await sendApprovalCard("approval-4", instruction, "RAMCOSYS-EQ", 100, 50_000, null, null);
+
+    const blocks = blocksFromCall();
+    const flagBlock = blocks.find((block) => block.text?.text.includes("Flagged"));
+    expect(flagBlock).toBeUndefined();
+  });
 });

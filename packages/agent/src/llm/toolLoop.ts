@@ -22,13 +22,21 @@ export type ToolExecutor = (argumentsJson: string) => Promise<string>;
  * @param options.maxTokens - Max completion tokens per round
  * @param options.timeoutMs - Request timeout per round
  * @param options.temperature - Sampling temperature per round
+ * @param options.reasoningEffort - Pass "none" to disable the model's thinking phase
+ *   each round — use for low-token-budget loops where reasoning could otherwise
+ *   consume the whole per-round budget before any content/tool call is emitted
  * @returns The model's final text answer
  */
 export async function runToolLoop(
   messages: ChatCompletionMessageParam[],
   tools: ChatCompletionTool[],
   executors: Record<string, ToolExecutor>,
-  options: { maxTokens?: number; timeoutMs?: number; temperature?: number } = {},
+  options: {
+    maxTokens?: number;
+    timeoutMs?: number;
+    temperature?: number;
+    reasoningEffort?: "none";
+  } = {},
 ): Promise<string> {
   const conversation = [...messages];
 
@@ -39,6 +47,7 @@ export async function runToolLoop(
       options.maxTokens,
       options.timeoutMs,
       options.temperature,
+      options.reasoningEffort,
     );
 
     if (!message.tool_calls || message.tool_calls.length === 0) {

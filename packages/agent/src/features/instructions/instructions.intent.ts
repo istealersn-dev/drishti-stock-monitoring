@@ -5,7 +5,7 @@ import { agentLogs } from "../../db/schema.js";
 import {
   INTENT_CLASSIFICATION_MAX_TOKENS,
   INTENT_CLASSIFICATION_TIMEOUT_MS,
-  chatOnceNoReasoning,
+  chatOnce,
 } from "../../llm/llmClient.js";
 import { env } from "../../shared/env.js";
 import { stripJsonCodeFence } from "../../shared/llmResponse.js";
@@ -43,10 +43,11 @@ function classifyByRegex(text: string): IntentClassification {
  */
 export async function classifyIntent(text: string): Promise<IntentClassification> {
   try {
-    const response = await chatOnceNoReasoning(INTENT_CLASSIFICATION_SYSTEM_PROMPT, text, {
+    const response = await chatOnce(INTENT_CLASSIFICATION_SYSTEM_PROMPT, text, {
       maxTokens: INTENT_CLASSIFICATION_MAX_TOKENS,
       timeoutMs: INTENT_CLASSIFICATION_TIMEOUT_MS,
       temperature: 0.1,
+      reasoningEffort: "none",
     });
 
     const cleaned = stripJsonCodeFence(response);

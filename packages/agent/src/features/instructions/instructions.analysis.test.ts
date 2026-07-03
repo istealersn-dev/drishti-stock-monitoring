@@ -56,6 +56,19 @@ describe("analyzeBuyInstruction", () => {
     expect(result.value).toBe("R:R looks fine, no major news flagged.");
   });
 
+  it("disables the model's reasoning phase, since INSTRUCTION_ANALYSIS_MAX_TOKENS is small enough for reasoning to consume the whole budget", async () => {
+    mockRunToolLoop.mockResolvedValue("R:R looks fine, no major news flagged.");
+
+    await analyzeBuyInstruction(instruction, "RAMCOSYS-EQ");
+
+    expect(mockRunToolLoop).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ reasoningEffort: "none" }),
+    );
+  });
+
   it("invokes the web_search executor with the model's arguments and returns search results", async () => {
     mockSearchWeb.mockResolvedValue(ok("Recent news: Ramco Systems Q1 results beat estimates."));
 

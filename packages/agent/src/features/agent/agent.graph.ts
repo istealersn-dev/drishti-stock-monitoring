@@ -445,6 +445,9 @@ async function logAndAlertNode(state: Readonly<AgentState>): Promise<Partial<Age
 /**
  * Build and return the Drishti agent StateGraph.
  * Nodes execute in order: fetchPortfolio → checkStopLoss → checkTargets → llmAnalyse → executeActions → logAndAlert.
+ * Runs the full pipeline in one sequential pass — used by tests that assert on the
+ * combined final state. Production ticks use buildFastAgentGraph/buildSlowAgentGraph
+ * instead so a slow LLM analysis can never delay the next tick's SL/target checks.
  * @returns A configured StateGraph ready to run
  */
 export function buildAgentGraph(): StateGraph {
@@ -452,6 +455,34 @@ export function buildAgentGraph(): StateGraph {
     .addNode("fetchPortfolio", fetchPortfolioNode)
     .addNode("checkStopLoss", checkStopLossNode)
     .addNode("checkTargets", checkTargetsNode)
+    .addNode("llmAnalyse", llmAnalyseNode)
+    .addNode("executeActions", executeActionsNode)
+    .addNode("logAndAlert", logAndAlertNode);
+}
+
+/**
+ * Build the fast, safety-critical phase of the pipeline: fetch portfolio state and
+ * run SL/target detection. This must complete quickly and on every scheduled tick —
+ * it gates the cron's isRunning guard, so nothing slow belongs in this graph.
+ * @returns A configured StateGraph covering fetchPortfolio → checkStopLoss → checkTargets
+ */
+export function buildFastAgentGraph(): StateGraph {
+  return new StateGraph()
+    .addNode("fetchPortfolio", fetchPortfolioNode)
+    .addNode("checkStopLoss", checkStopLossNode)
+    .addNode("checkTargets", checkTargetsNode);
+}
+
+/**
+ * Build the slow phase of the pipeline: LLM portfolio analysis and the GTT
+ * modify/cancel/alert decisions it produces. Intended to run decoupled from the
+ * cron's tick scheduling (see main.ts's tick()), continuing from the fast phase's
+ * resulting state, so a long analysis call never blocks the next tick's SL/target
+ * checks.
+ * @returns A configured StateGraph covering llmAnalyse → executeActions → logAndAlert
+ */
+export function buildSlowAgentGraph(): StateGraph {
+  return new StateGraph()
     .addNode("llmAnalyse", llmAnalyseNode)
     .addNode("executeActions", executeActionsNode)
     .addNode("logAndAlert", logAndAlertNode);

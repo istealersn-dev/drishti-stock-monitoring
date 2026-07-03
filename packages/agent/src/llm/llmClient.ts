@@ -53,12 +53,77 @@ const client = new OpenAI({
   maxRetries: 0,
 });
 
+/** A chat message shape covering only the fields this codebase reads from an assistant reply. */
+export type ChatAssistantMessage = {
+  content?: string | null | undefined;
+  tool_calls?:
+    { id: string; type: "function"; function: { name: string; arguments: string } }[] | undefined;
+};
+
+/**
+ * Send a raw (non-SDK) chat completion request to LM Studio with `reasoning_effort:
+ * "none"`, disabling its "thinking" phase. Some locally-hosted models (confirmed:
+ * this deployment's `google/gemma-4-12b-qat`) emit a chain-of-thought into a
+ * separate `reasoning_content` field before the real answer — on a small
+ * `maxTokens` budget meant for a short structured answer, the reasoning alone can
+ * consume the entire budget, leaving `content` empty. `reasoning_effort` isn't
+ * part of the OpenAI SDK's typed `ReasoningEffort` union (`"none"` is a
+ * vendor-specific LM Studio/llama.cpp value the official client doesn't model), so
+ * this bypasses the SDK with a raw fetch call instead of a type-unsafe cast,
+ * mirroring the existing no-SDK convention already used for Tavily search.
+ * @param messages - The conversation messages
+ * @param tools - Tool definitions for the model to call, or an empty array for a plain chat
+ * @param maxTokens - Max completion tokens
+ * @param timeoutMs - Request timeout
+ * @param temperature - Sampling temperature
+ * @returns The assistant's message (content and any tool calls)
+ */
+async function chatNoReasoning(
+  messages: ChatCompletionMessageParam[],
+  tools: ChatCompletionTool[],
+  maxTokens: number,
+  timeoutMs: number,
+  temperature: number,
+): Promise<ChatAssistantMessage> {
+  const response = await fetch(`${env.LM_STUDIO_BASE_URL}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: env.LM_MODEL,
+      messages,
+      ...(tools.length > 0 ? { tools } : {}),
+      max_tokens: maxTokens,
+      temperature,
+      stream: false,
+      reasoning_effort: "none",
+    }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new LlmError(`LM Studio request failed: ${response.statusText}`);
+  }
+
+  const body: unknown = await response.json();
+  const parsed = ChatCompletionResponseSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new LlmError(`LM Studio response parse error: ${parsed.error.message}`);
+  }
+
+  const message = parsed.data.choices[0]?.message;
+  if (!message) {
+    throw new LlmError("LM Studio returned an empty response");
+  }
+  return message;
+}
+
 /**
  * Send a chat completion request to LM Studio.
  * @param messages - The conversation messages
  * @param maxTokens - Max completion tokens; defaults to 2048, use PORTFOLIO_MAX_TOKENS for multi-holding analysis
  * @param timeoutMs - Request timeout; defaults to 120s, use PORTFOLIO_LLM_TIMEOUT_MS or ADVISOR_LLM_TIMEOUT_MS for heavier prompts
  * @param temperature - Sampling temperature; defaults to 0.1 (deterministic). Use a higher value for conversational/persona replies
+ * @param reasoningEffort - Pass "none" to disable the model's thinking phase (see chatNoReasoning) for low-token-budget calls
  * @returns The assistant's text response
  */
 export async function chat(
@@ -66,7 +131,17 @@ export async function chat(
   maxTokens: number = DEFAULT_MAX_TOKENS,
   timeoutMs: number = LLM_TIMEOUT_MS,
   temperature: number = DEFAULT_TEMPERATURE,
+  reasoningEffort?: "none",
 ): Promise<string> {
+  if (reasoningEffort === "none") {
+    const message = await chatNoReasoning(messages, [], maxTokens, timeoutMs, temperature);
+    const content = message.content?.trim();
+    if (!content) {
+      throw new LlmError("LM Studio returned an empty response");
+    }
+    return content;
+  }
+
   const response = await client.chat.completions.create(
     {
       model: env.LM_MODEL,
@@ -93,12 +168,18 @@ export async function chat(
  * @param options.maxTokens - Max completion tokens; defaults to 2048
  * @param options.timeoutMs - Request timeout; defaults to 120s
  * @param options.temperature - Sampling temperature; defaults to 0.1
+ * @param options.reasoningEffort - Pass "none" to disable the model's thinking phase for low-token-budget calls
  * @returns The assistant's text response
  */
 export async function chatOnce(
   systemPrompt: string,
   userContent: string,
-  options: { maxTokens?: number; timeoutMs?: number; temperature?: number } = {},
+  options: {
+    maxTokens?: number;
+    timeoutMs?: number;
+    temperature?: number;
+    reasoningEffort?: "none";
+  } = {},
 ): Promise<string> {
   return chat(
     [
@@ -108,64 +189,8 @@ export async function chatOnce(
     options.maxTokens,
     options.timeoutMs,
     options.temperature,
+    options.reasoningEffort,
   );
-}
-
-/**
- * Send a single-turn chat completion to LM Studio with its "thinking" phase disabled
- * via `reasoning_effort: "none"`. Some locally-hosted models (confirmed: this
- * deployment's `google/gemma-4-12b-qat`) emit a chain-of-thought into a separate
- * `reasoning_content` field before the real answer — on a small `maxTokens` budget
- * meant for a short structured answer (e.g. intent classification), the reasoning
- * alone can consume the entire budget, leaving `content` empty. `reasoning_effort`
- * isn't part of the OpenAI SDK's typed `ReasoningEffort` union (`"none"` is a
- * vendor-specific LM Studio/llama.cpp value the official client doesn't model), so
- * this bypasses the SDK with a raw fetch call instead of a type-unsafe cast,
- * mirroring the existing no-SDK convention already used for Tavily search.
- * @param systemPrompt - System prompt for the task
- * @param userContent - The user/data prompt
- * @param options.maxTokens - Max completion tokens
- * @param options.timeoutMs - Request timeout
- * @param options.temperature - Sampling temperature
- * @returns The assistant's text response
- */
-export async function chatOnceNoReasoning(
-  systemPrompt: string,
-  userContent: string,
-  options: { maxTokens?: number; timeoutMs?: number; temperature?: number } = {},
-): Promise<string> {
-  const response = await fetch(`${env.LM_STUDIO_BASE_URL}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: env.LM_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
-      temperature: options.temperature ?? DEFAULT_TEMPERATURE,
-      stream: false,
-      reasoning_effort: "none",
-    }),
-    signal: AbortSignal.timeout(options.timeoutMs ?? LLM_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    throw new LlmError(`LM Studio request failed: ${response.statusText}`);
-  }
-
-  const body: unknown = await response.json();
-  const parsed = ChatCompletionResponseSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new LlmError(`LM Studio response parse error: ${parsed.error.message}`);
-  }
-
-  const content = parsed.data.choices[0]?.message.content;
-  if (!content?.trim()) {
-    throw new LlmError("LM Studio returned an empty response");
-  }
-  return content.trim();
 }
 
 /**
@@ -175,7 +200,8 @@ export async function chatOnceNoReasoning(
  * @param maxTokens - Max completion tokens; defaults to 2048
  * @param timeoutMs - Request timeout; defaults to 120s
  * @param temperature - Sampling temperature; defaults to 0.1
- * @returns The full choice object including any tool calls
+ * @param reasoningEffort - Pass "none" to disable the model's thinking phase (see chatNoReasoning) for low-token-budget calls
+ * @returns The assistant's message, including any tool calls
  */
 export async function chatWithTools(
   messages: ChatCompletionMessageParam[],
@@ -183,7 +209,12 @@ export async function chatWithTools(
   maxTokens: number = DEFAULT_MAX_TOKENS,
   timeoutMs: number = LLM_TIMEOUT_MS,
   temperature: number = DEFAULT_TEMPERATURE,
-): Promise<OpenAI.Chat.Completions.ChatCompletionMessage> {
+  reasoningEffort?: "none",
+): Promise<ChatAssistantMessage> {
+  if (reasoningEffort === "none") {
+    return chatNoReasoning(messages, tools, maxTokens, timeoutMs, temperature);
+  }
+
   const response = await client.chat.completions.create(
     {
       model: env.LM_MODEL,

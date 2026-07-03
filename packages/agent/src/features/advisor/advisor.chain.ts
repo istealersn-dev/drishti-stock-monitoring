@@ -15,6 +15,7 @@ import {
 import { runToolLoop } from "../../llm/toolLoop.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
+import { stripJsonCodeFence } from "../../shared/llmResponse.js";
 import { logger } from "../../shared/logger.js";
 import { fetchHoldings } from "../portfolio/portfolio.tools.js";
 import { createWebSearchExecutor } from "../websearch/webSearch.executor.js";
@@ -218,10 +219,7 @@ export async function generateTradeSetup(
     return err(e instanceof Error ? e : new Error(String(e)));
   }
 
-  const cleaned = rawResponse
-    .replace(/^```(?:json)?\n?/i, "")
-    .replace(/\n?```$/i, "")
-    .trim();
+  const cleaned = stripJsonCodeFence(rawResponse);
 
   let parsed: unknown;
   try {

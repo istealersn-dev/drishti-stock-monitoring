@@ -15,6 +15,31 @@ function getClient(): WebClient {
   return _client;
 }
 
+const MAX_DISAGREEMENT_LENGTH = 40;
+
+/**
+ * Escape Slack mrkdwn special characters and strip backticks from a value
+ * that will be interpolated into a mrkdwn block, so it can't break out of the
+ * surrounding formatting or inject a link (`<url|label>`). Slack's own mrkdwn
+ * escaping only requires `&`/`<`/`>`; backticks are additionally stripped
+ * here since they aren't escapable and could otherwise close the code span
+ * early. Also truncates, since the source (the parser LLM's raw "action"
+ * field extraction from user-supplied instruction text — see
+ * instructions.parser.ts) is unconstrained free text, not a fixed enum.
+ * @param value - The raw value to render inside a Slack mrkdwn block
+ * @returns The escaped, truncated value
+ */
+function escapeForApprovalCard(value: string): string {
+  const escaped = value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/`/g, "");
+  return escaped.length > MAX_DISAGREEMENT_LENGTH
+    ? `${escaped.slice(0, MAX_DISAGREEMENT_LENGTH)}…`
+    : escaped;
+}
+
 /**
  * Format an instruction's targets as "T1 ₹680 · T2 ₹800+", or "—" if none.
  * @param instruction - The parsed buy instruction
@@ -56,6 +81,9 @@ export function formatStopLoss(instruction: ParsedInstruction): string {
  * @param suggestedQty - Agent-calculated suggested quantity
  * @param availableMargin - Current available margin in rupees
  * @param analysis - AI sanity-check text for the setup, or null if analysis was unavailable
+ * @param actionDisagreement - Non-null when the parser's model disagreed with the
+ *   forced BUY action (e.g. extracted "SELL"/"EXIT"), surfaced as a warning block
+ *   so the approver sees the anomaly before deciding
  * @returns A Result containing the Slack message timestamp or a SlackError
  */
 export async function sendApprovalCard(
@@ -65,6 +93,7 @@ export async function sendApprovalCard(
   suggestedQty: number,
   availableMargin: number,
   analysis: string | null,
+  actionDisagreement: string | null = null,
 ): Promise<Result<string, SlackError>> {
   const timeoutMinutes = env.DRISHTI_APPROVAL_TIMEOUT_MINUTES;
 
@@ -77,11 +106,24 @@ export async function sendApprovalCard(
       ]
     : [];
 
+  const disagreementBlock = actionDisagreement
+    ? [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `🚩 *Flagged:* The parser's model extracted action=\`${escapeForApprovalCard(actionDisagreement)}\` for this text, not BUY. Double-check this is really a buy instruction before approving.`,
+          },
+        },
+      ]
+    : [];
+
   const blocks = [
     {
       type: "header",
       text: { type: "plain_text", text: "🟡 Buy Instruction — Awaiting Approval", emoji: true },
     },
+    ...disagreementBlock,
     {
       type: "section",
       fields: [
