@@ -1,3 +1,4 @@
+import type * as DrizzleOrm from "drizzle-orm";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { mockDbGet, mockDbSelect, mockDbInsert, mockOnConflictDoUpdate, mockRun } = vi.hoisted(
@@ -31,6 +32,18 @@ vi.mock("../../shared/logger.js", () => ({
 const envMock = vi.hoisted(() => ({ TAVILY_API_KEY: "test-key" as string | undefined }));
 vi.mock("../../shared/env.js", () => ({ env: envMock }));
 
+const { mockEq } = vi.hoisted(() => ({ mockEq: vi.fn() }));
+vi.mock("drizzle-orm", async (importOriginal) => {
+  const actual = await importOriginal<typeof DrizzleOrm>();
+  return {
+    ...actual,
+    eq: vi.fn((...arguments_: Parameters<typeof actual.eq>) => {
+      mockEq(...arguments_);
+      return actual.eq(...arguments_);
+    }),
+  };
+});
+
 import { searchWeb } from "./webSearch.tools.js";
 
 describe("searchWeb", () => {
@@ -49,6 +62,16 @@ describe("searchWeb", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value).toBe("cached result text");
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("reads the cache with an uppercased, trimmed symbol", async () => {
+    mockDbGet.mockReturnValue({ content: "cached result text" });
+
+    await searchWeb("  reliance  ", "reliance news");
+
+    const symbolEqCall = mockEq.mock.calls.find((call) => call[1] === "RELIANCE");
+    expect(symbolEqCall).toBeDefined();
+    expect(mockEq.mock.calls.some((call) => call[1] === "  reliance  ")).toBe(false);
   });
 
   it("writes the cache row with an uppercased, trimmed symbol, so case/whitespace variants of the same symbol share one cache entry", async () => {
