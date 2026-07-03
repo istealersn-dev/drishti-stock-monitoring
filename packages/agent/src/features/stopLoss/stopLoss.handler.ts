@@ -23,6 +23,15 @@ const SL_EXIT_ALERTED_ACTION = "sl_exit_alerted"; // logged only once pushAlert 
  * check — a breach spanning multiple trading sessions (e.g. a stock stuck at
  * a circuit limit for days) must never get a second exit GTT stacked on top
  * of the first just because a time window elapsed.
+ *
+ * Known limitation: nothing in this codebase reconciles `gtt_orders.status`
+ * against Upstox when a GTT actually triggers on the exchange (status only
+ * ever flips away from "active" via explicit LLM-driven cancel/modify in
+ * agent.graph.ts). If an sl_exit GTT triggers and the position is later
+ * re-bought, this row stays stale-"active" forever and would silently block
+ * a new exit GTT from being created on a fresh breach. Accepted for now —
+ * fixing it needs an Upstox GTT-status reconciliation job, which is a
+ * separate feature, not part of this dedup fix.
  * @param symbol - The trading symbol to check
  * @returns true if an active sl_exit row exists for this symbol
  */
