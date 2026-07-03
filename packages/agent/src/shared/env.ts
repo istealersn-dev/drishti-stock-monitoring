@@ -43,6 +43,9 @@ const EnvironmentSchema = z.object({
 
   AGENT_API_PORT: z.coerce.number().int().default(4000),
   DRISHTI_ACCESS_KEY: z.string().min(16),
+
+  // Web search (advisor grounding) — optional; absent key degrades to no-search, not a crash
+  TAVILY_API_KEY: z.string().optional(),
 });
 
 type Environment = z.infer<typeof EnvironmentSchema>;

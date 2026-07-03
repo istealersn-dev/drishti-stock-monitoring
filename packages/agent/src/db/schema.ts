@@ -79,6 +79,17 @@ export const technicalLevels = sqliteTable(
   (t) => ({ pk: primaryKey({ columns: [t.symbol, t.date] }) }),
 );
 
+export const webSearchCache = sqliteTable(
+  "web_search_cache",
+  {
+    symbol: text("symbol").notNull(),
+    date: text("date").notNull(),
+    content: text("content").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.symbol, t.date] }) }),
+);
+
 export const watchlist = sqliteTable("watchlist", {
   symbol: text("symbol").primaryKey(),
   displayName: text("display_name").notNull(),
