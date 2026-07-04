@@ -4,6 +4,7 @@ import type React from "react";
 type BreadcrumbItem = {
   label: string;
   href?: string;
+  onClick?: () => void;
 };
 
 type BreadcrumbProperties = {
@@ -14,7 +15,10 @@ type BreadcrumbProperties = {
 /**
  * Breadcrumb trail (Design.md §6) — clickable crumbs with a ghost chevron
  * separator; the last item is the current page (`aria-current="page"`, not
- * a link even if it has an `href`).
+ * a link even if it has an `href`). A non-current item with `onClick` (and
+ * no `href`) renders as a `<button>` instead of an `<a>` — for crumbs that
+ * reset local view state rather than navigate to a URL (e.g. Ask Drishti's
+ * "return to the empty hero" crumb, per Design.md §5).
  * @param props.items - ordered crumbs, first to last (current page last)
  * @param props.className - additional classes
  * @returns Breadcrumb nav element
@@ -27,14 +31,24 @@ export function Breadcrumb({ items, className = "" }: BreadcrumbProperties): Rea
         return (
           <span key={item.label} className="flex items-center gap-1.5">
             {index > 0 && <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 text-fg-ghost" />}
-            {isCurrent || item.href === undefined ? (
-              <span aria-current={isCurrent ? "page" : undefined} className="text-fg">
+            {isCurrent ? (
+              <span aria-current="page" className="text-fg">
                 {item.label}
               </span>
-            ) : (
+            ) : item.href !== undefined ? (
               <a href={item.href} className="text-fg-muted transition-colors hover:text-fg">
                 {item.label}
               </a>
+            ) : item.onClick !== undefined ? (
+              <button
+                type="button"
+                onClick={item.onClick}
+                className="text-fg-muted transition-colors hover:text-fg"
+              >
+                {item.label}
+              </button>
+            ) : (
+              <span className="text-fg-muted">{item.label}</span>
             )}
           </span>
         );

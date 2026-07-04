@@ -8,7 +8,7 @@ import {
 
 import { AppShell } from "./components/shell/appShell";
 import { isAuthenticated } from "./lib/auth";
-import { Advisor } from "./pages/advisor";
+import { Ask } from "./pages/ask";
 import { CatalogPreview } from "./pages/catalogPreview";
 import { Dashboard } from "./pages/dashboard";
 import { Gtt } from "./pages/gtt";
@@ -118,10 +118,10 @@ const healthRoute = createRoute({
   component: Health,
 });
 
-const advisorRoute = createRoute({
+const askRoute = createRoute({
   getParentRoute: () => layoutRoute,
-  path: "/advisor",
-  component: Advisor,
+  path: "/ask",
+  component: Ask,
 });
 
 const logsRoute = createRoute({
@@ -148,7 +148,7 @@ const routeTree = rootRoute.addChildren([
     gttRoute,
     watchlistRoute,
     healthRoute,
-    advisorRoute,
+    askRoute,
     logsRoute,
     settingsRoute,
   ]),

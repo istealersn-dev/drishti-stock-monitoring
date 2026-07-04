@@ -3,6 +3,7 @@ import {
   History,
   LayoutDashboard,
   Layers,
+  MessageSquare,
   Send,
   Settings as SettingsIcon,
   Table2,
@@ -16,11 +17,15 @@ type TabItem = {
   pendingBadge?: boolean;
 };
 
-// The 6 core tabs Design.md §5 specifies for the mobile shell (Dashboard,
-// Holdings, Instr., GTT, Logs, Settings). Watchlist/Health/Advisor stay
-// desktop-sidebar-only for now — mobile real estate is fixed to these 6.
+// Design.md §5 specifies 6 core mobile tabs (Dashboard, Holdings, Instr.,
+// GTT, Logs, Settings); Ask Drishti is added as a 7th since handoff.md §3
+// treats it as a primary, index-level surface (`/ask (index)`) — leaving it
+// mobile-unreachable (no drawer exists to fall back to) would be a real
+// navigation gap, not just a spec-count mismatch. Watchlist/Health stay
+// desktop-sidebar-only for now.
 const TAB_ITEMS: TabItem[] = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/ask", label: "Ask", icon: MessageSquare },
   { path: "/holdings", label: "Holdings", icon: Table2 },
   { path: "/instructions", label: "Instr.", icon: Send, pendingBadge: true },
   { path: "/gtt", label: "GTT", icon: Layers },

@@ -28,7 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: "/logs", label: "Agent Logs", icon: History },
   { path: "/watchlist", label: "Watchlist", icon: Eye },
   { path: "/health", label: "Health", icon: Activity },
-  { path: "/advisor", label: "Advisor", icon: MessageSquare },
+  { path: "/ask", label: "Ask Drishti", icon: MessageSquare },
   { path: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
