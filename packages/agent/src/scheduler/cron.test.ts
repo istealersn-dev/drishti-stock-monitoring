@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockSchedule } = vi.hoisted(() => ({ mockSchedule: vi.fn() }));
+const { mockSchedule, mockIsAgentPaused } = vi.hoisted(() => ({
+  mockSchedule: vi.fn(),
+  mockIsAgentPaused: vi.fn(),
+}));
 
 vi.mock("node-cron", () => ({
   default: { schedule: mockSchedule },
@@ -18,6 +21,12 @@ vi.mock("../shared/logger.js", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("../features/settings/settings.service.js", () => ({
+  isAgentPaused: mockIsAgentPaused,
+}));
+
+import { logger } from "../shared/logger.js";
+
 import { startCron } from "./cron.js";
 
 function getScheduledCallback(): () => void {
@@ -29,6 +38,7 @@ function getScheduledCallback(): () => void {
 describe("startCron", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsAgentPaused.mockReturnValue(false);
   });
 
   it("skips a tick that fires while the previous tick is still in progress", async () => {
@@ -52,5 +62,27 @@ describe("startCron", () => {
 
     callback(); // now that the first tick finished, a new tick should run
     expect(tick).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips the tick when the agent is paused", () => {
+    mockIsAgentPaused.mockReturnValue(true);
+    const tick = vi.fn().mockResolvedValue(undefined);
+
+    startCron(tick);
+    getScheduledCallback()();
+
+    expect(tick).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith("Agent paused — skipping poll tick");
+  });
+
+  it("runs the tick normally when the agent is not paused", async () => {
+    mockIsAgentPaused.mockReturnValue(false);
+    const tick = vi.fn().mockResolvedValue(undefined);
+
+    startCron(tick);
+    getScheduledCallback()();
+    await Promise.resolve();
+
+    expect(tick).toHaveBeenCalledOnce();
   });
 });

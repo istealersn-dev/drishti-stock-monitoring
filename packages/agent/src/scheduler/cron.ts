@@ -6,6 +6,7 @@ import { computeHealthReport } from "../features/health/health.engine.js";
 import { formatHealthReport } from "../features/health/health.formatter.js";
 import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
+import { isAgentPaused } from "../features/settings/settings.service.js";
 import { getCachedLevels, refreshLevels } from "../features/technicals/technicals.cache.js";
 import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
 import { getWatchlist } from "../features/watchlist/watchlist.service.js";
@@ -46,6 +47,11 @@ export function startCron(tick: () => Promise<void>): void {
   const guard = createSingleFlightGuard();
 
   cron.schedule(expression, () => {
+    if (isAgentPaused()) {
+      logger.debug("Agent paused — skipping poll tick");
+      return;
+    }
+
     if (!isMarketOpen()) {
       logger.debug("Market closed — skipping poll tick");
       return;
