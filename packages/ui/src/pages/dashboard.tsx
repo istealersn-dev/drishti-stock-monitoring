@@ -4,23 +4,16 @@ import type React from "react";
 import { NeedsAttentionCard } from "../components/dashboard/needsAttentionCard";
 import { StatCard } from "../components/dashboard/statCard";
 import { Badge } from "../components/ui/badge";
+import { Spinner } from "../components/ui/spinner";
 import { StatusDot } from "../components/ui/statusDot";
 import { Table } from "../components/ui/table";
 import { type GttOrder, type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
+import { formatInr } from "../lib/format";
 import { formatPrice, ltpDirectionArrow } from "../lib/holdingFormat";
 
-const ONE_LAKH = 100_000;
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
 const NEAR_SL_BAND = 1.05; // within 5% above the SL trigger counts as "near"
-
-function formatInr(amount: number): string {
-  const abs = Math.abs(amount);
-  if (abs >= ONE_LAKH) {
-    return `₹${(abs / ONE_LAKH).toFixed(1)}L`;
-  }
-  return `₹${abs.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-}
 
 type HoldingStatus = {
   variant: "pos" | "warn" | "neg";
@@ -125,11 +118,7 @@ export function Dashboard(): React.ReactElement {
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <span
-          role="status"
-          aria-label="Loading"
-          className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
-        />
+        <Spinner />
       </div>
     );
   }

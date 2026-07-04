@@ -9,6 +9,7 @@ import { MessageList } from "../components/ask/messageList";
 import { SuggestionGrid } from "../components/ask/suggestionGrid";
 import { Breadcrumb } from "../components/ui/breadcrumb";
 import { Button } from "../components/ui/button";
+import { Spinner } from "../components/ui/spinner";
 import { askAdvisor, fetchAdvisoryConversations } from "../lib/api";
 
 type View = "hero" | "conversation";
@@ -139,11 +140,7 @@ export function Ask(): React.ReactElement {
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex h-64 items-center justify-center">
-            <span
-              role="status"
-              aria-label="Loading"
-              className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
-            />
+            <Spinner />
           </div>
         ) : isError ? (
           <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { type LogFilter, LogFilters, matchesLogFilter } from "../components/logs/logFilters";
 import { LogRow } from "../components/logs/logRow";
+import { Spinner } from "../components/ui/spinner";
 import { type AgentLog, fetchLogs } from "../lib/api";
 
 /**
@@ -32,11 +33,7 @@ export function Logs(): React.ReactElement {
       <div className="overflow-hidden rounded-2xl border border-border-strong bg-surface">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center">
-            <span
-              role="status"
-              aria-label="Loading"
-              className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
-            />
+            <Spinner />
           </div>
         ) : isError ? (
           <div className="flex h-48 items-center justify-center text-body-sm text-neg">
