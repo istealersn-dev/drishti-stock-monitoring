@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders, stockConfig } from "../../db/schema.js";
-import { env } from "../../shared/env.js";
+import { isDryRunActive } from "../../shared/dryRun.js";
 import { logger } from "../../shared/logger.js";
 import { resolveApproval, getApproval } from "../approval/approval.store.js";
 import { createGTT } from "../gtt/gtt.tools.js";
@@ -102,17 +102,21 @@ export async function executeApprovedInstruction(
 
   const limitPrice = Number((entryHigh * BUY_LIMIT_BUFFER).toFixed(2));
 
-  const gttResult = await createGTT({
-    transaction_type: "BUY",
-    trading_symbol: approval.symbol,
-    exchange: "NSE",
-    instrument_token: instrumentToken,
-    product: "D",
-    quantity: qty,
-    order_type: "LIMIT",
-    trigger_price: entryHigh,
-    limit_price: limitPrice,
-  });
+  const dryRun = isDryRunActive();
+  const gttResult = await createGTT(
+    {
+      transaction_type: "BUY",
+      trading_symbol: approval.symbol,
+      exchange: "NSE",
+      instrument_token: instrumentToken,
+      product: "D",
+      quantity: qty,
+      order_type: "LIMIT",
+      trigger_price: entryHigh,
+      limit_price: limitPrice,
+    },
+    dryRun,
+  );
 
   if (!gttResult.ok) {
     db.insert(agentLogs)
@@ -121,7 +125,7 @@ export async function executeApprovedInstruction(
         symbol: approval.symbol,
         action: "buy_entry_gtt_failed",
         reasoning: `Buy GTT failed for ${approval.symbol}: ${gttResult.error.message}`,
-        dryRun: env.DRISHTI_DRY_RUN,
+        dryRun,
         error: gttResult.error.message,
         createdAt: now,
       })
@@ -143,7 +147,7 @@ export async function executeApprovedInstruction(
       triggerPrice: entryHigh,
       limitPrice,
       quantity: qty,
-      status: env.DRISHTI_DRY_RUN ? "dry_run" : "active",
+      status: dryRun ? "dry_run" : "active",
       approvalId,
       createdAt: now,
       updatedAt: now,
@@ -188,7 +192,7 @@ export async function executeApprovedInstruction(
       symbol: approval.symbol,
       action: "buy_entry_gtt_created",
       reasoning: `Buy GTT placed for ${approval.symbol} at ₹${entryHigh}. ${gttResult.value}`,
-      dryRun: env.DRISHTI_DRY_RUN,
+      dryRun,
       error: null,
       createdAt: now,
     })
@@ -199,7 +203,7 @@ export async function executeApprovedInstruction(
     symbol: approval.symbol,
     qty,
     entryHigh,
-    dryRun: env.DRISHTI_DRY_RUN,
+    dryRun,
   });
 
   if (approval.slackTs) {

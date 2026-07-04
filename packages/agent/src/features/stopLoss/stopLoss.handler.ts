@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
 import { wasRecentlyAlerted } from "../../shared/dedup.js";
-import { env } from "../../shared/env.js";
+import { isDryRunActive } from "../../shared/dryRun.js";
 import { logger } from "../../shared/logger.js";
 import { TRADING_DAY_MS } from "../../shared/timeWindows.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
@@ -83,11 +83,13 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
 
   let gttResult: { ok: true; value: string } | { ok: false; error: { message: string } };
 
+  const dryRun = isDryRunActive();
+
   if (gttAlreadyActive) {
     gttResult = { ok: true, value: "GTT already active from an earlier tick" };
   } else {
     const request = buildSlExitRequest(holding, slThreshold);
-    gttResult = await createGTT(request);
+    gttResult = await createGTT(request, dryRun);
 
     db.insert(gttOrders)
       .values({
@@ -97,7 +99,7 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
         triggerPrice: slThreshold,
         limitPrice: request.limit_price,
         quantity: holding.quantity,
-        status: gttResult.ok ? "active" : "failed",
+        status: !gttResult.ok ? "failed" : dryRun ? "dry_run" : "active",
         approvalId: null,
         createdAt: now,
         updatedAt: now,
@@ -114,7 +116,7 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
         symbol,
         action: gttResult.ok ? SL_EXIT_CREATED_ACTION : SL_EXIT_FAILED_ACTION,
         reasoning,
-        dryRun: env.DRISHTI_DRY_RUN,
+        dryRun,
         error: gttResult.ok ? null : gttResult.error.message,
         createdAt: now,
       })
@@ -124,12 +126,12 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
       symbol,
       lastTradedPrice,
       slThreshold,
-      dryRun: env.DRISHTI_DRY_RUN,
+      dryRun,
       gttOk: gttResult.ok,
     });
   }
 
-  const dryRunNote = env.DRISHTI_DRY_RUN ? " ⚠️ *DRY RUN — no GTT placed*" : "";
+  const dryRunNote = dryRun ? " ⚠️ *DRY RUN — no GTT placed*" : "";
   const alertMessage = [
     `🚨 *SL BREACH — ${symbol}*`,
     `LTP: ₹${lastTradedPrice}  |  SL: ₹${slThreshold}  |  Qty: ${holding.quantity}`,
@@ -154,7 +156,7 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
         symbol,
         action: SL_EXIT_ALERTED_ACTION,
         reasoning: alertMessage,
-        dryRun: env.DRISHTI_DRY_RUN,
+        dryRun,
         error: null,
         createdAt: new Date().toISOString(),
       })

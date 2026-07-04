@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../../shared/env.js", () => ({
   env: {
     UPSTOX_ACCESS_TOKEN: "test-access-token",
-    DRISHTI_DRY_RUN: false,
   },
 }));
 
@@ -61,11 +60,8 @@ describe("createGTT (dry run)", () => {
   });
 
   it("returns ok with dry-run message without calling fetch", async () => {
-    const { env } = await import("../../shared/env.js");
-    (env as { DRISHTI_DRY_RUN: boolean }).DRISHTI_DRY_RUN = true;
-
     const request = buildSlExitRequest(makeHolding(), 900);
-    const result = await createGTT(request);
+    const result = await createGTT(request, true);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -73,8 +69,6 @@ describe("createGTT (dry run)", () => {
       expect(result.value).toContain("AXISBANK-EQ");
     }
     expect(fetch).not.toHaveBeenCalled();
-
-    (env as { DRISHTI_DRY_RUN: boolean }).DRISHTI_DRY_RUN = false;
   });
 });
 
@@ -84,10 +78,7 @@ describe("cancelGTT (dry run)", () => {
   });
 
   it("returns ok with dry-run message without calling fetch", async () => {
-    const { env } = await import("../../shared/env.js");
-    (env as { DRISHTI_DRY_RUN: boolean }).DRISHTI_DRY_RUN = true;
-
-    const result = await cancelGTT("order-123");
+    const result = await cancelGTT("order-123", true);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -95,7 +86,5 @@ describe("cancelGTT (dry run)", () => {
       expect(result.value).toContain("order-123");
     }
     expect(fetch).not.toHaveBeenCalled();
-
-    (env as { DRISHTI_DRY_RUN: boolean }).DRISHTI_DRY_RUN = false;
   });
 });

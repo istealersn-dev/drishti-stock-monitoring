@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const {
   mockFetchHoldings,
@@ -52,6 +52,7 @@ vi.mock("../../db/schema.js", () => ({
   agentSettings: { key: "key", value: "value" },
 }));
 
+import { agentSettings, gttOrders } from "../../db/schema.js";
 import { __resetAnalysisSnapshotForTests } from "../insights/insights.cache.js";
 
 import { buildAgentGraph } from "./agent.graph.js";
@@ -411,6 +412,104 @@ describe("buildAgentGraph", () => {
     );
     expect(writtenActions).toContain("gtt_modify_failed");
     expect(mockPushAlert).not.toHaveBeenCalledWith(expect.stringContaining("Adjust SL."));
+  });
+
+  describe("gtt_cancel", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    // db.select() is shared across unrelated queries in one graph run (wasRecentlyAlerted,
+    // findActiveGttId, isDryRunActive) — discriminate by the table passed to .from() so
+    // setting up the dry-run/active-GTT state for this test doesn't corrupt the other
+    // queries the graph makes along the way.
+    const mockSelectByTable = (dryRunValue: string | undefined): void => {
+      mockDbSelect.mockImplementation(() => ({
+        from: vi.fn((table: unknown) => {
+          if (table === gttOrders) {
+            return {
+              where: vi
+                .fn()
+                .mockReturnValue({ all: vi.fn().mockReturnValue([{ id: "gtt-existing-id" }]) }),
+            };
+          }
+          if (table === agentSettings) {
+            return {
+              where: vi.fn().mockReturnValue({
+                get: vi
+                  .fn()
+                  .mockReturnValue(
+                    dryRunValue === undefined ? undefined : { key: "dry_run", value: dryRunValue },
+                  ),
+              }),
+            };
+          }
+          // agentLogs (wasRecentlyAlerted) — not alerted yet by default.
+          return { where: vi.fn().mockReturnValue({ get: vi.fn().mockReturnValue(undefined) }) };
+        }),
+      }));
+    };
+
+    it("dry-run: does not mark the GTT row cancelled, since no real Upstox cancel happened", async () => {
+      mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+      mockFetchLTP.mockResolvedValue({
+        ok: true,
+        value: {
+          "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+        },
+      });
+      mockAnalysePortfolio.mockResolvedValue({
+        ok: true,
+        value: {
+          decisions: [
+            { symbol: "AXISBANK-EQ", action: "gtt_cancel", reasoning: "No longer needed." },
+          ],
+          portfolioSummary: "x",
+        },
+      });
+      mockSelectByTable("true");
+
+      const graph = buildAgentGraph();
+      await graph.run(makeInitialState());
+
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+      const writtenActions = mockDatabaseInsertValues.mock.calls.map(
+        (call: unknown[]) => (call[0] as { action?: string } | undefined)?.action,
+      );
+      expect(writtenActions).toContain("gtt_cancel");
+    });
+
+    it("real cancel: marks the GTT row cancelled once Upstox confirms", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ status: "success", data: { order_id: "gtt-existing-id" } }),
+        }),
+      );
+      mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+      mockFetchLTP.mockResolvedValue({
+        ok: true,
+        value: {
+          "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+        },
+      });
+      mockAnalysePortfolio.mockResolvedValue({
+        ok: true,
+        value: {
+          decisions: [
+            { symbol: "AXISBANK-EQ", action: "gtt_cancel", reasoning: "No longer needed." },
+          ],
+          portfolioSummary: "x",
+        },
+      });
+      mockSelectByTable("false");
+
+      const graph = buildAgentGraph();
+      await graph.run(makeInitialState());
+
+      expect(mockDbUpdate).toHaveBeenCalledOnce();
+    });
   });
 
   it("skips the LLM call on a repeat tick with no material change once the fallback gate has fired", async () => {

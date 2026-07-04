@@ -10,6 +10,7 @@ import {
   SYMBOL_RESOLVE_TIMEOUT_MS,
   chatOnce,
 } from "../../llm/llmClient.js";
+import { isDryRunActive } from "../../shared/dryRun.js";
 import { env } from "../../shared/env.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
@@ -78,7 +79,7 @@ export async function handleStatus(say: SayFunction): Promise<void> {
   await say(
     formatStatus({
       lastRun,
-      dryRun: env.DRISHTI_DRY_RUN,
+      dryRun: isDryRunActive(),
       pollIntervalMinutes: env.DRISHTI_POLL_INTERVAL_MINUTES,
     }),
   );
@@ -519,7 +520,7 @@ function logCommandError(action: string, error: string, symbol?: string): void {
       symbol: symbol ?? null,
       action,
       reasoning: null,
-      dryRun: env.DRISHTI_DRY_RUN,
+      dryRun: isDryRunActive(),
       error,
       createdAt: new Date().toISOString(),
     })
