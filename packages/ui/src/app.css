@@ -788,8 +788,11 @@ body {
    New design system (project/Design.md) — gold-branded, token-bound.
    Coexists with the legacy indigo tokens/classes above; those are
    retired page-by-page as each checkpoint (CP2–CP8) rebuilds it.
-   No `--spacing-*` overrides: Design.md §4 uses Tailwind's default
-   4px-based spacing scale as-is.
+   Design.md §4's general spacing uses Tailwind's default 4px-based
+   scale as-is — the only `--spacing-*` entries below (CP4) are named
+   dimensions for shell chrome Design.md §5 pins to exact pixel values
+   (sidebar width, header/footer/tab-bar heights), not a general-purpose
+   scale override.
    ══════════════════════════════════════════════════════════════════ */
 @theme {
   /* surfaces */

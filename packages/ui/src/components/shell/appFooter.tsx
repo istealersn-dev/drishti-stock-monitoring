@@ -7,6 +7,8 @@ import { StatusDot } from "../ui/statusDot";
 
 type AgentStatus = "live" | "error" | "unknown";
 
+const APP_VERSION = "1.4";
+
 type AppFooterProperties = {
   dryRun: boolean;
   agentStatus: AgentStatus;
@@ -59,6 +61,7 @@ export function AppFooter({
           {label}
         </span>
         {pendingCount > 0 && <Badge variant="info">{pendingCount} pending</Badge>}
+        <span className="font-mono text-micro text-fg-faint">v{APP_VERSION}</span>
       </div>
 
       <div className="flex flex-none items-center gap-3">

@@ -70,6 +70,7 @@ export function MobileTabBar({ pendingApprovals }: MobileTabBarProperties): Reac
               )}
             </span>
             <span>{item.label}</span>
+            {hasBadge && <span className="sr-only">(pending approvals)</span>}
           </Link>
         );
       })}

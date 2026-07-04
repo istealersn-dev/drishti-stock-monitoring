@@ -70,9 +70,15 @@ export function AppShell(): React.ReactElement {
     }, 800);
   };
 
-  if (!isDesktop) {
-    return (
-      <div className="flex h-dvh flex-col bg-bg-base">
+  // A single return with conditional siblings around one `<main><Outlet/></main>`
+  // — not two separate `if (!isDesktop) return <A/>; return <B/>;` branches —
+  // so `<Outlet/>` stays at the same position in the tree when `isDesktop`
+  // flips (e.g. resizing across 760px). Two full return branches would each
+  // mount their own `<main><Outlet/></main>`, and React would unmount/remount
+  // the routed page on every breakpoint crossing, wiping its local state.
+  return (
+    <div className="flex h-dvh flex-col bg-bg-base">
+      {!isDesktop && (
         <AppHeaderMobile
           dryRun={dryRun}
           agentStatus={agentStatus}
@@ -80,36 +86,38 @@ export function AppShell(): React.ReactElement {
           spinning={spinning}
           onRefresh={handleRefresh}
         />
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 pb-20">
-          <Outlet />
-        </main>
-        <MobileTabBar pendingApprovals={pendingCount} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-dvh flex-col bg-bg-base">
+      )}
       <div className="flex min-h-0 flex-1">
-        <Sidebar
-          pendingApprovals={pendingCount}
-          collapsed={collapsed}
-          onToggle={() => {
-            setCollapsed((previous) => !previous);
-          }}
-        />
-        <main className="min-w-0 flex-1 overflow-y-auto p-5">
+        {isDesktop && (
+          <Sidebar
+            pendingApprovals={pendingCount}
+            collapsed={collapsed}
+            onToggle={() => {
+              setCollapsed((previous) => !previous);
+            }}
+          />
+        )}
+        <main
+          className={
+            isDesktop
+              ? "min-w-0 flex-1 overflow-y-auto p-5"
+              : "min-h-0 flex-1 overflow-y-auto p-4 pb-20"
+          }
+        >
           <Outlet />
         </main>
       </div>
-      <AppFooter
-        dryRun={dryRun}
-        agentStatus={agentStatus}
-        pendingCount={pendingCount}
-        lastPollLabel={formatPollTime(lastPollAt)}
-        spinning={spinning}
-        onRefresh={handleRefresh}
-      />
+      {isDesktop && (
+        <AppFooter
+          dryRun={dryRun}
+          agentStatus={agentStatus}
+          pendingCount={pendingCount}
+          lastPollLabel={formatPollTime(lastPollAt)}
+          spinning={spinning}
+          onRefresh={handleRefresh}
+        />
+      )}
+      {!isDesktop && <MobileTabBar pendingApprovals={pendingCount} />}
     </div>
   );
 }

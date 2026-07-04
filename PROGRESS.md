@@ -464,6 +464,69 @@ from the spec.
   or further fetch-mocking against the live backend) — code-reviewed instead; the hook is a
   standard `matchMedia` + `change`-listener pattern, and the same "pick layout by viewport width"
   mechanism was confirmed working for Login's CSS-based 820px split.
+- **2026-07-04** — CP4 pre-PR gate, `/code-review --level high` (6-angle pass against the corrected
+  full diff — see the note below about a git staging mistake caught first). Found and fixed four
+  real issues:
+  - **Fixed (critical)**: `AppShell` originally used two separate `if (!isDesktop) return <mobile/>;
+    return <desktop/>;` branches, each mounting its own `<main><Outlet/></main>`. Since each branch's
+    `<Outlet/>` sat at a different position in the two distinct trees, React would unmount the whole
+    previous subtree and mount a fresh one every time `isDesktop` flipped (e.g. resizing a window or
+    rotating a tablet across 760px) — silently wiping any local state on the currently-routed page
+    (a half-typed Instructions draft, Holdings filter state, an Advisor conversation draft). Fixed by
+    restructuring to a single `return` with conditional siblings around one stable
+    `<main><Outlet/></main>` — `<main>` now always occupies the same child index in its parent
+    regardless of which conditional siblings render, so React correctly recognizes it as the same
+    node across the toggle and never remounts it. Verified via a scratch harness (temporary
+    unauthenticated route, deleted before commit): a stateful child rendered under `<main>` kept an
+    identical random marker value across a fresh mount at desktop width vs. a fresh mount at mobile
+    width (proving both layouts render correctly), and `window.matchMedia('(min-width: 760px)').matches`
+    correctly tracked the real viewport at both sizes — confirming the underlying hook/media-query
+    logic is sound. Live in-session resizing of an already-mounted page didn't trigger a visible
+    layout swap in this CDP-driven preview tool specifically (confirmed separately: manually
+    dispatching a `change` event on a freshly-obtained `MediaQueryList` also didn't propagate to the
+    hook's listener), which points to a CDP viewport-override limitation rather than a real bug —
+    consistent with this session's prior documented CDP/automation caveats — but the fix itself
+    (stable sibling positioning) is a well-established, standard React reconciliation technique
+    independent of that observation.
+  - **Fixed**: the legacy Topbar's `APP_VERSION = "1.4"` display was silently dropped when the shell
+    was rebuilt — not an intentional decision, just missed in the rebuild. Re-added to `AppFooter`
+    (desktop-only, matching the old Topbar's `sm:block`-gated desktop-only visibility).
+  - **Fixed**: `app.css`'s new-design-system header comment still said "No `--spacing-*` overrides:
+    Design.md §4 uses Tailwind's default 4px-based spacing scale as-is" immediately above the new
+    CP4 `--spacing-sidebar-expanded`/etc. tokens added in this same checkpoint — a self-contradicting
+    comment in the same diff. Updated the comment to clarify the new entries are named dimensions for
+    Design.md §5's exact-pixel shell chrome, not a general spacing-scale override (kept the
+    `--spacing-*` namespace itself, since that's what makes Tailwind v4 auto-generate the
+    `h-sidebar-expanded`/`w-sidebar-collapsed`/etc. utilities these components rely on).
+  - **Fixed**: the pending-approval indicator dot on `Sidebar`'s and `MobileTabBar`'s Instructions
+    nav item had no accessible label (unlike `StatusDot`, which pairs every dot with `sr-only` text)
+    — a screen-reader user got no indication the item had pending approvals beyond the link's own
+    label. Added `sr-only` "(pending approvals)" text alongside each dot.
+  - **Deferred, documented, not fixed**: several real-but-low-severity cleanup findings — `Sidebar`'s
+    nav-item hover treatment and `MobileTabBar`'s/`Sidebar`'s pending-dot rendering duplicate
+    `Button`'s ghost-variant hover classes and `StatusDot`'s/`Badge`'s dot-rendering pattern
+    respectively instead of reusing them; `login.tsx`'s local `DOT_CLASS` map is a third copy of the
+    same semantic-color-to-dot mapping `Badge` already has internally. None are drop-in reuses
+    without a visual-treatment change (`Badge` renders a bordered/tinted pill, not a bare dot; a
+    nav-link isn't a `Button`), so fixing them would mean either a visual change or a slightly
+    awkward abstraction — deferred as future cleanup candidates rather than forced now, consistent
+    with prior checkpoints' "duplicate twice/thrice before extracting" judgment calls.
+    `resolveStatus()`/the refresh-icon-button block are duplicated exactly twice between
+    `AppFooter`/`AppHeaderMobile` — left as-is since CLAUDE.md's rule explicitly tolerates exactly
+    this amount of duplication before extraction.
+  - **Note on process**: while gathering this review's diff, discovered the checkpoint's first
+    commit (`a6a97ed`) was incomplete — an earlier `git add -A -- <paths>` included a stale pathspec
+    (`packages/ui/src/components/layout`, already removed by an earlier `git rm`), which silently
+    failed the entire `git add` invocation and left `router.tsx`, `app.css`, `eslint.config.ts`,
+    `input.tsx`, `login.tsx`, and this file unstaged. The pushed commit was consequently
+    build-broken (`router.tsx` still imported the just-deleted legacy `Shell`). Caught before the
+    review agents ran (by diffing against `origin/main` and noticing the file list was too short),
+    fixed with a follow-up commit (`eab2de7`) before proceeding. Lesson: always verify `git status`
+    output column position (leading space = unstaged, no leading space = staged) after a multi-path
+    `git add`, and prefer `git diff origin/main...HEAD --stat` as a final sanity check on what a
+    checkpoint's commits actually contain before treating them as complete.
+  `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round (lint: 0 errors, the same 8
+  documented `local/flag-stray-position` warnings).
 
 ## Constraints checklist (re-verify every checkpoint)
 
