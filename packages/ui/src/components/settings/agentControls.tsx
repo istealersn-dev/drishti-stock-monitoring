@@ -64,8 +64,7 @@ export function AgentControls({
             Dry Run {dryRun ? "ON" : "OFF"}
           </div>
           <p className="mt-0.5 text-caption text-fg-faint">
-            Updates agent config — real-order gating also depends on the DRISHTI_DRY_RUN environment
-            variable set at process start
+            {dryRun ? "No real orders will be placed" : "Live — real orders will be placed"}
           </p>
         </div>
         <Switch

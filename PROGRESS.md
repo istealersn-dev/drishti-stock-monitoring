@@ -872,6 +872,19 @@ gold-branded token system; the legacy indigo CSS system has been fully retired.
   Agent copy, and the "Unavailable"-labeled Danger Zone buttons all render correctly.
   `pnpm typecheck`/`lint`/`build` all clean. No further findings — considered converged, ready to
   merge as the final checkpoint of the 8-checkpoint UI rebuild.
+- **2026-07-04** — Both backend follow-up tasks landed: **PR #35** wired the scheduler
+  (`packages/agent/src/scheduler/cron.ts`) to actually consult the DB-backed `pause_agent` setting
+  before running a tick, and updated `AgentControls.tsx`'s Pause Agent copy to describe real
+  behavior again ("Poll tick paused/active..."). **PR #36** added `isDryRunActive()`
+  (`packages/agent/src/shared/dryRun.ts`) — the DB-backed `dry_run` row now overrides
+  `env.DRISHTI_DRY_RUN` when present, with every Upstox-write call site (`gtt.tools.ts`,
+  `instructions.executor.ts`, `agent.graph.ts`, `stopLoss.handler.ts`) gating on this helper instead
+  of the raw env var — but PR #36 only touched `packages/agent`, leaving the Dry Run toggle's UI
+  copy still showing CP8's softened "Updates agent config..." placeholder even though the toggle is
+  now genuinely authoritative. Restored `AgentControls.tsx`'s Dry Run copy to a confident
+  `dryRun ? "No real orders will be placed" : "Live — real orders will be placed"`, matching the
+  PR #35 pattern. Both Settings toggles are now honest and functional. `pnpm typecheck`/`lint`/
+  `build` all clean.
 
 ## Constraints checklist (re-verify every checkpoint)
 
