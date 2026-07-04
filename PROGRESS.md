@@ -607,6 +607,38 @@ from the spec.
   `:focus-visible`-requires-genuine-keyboard-intent browser heuristic already documented in this
   session's CP3 Tooltip investigation, not a fresh bug). `pnpm --filter ui typecheck`/`lint`/`build`
   all clean after this round (lint: 0 errors, 12 documented `local/flag-stray-position` warnings).
+- **2026-07-04** — CP5 post-PR `/review` gate on PR #30 (2 consolidated angles). Two independent
+  agents both surfaced the same residual gap in round 1's cross-session mutation fix, plus a
+  genuinely new correctness bug:
+  - **Fixed**: `sessionMessages` had no explicit sort — the deleted `advisor.tsx` re-sorted
+    ascending by `createdAt` before rendering, but the rewrite dropped that entirely, and the
+    backend's `/api/advisor/conversations` returns rows newest-first. Every conversation would have
+    rendered upside down (latest question above the first, the trailing `TypingIndicator` bubble
+    appearing above the actual most recent message instead of below it). Fixed by explicitly
+    sorting `sessionMessages` ascending by `createdAt` client-side — matches the old page's
+    behavior and doesn't trust the API's implicit ordering.
+  - **Fixed**: round 1's session-id-ref-guard only protected the `onSuccess`/`onError` callback
+    bodies (the `question`/`askError` state writes) — but `mutation.isPending` itself is a single
+    shared boolean for the `useMutation` instance's entire lifetime, not scoped per session, and it
+    still drove the Composer's `disabled` prop (both instances) and `MessageList`'s
+    `TypingIndicator` display directly. Asking in session A then clicking "New chat" before it
+    settled left the *new* session B's composer disabled and showing a phantom typing indicator,
+    driven by session A's still-in-flight request, until that request finally resolved. Fixed by
+    tracking `pendingSessionId` as its own piece of state (set at ask-time, cleared in the
+    session-guarded `onSuccess`/`onError`, and also cleared unconditionally by "New chat" to
+    immediately abandon any stale pending UI) and deriving `isPendingForSession =
+    pendingSessionId === sessionId` for every place that previously read `mutation.isPending`
+    directly.
+  - **Noted, not extracted**: one reviewing angle asked whether the session-id-ref-guard pattern
+    (capture an id at call time, compare against a ref in async callbacks before applying
+    side-effects) belongs in a shared hook now, since future mutation-heavy pages (CP6 Holdings
+    inline edits, CP7 GTT modify/cancel) will likely need the identical shape. Left as page-local
+    for now — this is the first occurrence, and CLAUDE.md's "duplicate twice before extracting"
+    guidance argues against generalizing a mechanism after a single use; worth revisiting if/when a
+    second page needs the same "abandon a stale in-flight request tied to a context that changed
+    mid-flight" pattern.
+  `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round. No further findings
+  survived — considered converged.
 
 ## Constraints checklist (re-verify every checkpoint)
 

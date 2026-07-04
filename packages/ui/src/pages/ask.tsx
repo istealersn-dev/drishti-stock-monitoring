@@ -26,6 +26,13 @@ export function Ask(): React.ReactElement {
   const [view, setView] = useState<View>("hero");
   const [question, setQuestion] = useState("");
   const [askError, setAskError] = useState<string | null>(null);
+  // useMutation's own `isPending` is a single boolean for the component's
+  // lifetime, not scoped per session — tracking which session actually has a
+  // request in flight lets "New chat" abandon a stale one instead of leaving
+  // the fresh session's composer/typing-indicator driven by an unrelated,
+  // still-settling request.
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  const isPendingForSession = pendingSessionId === sessionId;
   const queryClient = useQueryClient();
 
   // Read inside async mutation callbacks so a stale response (settling after
@@ -51,23 +58,28 @@ export function Ask(): React.ReactElement {
     mutationFn: (text: string) => askAdvisor(text, sessionId),
   });
 
-  const sessionMessages = conversations.filter((message) => message.sessionId === sessionId);
+  const sessionMessages = conversations
+    .filter((message) => message.sessionId === sessionId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   const handleAsk = (text: string): void => {
     const trimmed = text.trim();
-    if (!trimmed || mutation.isPending) return;
+    if (!trimmed || isPendingForSession) return;
     const askedForSession = sessionId;
     setAskError(null);
     setView("conversation");
+    setPendingSessionId(askedForSession);
     mutation.mutate(trimmed, {
       onSuccess: () => {
         void queryClient.invalidateQueries({ queryKey: ["advisor-conversations"] });
         if (askedForSession !== sessionIdReference.current) return;
+        setPendingSessionId(null);
         setAskError(null);
         setQuestion("");
       },
       onError: (error: Error) => {
         if (askedForSession !== sessionIdReference.current) return;
+        setPendingSessionId(null);
         setAskError(error.message);
       },
     });
@@ -82,6 +94,7 @@ export function Ask(): React.ReactElement {
     setView("hero");
     setQuestion("");
     setAskError(null);
+    setPendingSessionId(null);
   };
 
   if (view === "hero") {
@@ -104,7 +117,7 @@ export function Ask(): React.ReactElement {
             onSubmit={() => {
               handleAsk(question);
             }}
-            disabled={mutation.isPending}
+            disabled={isPendingForSession}
           />
         </div>
       </div>
@@ -137,7 +150,7 @@ export function Ask(): React.ReactElement {
             Failed to load conversation. Is the agent running?
           </div>
         ) : (
-          <MessageList messages={sessionMessages} pending={mutation.isPending} />
+          <MessageList messages={sessionMessages} pending={isPendingForSession} />
         )}
       </div>
 
@@ -153,7 +166,7 @@ export function Ask(): React.ReactElement {
         onSubmit={() => {
           handleAsk(question);
         }}
-        disabled={mutation.isPending}
+        disabled={isPendingForSession}
       />
     </div>
   );
