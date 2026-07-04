@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { StatusDot } from "../components/ui/statusDot";
 import { Table } from "../components/ui/table";
 import { type GttOrder, type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
+import { formatPrice } from "../lib/holdingFormat";
 
 const ONE_LAKH = 100_000;
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
@@ -19,10 +20,6 @@ function formatInr(amount: number): string {
     return `₹${(abs / ONE_LAKH).toFixed(1)}L`;
   }
   return `₹${abs.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-}
-
-function formatPrice(price: number): string {
-  return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 type HoldingStatus = {
@@ -264,7 +261,7 @@ export function Dashboard(): React.ReactElement {
                     : 0;
 
                 return (
-                  <Table.Row key={holding.isin}>
+                  <Table.Row key={`${holding.isin}-${holding.product}`}>
                     <Table.Cell className="font-mono uppercase">
                       {holding.trading_symbol}
                     </Table.Cell>

@@ -694,6 +694,19 @@ from the spec.
   correctly and match the prototype's mobile-card design closely. `pnpm --filter ui
   typecheck`/`lint`/`build` all clean (lint: 0 errors, 13 documented `local/flag-stray-position`
   warnings).
+  **Post-PR gate, `/review` on PR #31 (2 independent consolidated angles)**: both surfaced the
+  round-1 fixes above were incomplete — same bugs, additional call sites I'd missed:
+  - **Fixed**: `dashboard.tsx`'s second, separate Holdings Overview table (~60 lines below the
+    already-fixed Needs Attention grid) still used the non-composite `key={holding.isin}` — same
+    same-ISIN-under-MTF-and-CNC collision, just missed in the same file. Fixed to the composite
+    `${isin}-${product}` key.
+  - **Fixed**: `dashboard.tsx` and `needsAttentionCard.tsx` each still defined their own local,
+    byte-identical `formatPrice`, even though this same PR's round-1 fix had just extracted
+    `formatPrice` into `lib/holdingFormat.ts` specifically to kill this duplication — round 1 only
+    updated `holdingsTable.tsx`/`holdingCard.tsx`, missing these two other pre-existing call sites.
+    Both now import `formatPrice` from `../lib/holdingFormat` / `../../lib/holdingFormat` instead of
+    a local definition.
+  Re-ran `pnpm --filter ui typecheck`/`lint`/`build` — all clean. No further findings; converged.
 
 ## Constraints checklist (re-verify every checkpoint)
 

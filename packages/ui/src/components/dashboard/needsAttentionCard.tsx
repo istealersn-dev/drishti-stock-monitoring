@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import type React from "react";
 
+import { formatPrice } from "../../lib/holdingFormat";
 import { Button } from "../ui/button";
 import { StatusDot } from "../ui/statusDot";
 
@@ -25,10 +26,6 @@ type NeedsAttentionCardProperties = {
   sl: number;
   distanceToSlPercentage: number;
 };
-
-function formatPrice(price: number): string {
-  return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 /**
  * Dashboard "Needs attention" card (Drishti.dc.html) — one row per holding
