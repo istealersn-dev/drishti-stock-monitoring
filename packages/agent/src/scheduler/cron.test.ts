@@ -85,4 +85,20 @@ describe("startCron", () => {
 
     expect(tick).toHaveBeenCalledOnce();
   });
+
+  it("skips the tick and logs an error, rather than throwing, when isAgentPaused fails", () => {
+    mockIsAgentPaused.mockImplementation(() => {
+      throw new Error("database is locked");
+    });
+    const tick = vi.fn().mockResolvedValue(undefined);
+
+    startCron(tick);
+
+    expect(() => getScheduledCallback()()).not.toThrow();
+    expect(tick).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      "Failed to read pause_agent setting — skipping tick as a precaution",
+      { error: "database is locked" },
+    );
+  });
 });

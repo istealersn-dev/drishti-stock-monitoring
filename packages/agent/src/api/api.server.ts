@@ -25,6 +25,7 @@ import { submitBuyInstruction } from "../features/instructions/instructions.pipe
 import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { ParsedInstructionSchema } from "../features/instructions/instructions.schema.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
+import { isAgentPaused } from "../features/settings/settings.service.js";
 import { getCachedLevels, saveLevels } from "../features/technicals/technicals.cache.js";
 import { computeLevels, fetchOHLCV } from "../features/technicals/technicals.service.js";
 import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
@@ -38,6 +39,13 @@ import { logger } from "../shared/logger.js";
 
 const API_RUNS_LIMIT = 20;
 const API_LOGS_LIMIT = 100;
+
+const BOOLEAN_SETTING_SCHEMA = z.enum(["true", "false"]);
+const SETTINGS_VALUE_PARSERS = {
+  dry_run: BOOLEAN_SETTING_SCHEMA,
+  pause_agent: BOOLEAN_SETTING_SCHEMA,
+  poll_interval_minutes: z.coerce.number().int().min(1).max(60),
+};
 
 // ── Query helpers (exported for unit tests) ───────────────────────────────────
 
@@ -94,7 +102,7 @@ export function querySettings(): Record<string, string | number | boolean> {
         : overrides["dry_run"] === "false"
           ? false
           : env.DRISHTI_DRY_RUN,
-    pauseAgent: overrides["pause_agent"] === "true",
+    pauseAgent: isAgentPaused(),
     pollIntervalMinutes:
       overrides["poll_interval_minutes"] !== undefined
         ? Number(overrides["poll_interval_minutes"])
@@ -104,6 +112,29 @@ export function querySettings(): Record<string, string | number | boolean> {
     approvalTimeoutMinutes: env.DRISHTI_APPROVAL_TIMEOUT_MINUTES,
     apiPort: env.AGENT_API_PORT,
   };
+}
+
+/**
+ * Validate a PUT /api/settings request body against the allowed setting keys,
+ * rejecting unknown keys and coercing each value to its stored string form.
+ * @param body - Raw request body
+ * @returns Validated key/value pairs to persist, or an error message
+ */
+export function validateSettingsPatch(
+  body: Record<string, unknown>,
+): { ok: true; entries: Array<{ key: string; value: string }> } | { ok: false; error: string } {
+  const entries: Array<{ key: string; value: string }> = [];
+  for (const [key, rawValue] of Object.entries(body)) {
+    const parser = SETTINGS_VALUE_PARSERS[key as keyof typeof SETTINGS_VALUE_PARSERS];
+    if (!parser) continue;
+
+    const parsed = parser.safeParse(rawValue);
+    if (!parsed.success) {
+      return { ok: false, error: `Invalid value for ${key}` };
+    }
+    entries.push({ key, value: String(parsed.data) });
+  }
+  return { ok: true, entries };
 }
 
 /**
@@ -196,19 +227,19 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   });
 
   app.put<{ Body: Record<string, unknown> }>("/api/settings", async (request, reply) => {
-    const body = request.body;
-    const allowed = new Set(["dry_run", "pause_agent", "poll_interval_minutes"]);
-    const now = new Date().toISOString();
+    const validated = validateSettingsPatch(request.body);
+    if (!validated.ok) {
+      return reply.status(400).send({ ok: false, error: validated.error });
+    }
 
+    const now = new Date().toISOString();
     const updated: string[] = [];
-    for (const [key, value] of Object.entries(body)) {
-      if (!allowed.has(key)) continue;
-      const stringValue = String(value);
+    for (const { key, value } of validated.entries) {
       db.insert(agentSettings)
-        .values({ key, value: stringValue, updatedAt: now })
+        .values({ key, value, updatedAt: now })
         .onConflictDoUpdate({
           target: agentSettings.key,
-          set: { value: stringValue, updatedAt: now },
+          set: { value, updatedAt: now },
         })
         .run();
       updated.push(key);

@@ -39,7 +39,8 @@ export function isMarketOpen(now: Date = new Date()): boolean {
 
 /**
  * Start the market-hours polling cron job.
- * The tick callback is invoked only when the market is open.
+ * The tick callback is invoked only when the market is open and the agent
+ * is not paused via the dashboard "Pause agent" toggle.
  * @param tick - Async function to run on each poll
  */
 export function startCron(tick: () => Promise<void>): void {
@@ -47,13 +48,23 @@ export function startCron(tick: () => Promise<void>): void {
   const guard = createSingleFlightGuard();
 
   cron.schedule(expression, () => {
-    if (isAgentPaused()) {
-      logger.debug("Agent paused — skipping poll tick");
+    if (!isMarketOpen()) {
+      logger.debug("Market closed — skipping poll tick");
       return;
     }
 
-    if (!isMarketOpen()) {
-      logger.debug("Market closed — skipping poll tick");
+    let paused: boolean;
+    try {
+      paused = isAgentPaused();
+    } catch (error) {
+      logger.error("Failed to read pause_agent setting — skipping tick as a precaution", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+
+    if (paused) {
+      logger.debug("Agent paused — skipping poll tick");
       return;
     }
 

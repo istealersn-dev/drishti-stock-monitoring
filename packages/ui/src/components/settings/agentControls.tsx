@@ -82,7 +82,9 @@ export function AgentControls({
         <div>
           <div className="text-body-sm font-medium text-fg">Pause agent</div>
           <p className="mt-0.5 text-caption text-fg-faint">
-            {pauseAgent ? "Scheduler halted — no new runs" : "Scheduler active — polls on schedule"}
+            {pauseAgent
+              ? "Poll tick paused — no new SL/target checks or analysis"
+              : "Poll tick active — checks SL/targets on schedule"}
           </p>
         </div>
         <Switch
