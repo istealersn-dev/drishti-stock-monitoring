@@ -1,10 +1,12 @@
 import type React from "react";
+import { useState } from "react";
 
 import type { Approval, ParsedInstruction } from "../../lib/api";
 import { formatPriceOrDash } from "../../lib/format";
 import { Badge, type BadgeVariant } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { Dialog } from "../ui/dialog";
 
 const STATUS_VARIANT: Record<string, BadgeVariant> = {
   pending: "warn",
@@ -56,10 +58,12 @@ type ApprovalCardProperties = {
 /**
  * Pending buy-approval card (handoff.md §4 `ApprovalCard.tsx`) — parsed
  * instruction fields (entry/SL/targets), suggested qty, elapsed time since
- * creation, and approve/reject actions. Only ever rendered for
- * `status === "pending"` approvals (the caller filters settled/expired ones
- * out before this point), so it doesn't carry a separate settled/expired
- * display state.
+ * creation, and approve/reject actions. Reject goes through a Radix Dialog
+ * confirm (handoff.md §5: "approve/reject instruction" is named alongside
+ * GTT cancel as a destructive mutation requiring a confirm step). Only ever
+ * rendered for `status === "pending"` approvals (the caller filters
+ * settled/expired ones out before this point), so it doesn't carry a
+ * separate settled/expired display state.
  * @param props.approval - the pending approval to render
  * @param props.onApprove - called with the approval id when Approve is clicked
  * @param props.onReject - called with the approval id when Reject is clicked
@@ -78,6 +82,7 @@ export function ApprovalCard({
 }: ApprovalCardProperties): React.ReactElement {
   const parsed = approval.parsedInstruction;
   const elapsed = resolveElapsed(approval.createdAt);
+  const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
 
   return (
     <Card className="flex flex-col gap-3">
@@ -133,15 +138,39 @@ export function ApprovalCard({
         >
           {approvePending ? "Approving…" : "Approve"}
         </Button>
-        <Button
-          variant="destructive"
-          disabled={approvePending || rejectPending}
-          onClick={() => {
-            onReject(approval.id);
-          }}
-        >
-          {rejectPending ? "Rejecting…" : "Reject"}
-        </Button>
+        <Dialog open={rejectConfirmOpen} onOpenChange={setRejectConfirmOpen}>
+          <Dialog.Trigger>
+            <Button variant="destructive" disabled={approvePending || rejectPending}>
+              {rejectPending ? "Rejecting…" : "Reject"}
+            </Button>
+          </Dialog.Trigger>
+          <Dialog.Content
+            title="Reject this instruction?"
+            description={`This will reject the buy instruction for ${approval.symbol}. This cannot be undone.`}
+            tone="destructive"
+          >
+            <Dialog.Footer>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setRejectConfirmOpen(false);
+                }}
+              >
+                Keep pending
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={rejectPending}
+                onClick={() => {
+                  setRejectConfirmOpen(false);
+                  onReject(approval.id);
+                }}
+              >
+                {rejectPending ? "Rejecting…" : "Confirm reject"}
+              </Button>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog>
       </div>
     </Card>
   );

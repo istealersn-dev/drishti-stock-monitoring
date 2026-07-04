@@ -8,15 +8,12 @@ import { Badge } from "../ui/badge";
 import { Table } from "../ui/table";
 
 import { GttCancelDialog } from "./gttCancelDialog";
-import { useGttCancel } from "./useGttCancel";
 
 type GttRowProperties = {
   order: GttOrder;
 };
 
 function GttRow({ order }: GttRowProperties): React.ReactElement {
-  const { confirmOpen, setConfirmOpen, isPending, errorMessage, handleConfirmCancel } =
-    useGttCancel(order.id);
   const approvalShort = order.approvalId != null ? order.approvalId.slice(0, 8) : "—";
 
   return (
@@ -36,16 +33,7 @@ function GttRow({ order }: GttRowProperties): React.ReactElement {
       <Table.Cell numeric>{formatDate(order.createdAt)}</Table.Cell>
       <Table.Cell className="font-mono text-caption text-fg-faint">{approvalShort}</Table.Cell>
       <Table.Cell align="right">
-        {order.status === "active" && (
-          <GttCancelDialog
-            order={order}
-            confirmOpen={confirmOpen}
-            setConfirmOpen={setConfirmOpen}
-            isPending={isPending}
-            errorMessage={errorMessage}
-            onConfirm={handleConfirmCancel}
-          />
-        )}
+        {order.status === "active" && <GttCancelDialog order={order} />}
       </Table.Cell>
     </Table.Row>
   );
@@ -59,7 +47,7 @@ type GttTableProperties = {
  * Desktop GTT orders table (handoff.md §4 `GttTable.tsx`) — 9 columns with a
  * Radix Dialog confirm before cancelling an active order (handoff.md §5:
  * destructive mutations go through a Radix Dialog confirm). Shares
- * `useGttCancel` with `GttCard`'s mobile presentation.
+ * `GttCancelDialog` with `GttCard`'s mobile presentation.
  * @param props.orders - the GTT orders to render, active-first
  * @returns Gtt table element
  */

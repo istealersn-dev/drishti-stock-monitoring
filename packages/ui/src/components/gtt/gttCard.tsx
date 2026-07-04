@@ -8,7 +8,6 @@ import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
 
 import { GttCancelDialog } from "./gttCancelDialog";
-import { useGttCancel } from "./useGttCancel";
 
 type GttCardProperties = {
   order: GttOrder;
@@ -16,15 +15,13 @@ type GttCardProperties = {
 
 /**
  * Mobile GTT order card (handoff.md §4 `GttCard.tsx`) — the same fields as
- * `GttTable`'s columns, reflowed into stacked rows. Shares `useGttCancel`
+ * `GttTable`'s columns, reflowed into stacked rows. Shares `GttCancelDialog`
  * with the desktop table so both presentations confirm cancellation
  * identically.
  * @param props.order - the GTT order to render
  * @returns Gtt card element
  */
 export function GttCard({ order }: GttCardProperties): React.ReactElement {
-  const { confirmOpen, setConfirmOpen, isPending, errorMessage, handleConfirmCancel } =
-    useGttCancel(order.id);
   const approvalShort = order.approvalId != null ? order.approvalId.slice(0, 8) : "—";
 
   return (
@@ -60,16 +57,7 @@ export function GttCard({ order }: GttCardProperties): React.ReactElement {
         Approval <span className="font-mono">{approvalShort}</span>
       </div>
 
-      {order.status === "active" && (
-        <GttCancelDialog
-          order={order}
-          confirmOpen={confirmOpen}
-          setConfirmOpen={setConfirmOpen}
-          isPending={isPending}
-          errorMessage={errorMessage}
-          onConfirm={handleConfirmCancel}
-        />
-      )}
+      {order.status === "active" && <GttCancelDialog order={order} />}
     </Card>
   );
 }

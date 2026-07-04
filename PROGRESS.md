@@ -749,6 +749,54 @@ from the spec.
   a visible error instead of silently saving as blank. Re-ran `pnpm --filter ui typecheck`/`lint`/
   `build` — all clean (lint: 0 errors, 13 pre-existing `local/flag-stray-position` warnings). No
   further findings — considered converged, ready to merge.
+- **2026-07-04** — CP7: rebuilt Instructions, GTT, and Logs on the new token system, replacing the
+  old indigo CSS-grid-div implementation with semantic Table/Card/Badge/Dialog/Tabs primitives,
+  preserving all business logic exactly. New: `instructions/InstructionComposer.tsx` +
+  `ApprovalCard.tsx`, `gtt/GttTable.tsx` + `GttCard.tsx` sharing a `useGttCancel` hook and a
+  `GttCancelDialog` component, `logs/LogFilters.tsx` + `LogRow.tsx`. Centralized the log
+  category-matching logic (previously pattern-matched twice — once for filtering, once for
+  action-chip coloring) into a single `resolveLogCategory` in `lib/logFormat.ts`. Exported
+  `BadgeVariant` from `components/ui/badge.tsx` so downstream files import one source of truth.
+  **Pre-PR `/code-review --level high` (8 angles, verified)**: fixed 5 issues —
+  `BadgeVariant` triplicated across `gttFormat.ts`/`logFormat.ts`/`approvalCard.tsx` (now all
+  import it), `gttStatusVariant` unsafely defaulting any unrecognized status to `"neg"`/danger
+  (now defaults to `"neutral"`, matching `productBadgeVariant`'s convention; only `"failed"` maps
+  to `"neg"`), dead `isExpired`/`isSettled` branches in `ApprovalCard` (unreachable since
+  `instructions.tsx` only ever passes `status === "pending"` approvals), a stale-error bug in
+  `useGttCancel` (closing the cancel-confirm dialog after a failed attempt never reset the
+  mutation, so reopening showed the old error immediately — now calls `mutation.reset()` on every
+  close), and the cancel-confirm Dialog markup duplicated verbatim between `GttTable`/`GttCard`
+  (extracted to `GttCancelDialog`). `/security-review`: zero findings.
+  **Post-PR `/review` on PR #32 (8-angle pass)**: 4 more findings survived verification, all fixed:
+  - **Fixed**: handoff.md §5 names "approve/reject instruction" in the exact same sentence as
+    "cancel GTT" as needing a Radix Dialog confirm before executing — this PR added one for GTT
+    cancel but missed the sibling case; clicking "Reject" fired the mutation immediately with zero
+    confirmation. Added a confirm dialog to `ApprovalCard`'s Reject button (local `useState`, no
+    shared mutation-reset concern since the existing `actionError` already lives in the parent and
+    is cleared before every new attempt).
+  - **Fixed**: `logFilters.tsx`'s exported `matchesLogFilter` had no JSDoc, while every other
+    exported function in the diff did — violates this repo's CLAUDE.md "every public function must
+    have a JSDoc comment with `@param` and `@returns`." Added.
+  - **Fixed**: `holdingFormat.ts`'s `productBadgeVariant` (a CP6 file) still used an inline literal
+    return type instead of the newly-exported `BadgeVariant` — the exact drift this PR's export was
+    meant to prevent, just missed at this one call site. Now imports and uses `BadgeVariant`.
+  - **Fixed**: `GttTable`/`GttCard` both called `useGttCancel(order.id)` solely to forward all 5
+    returned fields unchanged into `GttCancelDialog` as props — unnecessary indirection. Simplified
+    `GttCancelDialog` to take only `order` and call `useGttCancel(order.id)` internally; both
+    callers now just render `<GttCancelDialog order={order} />`.
+  - **Deferred (documented, not extracted)**: multiple angles noted that `useGttCancel`'s
+    confirm-then-mutate-then-reset shape is now duplicated by the new Reject-confirm logic in
+    `ApprovalCard`, and that four independent "status string → Badge variant" functions
+    (`gttStatusVariant`, `logActionBadgeVariant`, `productBadgeVariant`, `approvalCard`'s
+    `resolveStatusVariant`) exist with slightly different fallback shapes. Not generalized into a
+    shared `useConfirmedMutation<T>`/`mapStatusToVariant` helper this round — the Reject dialog's
+    state is simpler (no mutation object to reset, since errors live in the parent already) and
+    forcing a shared abstraction across two structurally different call sites risked more scope/risk
+    than the current, small duplication justifies. Left as a candidate for a future round once a
+    third confirm-dialog case appears.
+  Re-verified live (scratch-route methodology): the Reject confirm dialog opens/closes correctly and
+  matches the GTT cancel dialog's pattern. Re-ran `pnpm --filter ui typecheck`/`lint`/`build` — all
+  clean (lint: 0 errors, 13 pre-existing warnings). No further findings — considered converged.
 
 ## Constraints checklist (re-verify every checkpoint)
 

@@ -4,37 +4,25 @@ import type { GttOrder } from "../../lib/api";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 
+import { useGttCancel } from "./useGttCancel";
+
 type GttCancelDialogProperties = {
   order: GttOrder;
-  confirmOpen: boolean;
-  setConfirmOpen: (open: boolean) => void;
-  isPending: boolean;
-  errorMessage: string | null;
-  onConfirm: () => void;
 };
 
 /**
  * Shared cancel-confirmation dialog for an active GTT order (handoff.md §5:
  * destructive mutations go through a Radix Dialog confirm) — used identically
- * by `GttTable`'s row and `GttCard`'s mobile presentation (both driven by
- * `useGttCancel`) so the confirm copy and button behavior can't drift
- * between the two presentations.
+ * by `GttTable`'s row and `GttCard`'s mobile presentation, so the confirm
+ * copy and button behavior can't drift between the two presentations. Owns
+ * its `useGttCancel` call so callers only ever need to pass the `order`.
  * @param props.order - the GTT order being cancelled
- * @param props.confirmOpen - whether the confirm dialog is open
- * @param props.setConfirmOpen - open-state change handler
- * @param props.isPending - whether the cancel mutation is in flight
- * @param props.errorMessage - error message from a failed cancel, if any
- * @param props.onConfirm - called when the user confirms the cancel
  * @returns Cancel confirmation dialog element
  */
-export function GttCancelDialog({
-  order,
-  confirmOpen,
-  setConfirmOpen,
-  isPending,
-  errorMessage,
-  onConfirm,
-}: GttCancelDialogProperties): React.ReactElement {
+export function GttCancelDialog({ order }: GttCancelDialogProperties): React.ReactElement {
+  const { confirmOpen, setConfirmOpen, isPending, errorMessage, handleConfirmCancel } =
+    useGttCancel(order.id);
+
   return (
     <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
       <Dialog.Trigger>
@@ -57,7 +45,7 @@ export function GttCancelDialog({
           >
             Keep order
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
+          <Button variant="destructive" onClick={handleConfirmCancel} disabled={isPending}>
             {isPending ? "Cancelling…" : "Confirm cancel"}
           </Button>
         </Dialog.Footer>

@@ -18,6 +18,12 @@ function isLogFilter(value: string): value is LogFilter {
   return FILTER_TABS.some((tab) => tab.key === value);
 }
 
+/**
+ * Checks whether a log entry's action matches the active filter tab.
+ * @param action - the log entry's raw action string
+ * @param filter - the active log filter
+ * @returns whether the log entry should be visible under this filter
+ */
 export function matchesLogFilter(action: string, filter: LogFilter): boolean {
   if (filter === "ALL") return true;
   return resolveLogCategory(action) === filter;

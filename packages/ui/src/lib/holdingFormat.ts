@@ -1,3 +1,5 @@
+import type { BadgeVariant } from "../components/ui/badge";
+
 /**
  * Formats a price with 2 decimal places, en-IN grouping (no ₹ prefix — callers
  * that need the symbol prepend it themselves).
@@ -28,7 +30,7 @@ export function formatPnl(pnl: number, cost: number): string {
  * @param product - the holding's product code (e.g. "MTF", "CNC")
  * @returns a Badge variant name
  */
-export function productBadgeVariant(product: string): "warn" | "info" | "neutral" {
+export function productBadgeVariant(product: string): BadgeVariant {
   if (product === "MTF") return "warn";
   if (product === "CNC") return "info";
   return "neutral";
