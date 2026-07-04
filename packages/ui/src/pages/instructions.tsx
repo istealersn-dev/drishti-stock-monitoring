@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ApprovalCard } from "../components/instructions/approvalCard";
 import { InstructionComposer } from "../components/instructions/instructionComposer";
 import { Badge } from "../components/ui/badge";
+import { Spinner } from "../components/ui/spinner";
 import {
   type Approval,
   approveInstruction,
@@ -150,11 +151,7 @@ export function Instructions(): React.ReactElement {
         </div>
       ) : isLoading ? (
         <div className="flex h-24 items-center justify-center">
-          <span
-            role="status"
-            aria-label="Loading"
-            className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
-          />
+          <Spinner />
         </div>
       ) : pendingApprovals.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">

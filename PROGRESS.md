@@ -25,8 +25,11 @@ from the spec.
 | 4 | App scaffold + responsive shell + Login | **done, merged** | `feat/cp4-app-shell-login` (deleted) | [#29](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/29) |
 | 5 | Ask Drishti (hero, composer, AmbientWave, chat) | **done, merged** | `feat/cp5-ask-drishti` (deleted) | [#30](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/30) |
 | 6 | Dashboard + Holdings | **done, merged** | `feat/cp6-dashboard-holdings` (deleted) | [#31](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/31) |
-| 7 | Instructions + GTT + Logs | in-progress | `feat/cp7-instructions-gtt-logs` | — |
-| 8 | Settings + data layer + hardening | todo | — | — |
+| 7 | Instructions + GTT + Logs | **done, merged** | `feat/cp7-instructions-gtt-logs` (deleted) | [#32](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/32) |
+| 8 | Settings + data layer + hardening | **done, merged** | `feat/cp8-settings-hardening` (deleted) | [#33](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/33) |
+
+**All 8 checkpoints complete.** The Drishti UI rebuild is finished — every page runs on the new
+gold-branded token system; the legacy indigo CSS system has been fully retired.
 
 ## Decisions log
 
@@ -797,6 +800,78 @@ from the spec.
   Re-verified live (scratch-route methodology): the Reject confirm dialog opens/closes correctly and
   matches the GTT cancel dialog's pattern. Re-ran `pnpm --filter ui typecheck`/`lint`/`build` — all
   clean (lint: 0 errors, 13 pre-existing warnings). No further findings — considered converged.
+- **2026-07-04** — CP8 (final checkpoint): rebuilt Settings on the new token system
+  (`AgentControls.tsx` + `DangerZone.tsx`), migrated the two remaining Phase-7 pages (`watchlist.tsx`,
+  `health.tsx`) off the legacy CSS system, and did a hardening pass now that every page has migrated.
+  **Judgment calls, confirmed via user AskUserQuestion before implementation**: (1) omitted
+  handoff.md's "Model & API access" (BYO multi-provider key form) and Brokers sections — the real
+  backend has no broker/provider data model to back them, and this project is hardcoded to a single
+  local LM Studio provider (repo CLAUDE.md); building an editable cloud-provider-key form would be UI
+  over a nonexistent backend and would contradict that policy. (2) No data-layer/ORM changes —
+  handoff.md's Prisma v7 sketch stays aspirational/illustrative like every prior checkpoint treated
+  it; the real backend (Drizzle + SQLite) is untouched. (3) Migrated `watchlist.tsx`/`health.tsx` as
+  part of "hardening" even though they're Phase-7 additions outside the original 8-checkpoint list,
+  since leaving 2 pages on the old CSS system after the rebuild is "done" would be an inconsistent
+  end state.
+  **Hardening**: confirmed via repo-wide grep that zero `.tsx` files referenced any legacy indigo
+  class or the old `Spinner` component; removed `app.css`'s entire dead `@theme` block, `@layer
+  components` block (~40 unused classes), and orphaned keyframes — CSS bundle dropped from ~111KB to
+  ~90KB. Widened the ESLint design-token guardrail from a per-checkpoint file allowlist to
+  `packages/ui/src/**/*.tsx`; re-running lint against the full tree surfaced zero new violations.
+  **Pre-PR `/code-review --level high` (8 angles, verified)**: found and fixed 3 issues, one
+  safety-critical —
+  - **Safety-critical**: the Dry Run toggle's copy ("No real orders will be placed") was traced
+    end-to-end through `packages/agent` and confirmed false. `PUT /api/settings` persists `dry_run`
+    to a SQLite `agentSettings` row, and `querySettings()` reads it back correctly for the Settings
+    page's own display — but every real Upstox-write gate (`createGTT`/`cancelGTT` in
+    `gtt.tools.ts`, and the upstream `status: env.DRISHTI_DRY_RUN ? "dry_run" : "active"` branches in
+    `instructions.executor.ts`/`agent.graph.ts`) reads a static `env.DRISHTI_DRY_RUN` parsed once at
+    process boot, completely disconnected from the DB row the toggle writes. A user could toggle Dry
+    Run ON believing it stops real orders, and it wouldn't, if the process booted with
+    `DRISHTI_DRY_RUN` unset/false. This predates CP8 — the legacy `settings.tsx` had the identical
+    toggle/copy before this checkpoint touched the file — and isn't fixable from a UI-only
+    checkpoint. **Stopped and asked the user** given this touches
+    order-placement safety directly; per their explicit decision, softened the copy to
+    "Updates agent config — real-order gating also depends on the DRISHTI_DRY_RUN environment
+    variable set at process start" and filed a background task (`task_387e2ff4`) to wire the DB
+    setting into the real enforcement points.
+  - **Fixed**: `DangerZone`'s three actions were fully styled as live destructive controls (red
+    variant, "Irreversible actions" copy) but only fired `window.alert()` stubs with no disabled
+    state — a user under time pressure could believe a click worked or waste time on a fake control.
+    Disabled the buttons with a `title` tooltip instead.
+  - **Fixed**: this same PR's hardening pass deleted the shared `Spinner` component without
+    extracting a replacement, leaving 9 byte-identical inline loading-spinner copies across every
+    page — a duplication regression within the PR meant to reduce duplication. Re-extracted
+    `Spinner` (`components/ui/spinner.tsx`, sm/md/lg sizes) and replaced all 9 inline copies.
+  `/security-review`: zero findings.
+  **Post-PR `/review` on PR #33 (8-angle pass)**: 3 more findings survived verification, one of them
+  a second safety-critical instance of the same class as the Dry Run bug —
+  - **Safety-critical**: the "Pause agent" toggle has the identical dead-control problem as Dry Run,
+    and is worse — `querySettings()`'s `pauseAgent` read has no env-var fallback at all (unlike
+    `dryRun`), and a repo-wide grep confirmed `pauseAgent`/`pause_agent` is referenced nowhere in
+    `cron.ts`/`agent.tick.ts`/`agent.graph.ts` — the scheduler's only gate is `isMarketOpen()` plus a
+    single-flight guard; it never consults the DB-backed pause setting at all. Applying the same
+    disposition the user already established for Dry Run (this session's precedent, not re-asked
+    since it's the identical class of issue): softened the copy to "Updates agent config — the
+    scheduler doesn't consult this setting yet" and filed a second background task
+    (`task_97a3fda4`) to wire it into `startCron`/`tick()`.
+  - **Fixed**: `DangerZone`'s disabled buttons relied solely on a native `title` tooltip to explain
+    why they were disabled — hover-only, invisible on touch devices, and confirmed to not even fire
+    on disabled elements in Firefox. Changed the visible button label itself to "Unavailable" so the
+    explanation doesn't depend on hover/tooltip support at all.
+  - **Fixed**: `watchlist.tsx` checked `isError` before `isLoading` in its render branch (every other
+    page checks `isLoading` first) — a stale error from a prior failed fetch would show the "Failed
+    to load" banner during a legitimate background refetch instead of a loading spinner. Reordered
+    to match the established convention.
+  - **Deferred (low severity, documented, not fixed)**: `settings.tsx`'s save-success/error banners
+    are wired straight from `useMutation` state with no `mutation.reset()` on subsequent edits, so a
+    stale "Settings saved" banner can reappear on later unrelated renders. Pre-existing pattern
+    (predates CP8), cosmetic only, left for a future pass rather than restructuring the mutation
+    wiring in this already-large final checkpoint.
+  Re-verified live (scratch-route methodology): all 3 `Spinner` sizes, the softened Dry Run/Pause
+  Agent copy, and the "Unavailable"-labeled Danger Zone buttons all render correctly.
+  `pnpm typecheck`/`lint`/`build` all clean. No further findings — considered converged, ready to
+  merge as the final checkpoint of the 8-checkpoint UI rebuild.
 
 ## Constraints checklist (re-verify every checkpoint)
 
