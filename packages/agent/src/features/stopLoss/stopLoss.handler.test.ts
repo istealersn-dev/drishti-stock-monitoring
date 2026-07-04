@@ -1,31 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockCreateGTT, mockPushAlert, mockDbInsert, mockDbRun, mockDbGet, mockDbSelect } =
-  vi.hoisted(() => {
-    const mockDatabaseRun = vi.fn();
-    const mockDatabaseInsert = vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({ run: mockDatabaseRun }),
-    });
-    const mockDatabaseGet = vi.fn();
-    const mockDatabaseSelect = vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({ get: mockDatabaseGet }),
-      }),
-    });
-    return {
-      mockCreateGTT: vi.fn(),
-      mockPushAlert: vi.fn(),
-      mockDbInsert: mockDatabaseInsert,
-      mockDbRun: mockDatabaseRun,
-      mockDbGet: mockDatabaseGet,
-      mockDbSelect: mockDatabaseSelect,
-    };
+const {
+  mockCreateGTT,
+  mockPushAlert,
+  mockDbInsert,
+  mockDbRun,
+  mockDbGet,
+  mockDbSelect,
+  mockIsDryRunActive,
+} = vi.hoisted(() => {
+  const mockDatabaseRun = vi.fn();
+  const mockDatabaseInsert = vi.fn().mockReturnValue({
+    values: vi.fn().mockReturnValue({ run: mockDatabaseRun }),
   });
+  const mockDatabaseGet = vi.fn();
+  const mockDatabaseSelect = vi.fn().mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({ get: mockDatabaseGet }),
+    }),
+  });
+  return {
+    mockCreateGTT: vi.fn(),
+    mockPushAlert: vi.fn(),
+    mockDbInsert: mockDatabaseInsert,
+    mockDbRun: mockDatabaseRun,
+    mockDbGet: mockDatabaseGet,
+    mockDbSelect: mockDatabaseSelect,
+    mockIsDryRunActive: vi.fn().mockReturnValue(true),
+  };
+});
 
 vi.mock("../gtt/gtt.tools.js", () => ({ createGTT: mockCreateGTT }));
 vi.mock("../alerts/alerts.slack.js", () => ({ pushAlert: mockPushAlert }));
 vi.mock("../../db/db.js", () => ({ db: { insert: mockDbInsert, select: mockDbSelect } }));
-vi.mock("../../shared/env.js", () => ({ env: { DRISHTI_DRY_RUN: true } }));
+vi.mock("../../shared/dryRun.js", () => ({ isDryRunActive: mockIsDryRunActive }));
 vi.mock("../../shared/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
@@ -66,6 +74,7 @@ describe("handleSlBreach", () => {
     // Default: no active GTT exists yet and the alerted dedup gate hasn't fired.
     mockDbGet.mockReturnValue(undefined);
     mockPushAlert.mockResolvedValue({ ok: true, value: "ts-123" });
+    mockIsDryRunActive.mockReturnValue(true);
   });
 
   it("fresh breach: creates GTT, sends alert, and writes all three log rows", async () => {
@@ -90,11 +99,7 @@ describe("handleSlBreach", () => {
   });
 
   it("fresh breach with dry-run off: writes 'active' status, not 'dry_run'", async () => {
-    // Call order inside handleSlBreach: hasActiveSlExitGtt, wasRecentlyAlerted, isDryRunActive.
-    mockDbGet
-      .mockReturnValueOnce(undefined) // hasActiveSlExitGtt: no existing row
-      .mockReturnValueOnce(undefined) // wasRecentlyAlerted: not alerted yet
-      .mockReturnValueOnce({ key: "dry_run", value: "false" }); // isDryRunActive: DB override off
+    mockIsDryRunActive.mockReturnValue(false);
     mockCreateGTT.mockResolvedValue({ ok: true, value: "order-id-123" });
 
     await handleSlBreach(

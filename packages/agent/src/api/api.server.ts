@@ -139,7 +139,7 @@ const SettingsBodySchema = z
   .object({
     dry_run: z.boolean(),
     pause_agent: z.boolean(),
-    poll_interval_minutes: z.number(),
+    poll_interval_minutes: z.number().int().min(1).max(60),
   })
   .partial();
 
@@ -202,7 +202,10 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   app.put<{ Body: Record<string, unknown> }>("/api/settings", async (request, reply) => {
     const parsed = SettingsBodySchema.safeParse(request.body);
     if (!parsed.success) {
-      return reply.status(400).send({ ok: false, error: parsed.error.message });
+      return reply.status(400).send({
+        ok: false,
+        error: parsed.error.issues.map((issue) => issue.message).join("; "),
+      });
     }
 
     const now = new Date().toISOString();

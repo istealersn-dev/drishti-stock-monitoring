@@ -290,7 +290,11 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
 
       const dryRun = isDryRunActive();
       const cancelResult = await cancelGTT(gttId, dryRun);
-      if (cancelResult.ok) {
+      // Only flip the row to "cancelled" when a real Upstox cancel happened — cancelGTT
+      // returns ok:true for a dry-run "would cancel" too, and marking the row cancelled
+      // in that case would make the agent believe the real GTT is gone when Upstox still
+      // has it live, which could cause a duplicate real exit GTT once dry-run is turned off.
+      if (cancelResult.ok && !dryRun) {
         db.update(gttOrders)
           .set({ status: "cancelled", updatedAt: now })
           .where(eq(gttOrders.id, gttId))
@@ -361,10 +365,15 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
         continue;
       }
 
-      db.update(gttOrders)
-        .set({ status: "cancelled", updatedAt: now })
-        .where(eq(gttOrders.id, gttId))
-        .run();
+      // Same reasoning as the gtt_cancel branch above: only mark the old row cancelled
+      // when the cancel was real, so a dry-run "would cancel" doesn't make the agent
+      // believe the still-live Upstox GTT is gone.
+      if (!dryRun) {
+        db.update(gttOrders)
+          .set({ status: "cancelled", updatedAt: now })
+          .where(eq(gttOrders.id, gttId))
+          .run();
+      }
 
       const newRequest = buildSlExitRequest(holding, decision.gttParams.newTriggerPrice);
       const newLimitPrice = Number(
