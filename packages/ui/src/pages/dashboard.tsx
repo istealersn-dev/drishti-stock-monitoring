@@ -30,6 +30,11 @@ type HoldingStatus = {
   label: string;
 };
 
+// "pos" is never actually looked up (needsAttention filters it out before
+// sorting) but is listed so the Record stays exhaustive over the full
+// HoldingStatus["variant"] union without a type assertion.
+const SEVERITY_RANK: Record<HoldingStatus["variant"], number> = { neg: 0, warn: 1, pos: 2 };
+
 function resolveHoldingStatus(holding: Holding, slMap: Map<string, number>): HoldingStatus {
   const sl = slMap.get(holding.trading_symbol);
   if (sl !== undefined && holding.last_price <= sl) {
@@ -93,12 +98,19 @@ export function Dashboard(): React.ReactElement {
   const dayPnlSign = dayPnl >= 0 ? "+" : "−";
   const slMap = buildSlMap(gttOrders);
 
+  // flatMap (not map+filter) so `sl` is proven defined for every surviving
+  // entry — resolveHoldingStatus only returns "neg"/"warn" when the SL map
+  // has this symbol, so a separate `?? 0` fallback below would be dead code
+  // masking that invariant instead of relying on it.
   const needsAttention = holdings
-    .map((holding) => ({ holding, status: resolveHoldingStatus(holding, slMap) }))
-    .filter(({ status }) => status.variant !== "pos")
-    .sort((a, b) =>
-      a.status.variant === b.status.variant ? 0 : a.status.variant === "neg" ? -1 : 1,
-    );
+    .flatMap((holding) => {
+      const sl = slMap.get(holding.trading_symbol);
+      if (sl === undefined) return [];
+      const status = resolveHoldingStatus(holding, slMap);
+      if (status.variant === "pos") return [];
+      return [{ holding, sl, status }];
+    })
+    .sort((a, b) => SEVERITY_RANK[a.status.variant] - SEVERITY_RANK[b.status.variant]);
 
   if (isError) {
     return (
@@ -186,16 +198,17 @@ export function Dashboard(): React.ReactElement {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-2.5 nav:grid-cols-2">
-            {needsAttention.map(({ holding, status }) => {
-              const sl = slMap.get(holding.trading_symbol) ?? 0;
+            {needsAttention.map(({ holding, sl, status }) => {
               const pnlPct =
                 holding.average_price > 0
                   ? (holding.pnl / (holding.quantity * holding.average_price)) * 100
                   : 0;
-              const distanceToSlPercentage = sl > 0 ? ((holding.last_price - sl) / sl) * 100 : 0;
+              // sl is guaranteed present here (see the flatMap guard above);
+              // this guard is only against a malformed sl of exactly 0.
+              const distanceToSlPercentage = sl !== 0 ? ((holding.last_price - sl) / sl) * 100 : 0;
               return (
                 <NeedsAttentionCard
-                  key={holding.isin}
+                  key={`${holding.isin}-${holding.product}`}
                   symbol={holding.trading_symbol}
                   statusLabel={status.label}
                   variant={status.variant === "neg" ? "danger" : "warning"}

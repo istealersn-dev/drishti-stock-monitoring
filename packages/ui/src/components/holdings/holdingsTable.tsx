@@ -1,28 +1,12 @@
 import type React from "react";
 
 import type { Holding } from "../../lib/api";
+import { formatPnl, formatPrice, productBadgeVariant } from "../../lib/holdingFormat";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Table } from "../ui/table";
 
 import { useHoldingGttForm } from "./useHoldingGttForm";
-
-function formatPrice(price: number): string {
-  return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatPnl(pnl: number, cost: number): string {
-  const pct = cost > 0 ? (pnl / cost) * 100 : 0;
-  const sign = pnl >= 0 ? "+" : "−";
-  const absString = Math.abs(pnl).toLocaleString("en-IN", { maximumFractionDigits: 0 });
-  return `${sign}₹${absString} (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)`;
-}
-
-function productBadgeVariant(product: string): "warn" | "info" | "neutral" {
-  if (product === "MTF") return "warn";
-  if (product === "CNC") return "info";
-  return "neutral";
-}
 
 type HoldingRowProperties = {
   holding: Holding;

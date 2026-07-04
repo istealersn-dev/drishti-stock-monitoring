@@ -36,6 +36,8 @@ export function useHoldingGttForm(symbol: string): HoldingGttForm {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["gtt"] });
       setSaveError(null);
+      setSl("");
+      setTarget("");
     },
     onError: (error: Error) => {
       setSaveError(error.message);

@@ -639,6 +639,61 @@ from the spec.
     mid-flight" pattern.
   `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round. No further findings
   survived — considered converged.
+- **2026-07-04** — CP6: rebuilt Dashboard and Holdings on the new token system, preserving all
+  existing business logic exactly (portfolio totals, MTF interest burn at the app's real 18%/365
+  rate — deliberately NOT the prototype's placeholder 9.5%, `resolveHoldingStatus`'s AT SL/NEAR
+  SL/ACTIVE thresholds, `applyFilter`, `updateHoldingConfig`'s Set GTT mutation). New: a "Needs
+  attention" section on Dashboard (`Drishti.dc.html`'s `statusOf()` breach/watch logic ported onto
+  the existing `resolveHoldingStatus`, sorted breach-first; "Set GTT" routes to Holdings rather than
+  duplicating its editing form; the prototype's per-row "Pause/Resume" action was **omitted** — the
+  app only has one agent-wide `pauseAgent` setting, no per-holding pause endpoint, and wiring a
+  button to nothing would be worse than not having it). Holdings now has a real desktop-table ⇄
+  mobile-card split (`HoldingsTable`/`HoldingCard`, switched by `useMediaQuery`, per handoff.md §4's
+  "share the row view-model") via a new `useHoldingGttForm` hook holding the per-row SL/target form
+  state and Set GTT mutation once for both presentations. `HoldingCard`'s mobile layout was ported
+  from `Drishti.dc.html`'s existing mobile holdings list — a real prototype reference existed here,
+  unlike CP5's from-scratch `AmbientWave`.
+  **Pre-PR gate, `/code-review --level high` (3 consolidated angles)**: found and fixed:
+  - **Fixed**: Dashboard's `needsAttention` grid used `key={holding.isin}` instead of the composite
+    `${isin}-${product}` key already established in Holdings for the same reason (the same ISIN can
+    be held under both MTF and CNC) — if both positions were simultaneously breach/watch, two
+    `NeedsAttentionCard`s would collide on the same React key. Fixed to match the composite pattern.
+  - **Fixed**: the `needsAttention` map derived `sl` via `slMap.get(...) ?? 0` — dead code today
+    (every surviving entry is guaranteed to have a defined `sl`, since `resolveHoldingStatus` only
+    returns non-"pos" when the SL map has the symbol) but a latent trap for a future
+    `resolveHoldingStatus` change that adds a "warn"/"neg" path unrelated to SL. Restructured the
+    whole `needsAttention` derivation as a single `flatMap` that proves `sl` is defined via an early
+    return instead of asserting it after the fact, eliminating the fallback entirely.
+  - **Fixed**: the severity sort was a nested ternary (`a.variant === b.variant ? 0 : a.variant ===
+    "neg" ? -1 : 1`) that would silently mis-bucket any future third status variant. Replaced with a
+    `SEVERITY_RANK` lookup covering the full `HoldingStatus["variant"]` union (including the
+    never-reached "pos", so the `Record` stays exhaustive with no type assertion needed).
+  - **Fixed**: `formatPrice`/`formatPnl`/`productBadgeVariant` were defined identically in both
+    `holdingsTable.tsx` and `holdingCard.tsx` — exactly the "duplicate twice" case CLAUDE.md's own
+    threshold names as the point to extract, not premature. Moved to a new shared
+    `lib/holdingFormat.ts` (following the same multi-export-per-lib-file convention `lib/api.ts`
+    already established, as distinct from the one-export-per-file rule for UI components).
+  - **Fixed** (opportunistic, not a regression — pre-existing in the old `holdings.tsx` too):
+    `useHoldingGttForm`'s `sl`/`target` input text was never cleared after a successful Set GTT
+    save. Added `setSl("")`/`setTarget("")` to `onSuccess` since a rebuild is a reasonable moment to
+    fix a real (if pre-existing) UX rough edge, not a forced unrelated cleanup.
+  - **Deferred, documented, not fixed**: `holdingFilters.tsx` exports `ProductFilter`/`FILTER_TABS`
+    alongside its component (3 exports in one file) — a narrow, defensible exception since the type
+    and its option list are intrinsically part of the component's own public contract (the same way
+    compound components are an accepted `Object.assign`-based exception), not worth an awkward
+    reshuffle. The remaining `ltpColor`/`pnlColor`/`cost` derivation logic is still duplicated
+    between `HoldingsTable`'s row and `HoldingCard` (a fuller `useHoldingViewModel` hook could
+    absorb it) — left as-is since `useHoldingGttForm` already delivers the behavioral half of
+    handoff.md's "share the row view-model" ask, and the remaining duplication is tiny (2-3 lines,
+    same pattern already established, low drift risk) rather than a half-delivered promise.
+  Verified live (scratch harness, mock data, no real backend mutation calls — `fetchHoldings`/
+  `fetchGttOrders` are GET-only, but `updateHoldingConfig` is a real write, so "Set GTT" was
+  reviewed by reading rather than clicked against the live agent): stat cards, needs-attention cards
+  (both severities + the empty "All positions safe" state), the holdings overview table, the filter
+  tabs + search field's own interactivity, the desktop table, and the mobile card layout all render
+  correctly and match the prototype's mobile-card design closely. `pnpm --filter ui
+  typecheck`/`lint`/`build` all clean (lint: 0 errors, 13 documented `local/flag-stray-position`
+  warnings).
 
 ## Constraints checklist (re-verify every checkpoint)
 
