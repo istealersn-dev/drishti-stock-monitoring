@@ -1,79 +1,41 @@
 import { useQuery } from "@tanstack/react-query";
-import React from "react";
+import type React from "react";
 
-import { Spinner } from "../components/ui/spinner";
+import { StatCard } from "../components/dashboard/statCard";
+import { Badge } from "../components/ui/badge";
+import { Card } from "../components/ui/card";
+import { Table } from "../components/ui/table";
 import { type Underperformer, fetchHealth } from "../lib/api";
+import { formatInr } from "../lib/format";
+import { formatPrice } from "../lib/holdingFormat";
 
-const ONE_LAKH = 100_000;
-
-function formatInr(amount: number): string {
-  if (Math.abs(amount) >= ONE_LAKH) {
-    return `₹${(amount / ONE_LAKH).toFixed(1)}L`;
-  }
-  return `₹${Math.abs(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+function riskAccent(pct: number): "pos" | "warn" | "neg" {
+  if (pct >= 15) return "neg";
+  if (pct >= 8) return "warn";
+  return "pos";
 }
-
-type StatCardProperties = {
-  label: string;
-  value: React.ReactNode;
-  sub: React.ReactNode;
-  accent: "indigo" | "success" | "warning" | "danger";
-};
-
-function StatCard({ label, value, sub, accent }: StatCardProperties): React.ReactElement {
-  return (
-    <div className="stat-card">
-      <div className={`stat-card-accent stat-card-accent-${accent}`} />
-      <div className="stat-card-label">{label}</div>
-      <div className="stat-card-value">{value}</div>
-      <div className="stat-card-sub">{sub}</div>
-    </div>
-  );
-}
-
-function riskAccent(pct: number): "success" | "warning" | "danger" {
-  if (pct >= 15) return "danger";
-  if (pct >= 8) return "warning";
-  return "success";
-}
-
-const UNDERPERFORMER_GRID = "grid grid-cols-[120px_minmax(0,1fr)_90px_90px_80px] items-center px-4";
 
 type UnderperformerRowProperties = {
   underperformer: Underperformer;
 };
 
-function UnderperformerRow({ underperformer: u }: UnderperformerRowProperties): React.ReactElement {
+function UnderperformerRow({ underperformer }: UnderperformerRowProperties): React.ReactElement {
   return (
-    <div className={`${UNDERPERFORMER_GRID} holdings-data-row`}>
-      <span className="font-mono text-[13px] font-semibold text-text-primary">{u.symbol}</span>
-      <span className="truncate text-[12px] text-text-tertiary">{u.companyName}</span>
-      <span className="text-right font-mono text-[12px] text-[#bcbcbc]">
-        {u.buyPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-      </span>
-      <span className="text-right font-mono text-[12px] text-[#bcbcbc]">
-        {u.currentLtp.toLocaleString("en-IN", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
-      </span>
-      <span className="text-right font-mono text-[12px] font-semibold text-danger">
-        −{Math.abs(u.pctDown).toFixed(1)}%
-      </span>
-    </div>
+    <Table.Row>
+      <Table.Cell className="font-mono uppercase">{underperformer.symbol}</Table.Cell>
+      <Table.Cell className="max-w-xs truncate">{underperformer.companyName}</Table.Cell>
+      <Table.Cell numeric>{formatPrice(underperformer.buyPrice)}</Table.Cell>
+      <Table.Cell numeric>{formatPrice(underperformer.currentLtp)}</Table.Cell>
+      <Table.Cell numeric className="font-semibold text-neg">
+        −{Math.abs(underperformer.pctDown).toFixed(1)}%
+      </Table.Cell>
+    </Table.Row>
   );
 }
 
-const UNDERPERFORMER_HEADERS = [
-  { label: "Symbol" },
-  { label: "Name" },
-  { label: "Buy", right: true },
-  { label: "LTP", right: true },
-  { label: "Down", right: true },
-];
-
 /**
- * Portfolio health page — risk stat cards, underperformers table, overdue reviews, and LLM narrative.
+ * Portfolio health page (Phase 7) — risk stat cards, an LLM-generated
+ * narrative, an underperformers table, and symbols overdue for review.
  * @returns Health page element
  */
 export function Health(): React.ReactElement {
@@ -85,28 +47,31 @@ export function Health(): React.ReactElement {
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Spinner size="lg" />
+        <span
+          role="status"
+          aria-label="Loading"
+          className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
+        />
       </div>
     );
   }
 
   if (isError || data == null) {
     return (
-      <div className="rounded-card border border-danger/30 bg-danger/5 p-4 text-danger-text">
+      <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
         Failed to load portfolio health. Is the agent running?
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-drk space-y-[14px]">
-      {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-[14px]">
+    <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 nav:grid-cols-4">
         <StatCard
           label="Portfolio value"
-          accent="indigo"
+          accent="info"
           value={formatInr(data.totalPortfolioValue)}
-          sub={`${data.activePositionCount} active position${data.activePositionCount !== 1 ? "s" : ""}`}
+          sub={`${String(data.activePositionCount)} active position${data.activePositionCount === 1 ? "" : "s"}`}
         />
         <StatCard
           label="Capital at risk"
@@ -116,24 +81,24 @@ export function Health(): React.ReactElement {
         />
         <StatCard
           label="MTF interest burn"
-          accent={data.mtfBurnRateMonthly > 0 ? "warning" : "success"}
+          accent={data.mtfBurnRateMonthly > 0 ? "warn" : "pos"}
           value={
             data.mtfBurnRateMonthly > 0 ? (
-              <>
-                <span className="text-warning">{formatInr(data.mtfBurnRateMonthly)}</span>
-                <span className="text-[13px] font-medium text-[#8a6d2f]">/mo</span>
-              </>
+              <span className="text-warn">
+                {formatInr(data.mtfBurnRateMonthly)}
+                <span className="text-body-sm font-medium text-fg-muted">/mo</span>
+              </span>
             ) : (
-              <span className="text-text-tertiary">—</span>
+              <span className="text-fg-muted">—</span>
             )
           }
           sub={data.mtfBurnRateMonthly > 0 ? "monthly run-rate" : "No MTF positions"}
         />
         <StatCard
           label="Overdue for review"
-          accent={data.overdueForReview.length > 0 ? "warning" : "success"}
+          accent={data.overdueForReview.length > 0 ? "warn" : "pos"}
           value={
-            <span className={data.overdueForReview.length > 0 ? "text-warning" : "text-success"}>
+            <span className={data.overdueForReview.length > 0 ? "text-warn" : "text-pos"}>
               {data.overdueForReview.length}
             </span>
           }
@@ -141,61 +106,62 @@ export function Health(): React.ReactElement {
         />
       </div>
 
-      {/* LLM narrative */}
-      <div className="settings-card">
-        <div className="mb-2 text-[13px] font-semibold text-text-primary">Health narrative</div>
-        <p className="whitespace-pre-wrap text-[13px] leading-[1.6] text-text-secondary">
+      <Card className="flex flex-col gap-2">
+        <h2 className="text-body-sm font-semibold text-fg">Health narrative</h2>
+        <p className="whitespace-pre-wrap text-body-sm leading-relaxed text-fg-muted">
           {data.llmNarrative}
         </p>
-      </div>
+      </Card>
 
-      {/* Underperformers */}
-      <div className="holdings-card overflow-x-auto">
-        <div className="flex items-center justify-between border-b border-[#2a2a2a] px-4 py-[13px]">
-          <span className="text-[13px] font-semibold text-text-primary">Underperformers</span>
-          <span className="font-mono text-[11px] text-text-dim">
+      <section className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-title font-semibold text-fg">Underperformers</h2>
+          <span className="font-mono text-caption text-fg-faint">
             {data.underperformers.length} flagged
           </span>
         </div>
-        <div style={{ minWidth: 720 }}>
-          <div className="hp-col-grid holdings-col-header">
-            {UNDERPERFORMER_HEADERS.map((col) => (
-              <span key={col.label} className={col.right === true ? "text-right" : ""}>
-                {col.label}
-              </span>
-            ))}
-          </div>
-          {data.underperformers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-1.5 py-10">
-              <p className="text-[13.5px] font-medium text-text-tertiary">No underperformers</p>
-              <p className="text-[12px] text-text-dim">
-                All positions are holding above their cost basis.
-              </p>
-            </div>
-          ) : (
-            data.underperformers.map((u) => <UnderperformerRow key={u.symbol} underperformer={u} />)
-          )}
-        </div>
-      </div>
 
-      {/* Overdue for review */}
+        {data.underperformers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
+            <p className="text-body-sm font-medium text-fg-muted">No underperformers</p>
+            <p className="text-caption text-fg-faint">
+              All positions are holding above their cost basis.
+            </p>
+          </div>
+        ) : (
+          <Table>
+            <Table.Head>
+              <Table.Row>
+                <Table.HeaderCell>Symbol</Table.HeaderCell>
+                <Table.HeaderCell>Name</Table.HeaderCell>
+                <Table.HeaderCell align="right">Buy</Table.HeaderCell>
+                <Table.HeaderCell align="right">LTP</Table.HeaderCell>
+                <Table.HeaderCell align="right">Down</Table.HeaderCell>
+              </Table.Row>
+            </Table.Head>
+            <Table.Body>
+              {data.underperformers.map((underperformer) => (
+                <UnderperformerRow key={underperformer.symbol} underperformer={underperformer} />
+              ))}
+            </Table.Body>
+          </Table>
+        )}
+      </section>
+
       {data.overdueForReview.length > 0 && (
-        <div className="settings-card">
-          <div className="mb-2 text-[13px] font-semibold text-text-primary">Overdue for review</div>
+        <Card className="flex flex-col gap-2">
+          <h2 className="text-body-sm font-semibold text-fg">Overdue for review</h2>
           <div className="flex flex-wrap gap-2">
             {data.overdueForReview.map((symbol) => (
-              <span
-                key={symbol}
-                className="rounded-md bg-[rgba(245,158,11,.12)] px-[9px] py-[3px] font-mono text-[12px] text-warning"
-              >
+              <Badge key={symbol} variant="warn">
                 {symbol}
-              </span>
+              </Badge>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
-      <p className="text-[11px] text-text-faint">
+      <p className="text-caption text-fg-faint">
         Generated at {new Date(data.generatedAt).toLocaleString("en-IN")}
       </p>
     </div>

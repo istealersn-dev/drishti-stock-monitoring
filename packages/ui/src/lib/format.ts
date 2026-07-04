@@ -1,3 +1,19 @@
+const ONE_LAKH = 100_000;
+
+/**
+ * Formats a rupee amount, abbreviating to lakhs above ₹1L (e.g. "₹4.2L"),
+ * otherwise a plain grouped rupee figure (e.g. "₹32,160").
+ * @param amount - the rupee amount (sign is ignored — always renders positive)
+ * @returns formatted, abbreviated rupee string
+ */
+export function formatInr(amount: number): string {
+  const absoluteAmount = Math.abs(amount);
+  if (absoluteAmount >= ONE_LAKH) {
+    return `₹${(absoluteAmount / ONE_LAKH).toFixed(1)}L`;
+  }
+  return `₹${absoluteAmount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+}
+
 /**
  * Formats a nullable price with 2 decimal places, en-IN grouping, falling
  * back to an em-dash for unset values (e.g. an instruction with no upper

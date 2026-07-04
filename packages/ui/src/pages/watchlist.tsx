@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useState } from "react";
+import type React from "react";
+import { useState } from "react";
 
-import { Spinner } from "../components/ui/spinner";
+import { StatCard } from "../components/dashboard/statCard";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Table } from "../components/ui/table";
 import {
   type ProximityAlert,
   type WatchlistEntry,
@@ -10,32 +15,23 @@ import {
   removeWatchlistEntry,
 } from "../lib/api";
 
-const ENTRY_GRID = "grid grid-cols-[120px_minmax(0,1fr)_140px_80px] items-center px-4";
-const ENTRY_HEADERS = [
-  { label: "Symbol" },
-  { label: "Notes" },
-  { label: "Added" },
-  { label: "Actions", right: true },
-];
-
 type ProximityCardProperties = {
   alert: ProximityAlert;
 };
 
 function ProximityCard({ alert }: ProximityCardProperties): React.ReactElement {
   return (
-    <div className="stat-card">
-      <div className="stat-card-accent stat-card-accent-warning" />
-      <div className="stat-card-label">{alert.displayName}</div>
-      <div className="stat-card-value">
-        <span className="text-warning">{alert.distancePct.toFixed(1)}%</span>
-        <span className="text-[13px] font-medium text-[#8a6d2f]"> to 200-DMA</span>
-      </div>
-      <div className="stat-card-sub font-mono">
-        LTP {alert.ltp.toLocaleString("en-IN", { maximumFractionDigits: 2 })} · DMA{" "}
-        {alert.dma200.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-      </div>
-    </div>
+    <StatCard
+      label={alert.displayName}
+      accent="warn"
+      value={
+        <>
+          <span className="text-warn">{alert.distancePct.toFixed(1)}%</span>
+          <span className="text-body-sm font-medium text-fg-muted"> to 200-DMA</span>
+        </>
+      }
+      sub={`LTP ${alert.ltp.toLocaleString("en-IN", { maximumFractionDigits: 2 })} · DMA ${alert.dma200.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+    />
   );
 }
 
@@ -47,30 +43,28 @@ type EntryRowProperties = {
 
 function EntryRow({ entry, onRemove, removing }: EntryRowProperties): React.ReactElement {
   return (
-    <div className={`${ENTRY_GRID} holdings-data-row`}>
-      <span className="font-mono text-[13px] font-semibold text-text-primary">{entry.symbol}</span>
-      <span className="truncate text-[12px] text-text-tertiary">{entry.notes ?? "—"}</span>
-      <span className="font-mono text-[11.5px] text-text-dim">
-        {new Date(entry.addedAt).toLocaleDateString("en-IN")}
-      </span>
-      <span className="flex justify-end">
-        <button
-          type="button"
-          className="gtt-cancel-btn"
+    <Table.Row>
+      <Table.Cell className="font-mono uppercase">{entry.symbol}</Table.Cell>
+      <Table.Cell className="max-w-xs truncate">{entry.notes ?? "—"}</Table.Cell>
+      <Table.Cell>{new Date(entry.addedAt).toLocaleDateString("en-IN")}</Table.Cell>
+      <Table.Cell align="right">
+        <Button
+          variant="destructive"
           disabled={removing}
           onClick={() => {
             onRemove(entry.symbol);
           }}
         >
-          {removing ? <Spinner size="sm" /> : "Remove"}
-        </button>
-      </span>
-    </div>
+          {removing ? "Removing…" : "Remove"}
+        </Button>
+      </Table.Cell>
+    </Table.Row>
   );
 }
 
 /**
- * Watchlist page — add form, 200-DMA proximity alerts, and a removable watchlist table.
+ * Watchlist page (Phase 7) — add form, 200-DMA proximity alerts, and a
+ * removable watchlist table.
  * @returns Watchlist page element
  */
 export function Watchlist(): React.ReactElement {
@@ -79,7 +73,7 @@ export function Watchlist(): React.ReactElement {
   const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [pendingRemovals, setPendingRemovals] = useState<ReadonlySet<string>>(new Set());
-  const queryClientInstance = useQueryClient();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["watchlist"],
@@ -93,7 +87,7 @@ export function Watchlist(): React.ReactElement {
       setDisplayName("");
       setNotes("");
       setFormError(null);
-      void queryClientInstance.invalidateQueries({ queryKey: ["watchlist"] });
+      void queryClient.invalidateQueries({ queryKey: ["watchlist"] });
     },
     onError: (error: Error) => {
       setFormError(error.message);
@@ -108,7 +102,7 @@ export function Watchlist(): React.ReactElement {
         next.delete(symbolArgument);
         return next;
       });
-      void queryClientInstance.invalidateQueries({ queryKey: ["watchlist"] });
+      void queryClient.invalidateQueries({ queryKey: ["watchlist"] });
     },
     onError: (_error, symbolArgument) => {
       setPendingRemovals((previous) => {
@@ -119,8 +113,7 @@ export function Watchlist(): React.ReactElement {
     },
   });
 
-  const handleAdd = (event: React.FormEvent): void => {
-    event.preventDefault();
+  const handleAdd = (): void => {
     const trimmedSymbol = symbol.trim().toUpperCase();
     const trimmedName = displayName.trim();
     if (!trimmedSymbol || !trimmedName) {
@@ -144,106 +137,112 @@ export function Watchlist(): React.ReactElement {
   const proximityAlerts = data?.proximityAlerts ?? [];
 
   return (
-    <div className="animate-fade-drk max-w-[940px] space-y-4">
-      {/* Add form */}
-      <div className="settings-card">
-        <div className="mb-3 text-[13px] font-semibold text-text-primary">Add to watchlist</div>
-        <form onSubmit={handleAdd} className="flex flex-wrap items-stretch gap-[10px]">
-          <input
-            type="text"
-            value={symbol}
-            onChange={(event) => {
-              setSymbol(event.target.value);
-              setFormError(null);
-            }}
-            placeholder="Symbol (e.g. TATAMOTORS)"
-            className="instr-input flex-none basis-[200px]"
-            autoComplete="off"
-          />
-          <input
-            type="text"
-            value={displayName}
-            onChange={(event) => {
-              setDisplayName(event.target.value);
-              setFormError(null);
-            }}
-            placeholder="Display name"
-            className="instr-input flex-none basis-[200px]"
-            autoComplete="off"
-          />
-          <input
-            type="text"
-            value={notes}
-            onChange={(event) => {
-              setNotes(event.target.value);
-            }}
-            placeholder="Notes (optional)"
-            className="instr-input flex-1"
-            autoComplete="off"
-          />
-          <button
+    <div className="flex flex-col gap-4">
+      <Card className="flex flex-col gap-3">
+        <h2 className="text-body-sm font-semibold text-fg">Add to watchlist</h2>
+        <form
+          className="flex flex-wrap items-end gap-2.5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleAdd();
+          }}
+        >
+          <div className="w-44">
+            <Input
+              id="watchlist-symbol"
+              label="Symbol"
+              value={symbol}
+              onChange={(value) => {
+                setSymbol(value);
+                setFormError(null);
+              }}
+              placeholder="e.g. TATAMOTORS"
+              autoComplete="off"
+            />
+          </div>
+          <div className="w-52">
+            <Input
+              id="watchlist-display-name"
+              label="Display name"
+              value={displayName}
+              onChange={(value) => {
+                setDisplayName(value);
+                setFormError(null);
+              }}
+              placeholder="Display name"
+              autoComplete="off"
+            />
+          </div>
+          <div className="min-w-52 flex-1">
+            <Input
+              id="watchlist-notes"
+              label="Notes"
+              value={notes}
+              onChange={setNotes}
+              placeholder="Notes (optional)"
+              autoComplete="off"
+            />
+          </div>
+          <Button
             type="submit"
-            className="instr-send-btn"
+            variant="primary"
             disabled={!symbol.trim() || !displayName.trim() || addMutation.isPending}
           >
-            {addMutation.isPending ? <Spinner size="sm" /> : "Add"}
-          </button>
+            {addMutation.isPending ? "Adding…" : "Add"}
+          </Button>
         </form>
-        {formError != null && (
-          <div className="mt-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger-text">
-            {formError}
-          </div>
-        )}
-      </div>
+        {formError !== null && <p className="text-caption text-neg">{formError}</p>}
+      </Card>
 
-      {/* Proximity alerts */}
       {proximityAlerts.length > 0 && (
-        <div className="space-y-[10px]">
-          <span className="text-[13px] font-semibold text-text-primary">Near 200-DMA</span>
-          <div className="grid grid-cols-3 gap-[14px]">
+        <section className="flex flex-col gap-2.5">
+          <h2 className="text-title font-semibold text-fg">Near 200-DMA</h2>
+          <div className="grid grid-cols-2 gap-3.5 nav:grid-cols-3">
             {proximityAlerts.map((alert) => (
               <ProximityCard key={alert.symbol} alert={alert} />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Watchlist table */}
       {isError ? (
-        <div className="rounded-card border border-danger/30 bg-danger/5 p-4 text-[12px] text-danger-text">
+        <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
           Failed to load watchlist. Is the agent running?
         </div>
       ) : isLoading ? (
         <div className="flex h-24 items-center justify-center">
-          <Spinner />
+          <span
+            role="status"
+            aria-label="Loading"
+            className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
+          />
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
+          <p className="text-body-sm font-medium text-fg-muted">Watchlist is empty</p>
+          <p className="text-caption text-fg-faint">Add a stock above to start tracking it.</p>
         </div>
       ) : (
-        <div className="holdings-card overflow-x-auto">
-          <div style={{ minWidth: 560 }}>
-            <div className={`${ENTRY_GRID} holdings-col-header`}>
-              {ENTRY_HEADERS.map((col) => (
-                <span key={col.label} className={col.right === true ? "text-right" : ""}>
-                  {col.label}
-                </span>
-              ))}
-            </div>
-            {entries.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-1.5 py-10">
-                <p className="text-[13.5px] font-medium text-text-tertiary">Watchlist is empty</p>
-                <p className="text-[12px] text-text-dim">Add a stock above to start tracking it.</p>
-              </div>
-            ) : (
-              entries.map((entry) => (
-                <EntryRow
-                  key={entry.symbol}
-                  entry={entry}
-                  onRemove={handleRemove}
-                  removing={pendingRemovals.has(entry.symbol)}
-                />
-              ))
-            )}
-          </div>
-        </div>
+        <Table>
+          <Table.Head>
+            <Table.Row>
+              <Table.HeaderCell>Symbol</Table.HeaderCell>
+              <Table.HeaderCell>Notes</Table.HeaderCell>
+              <Table.HeaderCell>Added</Table.HeaderCell>
+              <Table.HeaderCell align="right">Actions</Table.HeaderCell>
+            </Table.Row>
+          </Table.Head>
+          <Table.Body>
+            {entries.map((entry) => (
+              <EntryRow
+                key={entry.symbol}
+                entry={entry}
+                onRemove={handleRemove}
+                removing={pendingRemovals.has(entry.symbol)}
+              />
+            ))}
+          </Table.Body>
+        </Table>
       )}
     </div>
   );
