@@ -191,6 +191,12 @@ export default [
       "packages/ui/src/components/shell/appHeaderMobile.tsx",
       "packages/ui/src/components/shell/mobileTabBar.tsx",
       "packages/ui/src/components/shell/appFooter.tsx",
+      "packages/ui/src/components/ui/breadcrumb.tsx",
+      "packages/ui/src/components/ask/ambientWave.tsx",
+      "packages/ui/src/components/ask/suggestionGrid.tsx",
+      "packages/ui/src/components/ask/composer.tsx",
+      "packages/ui/src/components/ask/messageList.tsx",
+      "packages/ui/src/pages/ask.tsx",
     ],
     plugins: {
       local: { rules: { "flag-stray-position": flagStrayPositionRule } },

@@ -22,8 +22,8 @@ from the spec.
 | — | Lint baseline fix (found during CP1) | **done, merged** | `fix/lint-baseline` (deleted) | [#26](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/26) |
 | 2 | UI primitives A (Button, Badge, Card, Input, Textarea, StatusDot, Breadcrumb) | **done, merged** | `feat/cp2-ui-primitives-a` (deleted) | [#27](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/27) |
 | 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | **done, merged** | `feat/cp3-ui-primitives-b` (deleted) | [#28](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/28) |
-| 4 | App scaffold + responsive shell + Login | in-progress | `feat/cp4-app-shell-login` | — |
-| 5 | Ask Drishti (hero, composer, AmbientWave, chat) | todo | — | — |
+| 4 | App scaffold + responsive shell + Login | **done, merged** | `feat/cp4-app-shell-login` (deleted) | [#29](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/29) |
+| 5 | Ask Drishti (hero, composer, AmbientWave, chat) | in-progress | `feat/cp5-ask-drishti` | — |
 | 6 | Dashboard + Holdings | todo | — | — |
 | 7 | Instructions + GTT + Logs | todo | — | — |
 | 8 | Settings + data layer + hardening | todo | — | — |
@@ -557,6 +557,86 @@ from the spec.
     `aria-live` announcement when the sidebar collapse/expand state changes — the toggle button's
     `aria-label` does swap (Expand ↔ Collapse) but isn't announced as a state change on its own.
     Deferred as a minor a11y enhancement beyond what Design.md mandates explicitly.
+  `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round. No further findings
+  survived — considered converged.
+- **2026-07-04** — CP5 pre-PR gate, `/code-review --level high` (3 consolidated angles against the
+  CP5 diff — rename `/advisor`→`/ask` + rebuild as a two-view hero/conversation page). Found and
+  fixed six real issues, refuted/deferred a few others:
+  - **Fixed**: `handleNewChat`/the breadcrumb's "return to hero" crumb could fire while a mutation
+    for the *previous* session was still in flight; since `onSuccess`/`onError` were registered at
+    the `useMutation` hook level (not per-call), a stale response settling after the user switched
+    sessions would blindly clear `question`/set `askError` for whatever session/view happened to be
+    current — silently wiping a freshly-typed draft or attaching a stale error to the wrong
+    conversation. Fixed by moving the callbacks to per-call `mutate(text, { onSuccess, onError })`,
+    capturing the session id at ask-time and comparing it against a ref kept in sync with the
+    current session id — a stale settle becomes a safe no-op (except cache invalidation, which
+    still runs unconditionally) instead of corrupting the now-current session's state.
+  - **Fixed**: `AmbientWave` read `prefers-reduced-motion` once at mount with no `change` listener,
+    so toggling the OS-level setting while the hero stayed mounted didn't freeze/unfreeze the
+    animation until unmount+remount. Restructured to start/stop the `requestAnimationFrame` loop
+    from a `change`-listener-driven function, applied once at mount and again on every subsequent
+    preference change.
+  - **Fixed**: the new `Breadcrumb` `onClick`-button crumb (and, for consistency, the pre-existing
+    `href` crumb) had no `focus-visible` ring, unlike every other interactive primitive in the
+    codebase — added the same `focus-visible:ring-2 focus-visible:ring-gold` treatment.
+  - **Fixed**: the shared `MessageBubble` (CP3) was missing `whitespace-pre-wrap` that the old
+    hand-rolled advisor bubble had — multi-line/multi-paragraph assistant answers would have
+    collapsed to a single line. Fixed once in the shared component, benefiting every consumer.
+  - **Fixed**: `AmbientWave` hardcoded `#cbb460` as a fresh JS literal duplicating
+    `tokens.color.goldLine` (the exact non-CSS-consumer export `tokens.ts`'s own doc comment calls
+    out for "canvas drawing"); switched to importing it. Also named the wave's amplitude/wavelength/
+    speed magic numbers as documented constants (`MAX_AMPLITUDE_PX`, `WAVELENGTH_WIDTH_DIVISOR`,
+    `PHASE_SPEED_PER_MS`, etc.).
+  - **Refuted**: the session-filtered (vs. old all-history-grouped) conversation view is a
+    deliberate, spec-documented UX change (handoff.md §3/§8 — one active conversation, no history
+    browser), not accidental data loss; server-side history is untouched, just not surfaced
+    per-session in this UI pass.
+  - **Deferred, documented, not fixed**: `Composer` hand-rolls its own `<input>` instead of reusing
+    the shared `Input` component — real duplication, but `Input`'s self-contained labelled-field
+    structure doesn't cleanly fit a form row with an external send-button sibling without extending
+    it; `MessageList`'s local `Message` type duplicates `AdvisoryConversation`'s shape rather than
+    importing it — arguably the *more* correct choice (a presentational component shouldn't couple
+    to the exact backend/Zod schema shape) rather than a bug, so left as a loose-coupling design
+    choice, not "fixed." The inline loading spinner in `ask.tsx` intentionally does NOT reuse the
+    existing `components/ui/spinner.tsx` — that component still uses pre-CP1 legacy tokens
+    (`animate-spin-drk`, legacy border/text colors) and is used across several not-yet-rebuilt
+    pages; reusing it here would have pulled old-token styling into new-token UI.
+  Re-verified live: `MessageBubble`'s `getComputedStyle(...).whiteSpace === "pre-wrap"` after the
+  fix; the new focus-visible classes are present on the crumb (confirmed via class list — actual
+  ring visibility couldn't be triggered via a programmatic `.focus()` call, the same
+  `:focus-visible`-requires-genuine-keyboard-intent browser heuristic already documented in this
+  session's CP3 Tooltip investigation, not a fresh bug). `pnpm --filter ui typecheck`/`lint`/`build`
+  all clean after this round (lint: 0 errors, 12 documented `local/flag-stray-position` warnings).
+- **2026-07-04** — CP5 post-PR `/review` gate on PR #30 (2 consolidated angles). Two independent
+  agents both surfaced the same residual gap in round 1's cross-session mutation fix, plus a
+  genuinely new correctness bug:
+  - **Fixed**: `sessionMessages` had no explicit sort — the deleted `advisor.tsx` re-sorted
+    ascending by `createdAt` before rendering, but the rewrite dropped that entirely, and the
+    backend's `/api/advisor/conversations` returns rows newest-first. Every conversation would have
+    rendered upside down (latest question above the first, the trailing `TypingIndicator` bubble
+    appearing above the actual most recent message instead of below it). Fixed by explicitly
+    sorting `sessionMessages` ascending by `createdAt` client-side — matches the old page's
+    behavior and doesn't trust the API's implicit ordering.
+  - **Fixed**: round 1's session-id-ref-guard only protected the `onSuccess`/`onError` callback
+    bodies (the `question`/`askError` state writes) — but `mutation.isPending` itself is a single
+    shared boolean for the `useMutation` instance's entire lifetime, not scoped per session, and it
+    still drove the Composer's `disabled` prop (both instances) and `MessageList`'s
+    `TypingIndicator` display directly. Asking in session A then clicking "New chat" before it
+    settled left the *new* session B's composer disabled and showing a phantom typing indicator,
+    driven by session A's still-in-flight request, until that request finally resolved. Fixed by
+    tracking `pendingSessionId` as its own piece of state (set at ask-time, cleared in the
+    session-guarded `onSuccess`/`onError`, and also cleared unconditionally by "New chat" to
+    immediately abandon any stale pending UI) and deriving `isPendingForSession =
+    pendingSessionId === sessionId` for every place that previously read `mutation.isPending`
+    directly.
+  - **Noted, not extracted**: one reviewing angle asked whether the session-id-ref-guard pattern
+    (capture an id at call time, compare against a ref in async callbacks before applying
+    side-effects) belongs in a shared hook now, since future mutation-heavy pages (CP6 Holdings
+    inline edits, CP7 GTT modify/cancel) will likely need the identical shape. Left as page-local
+    for now — this is the first occurrence, and CLAUDE.md's "duplicate twice before extracting"
+    guidance argues against generalizing a mechanism after a single use; worth revisiting if/when a
+    second page needs the same "abandon a stale in-flight request tied to a context that changed
+    mid-flight" pattern.
   `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round. No further findings
   survived — considered converged.
 

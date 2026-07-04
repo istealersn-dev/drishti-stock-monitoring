@@ -28,7 +28,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProperties>
       <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
         <div
           ref={ref}
-          className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-body ${isUser ? "bg-gold-tint text-bg-base" : "border border-border-strong bg-surface text-fg"} ${className}`}
+          className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-body ${isUser ? "bg-gold-tint text-bg-base" : "border border-border-strong bg-surface text-fg"} ${className}`}
         >
           {children}
         </div>
