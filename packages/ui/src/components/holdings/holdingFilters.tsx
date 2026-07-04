@@ -7,6 +7,10 @@ export type ProductFilter = "ALL" | "CNC" | "MTF" | "NSE" | "BSE";
 
 export const FILTER_TABS: ProductFilter[] = ["ALL", "CNC", "MTF", "NSE", "BSE"];
 
+function isProductFilter(value: string): value is ProductFilter {
+  return FILTER_TABS.some((tab) => tab === value);
+}
+
 type HoldingFiltersProperties = {
   search: string;
   onSearchChange: (value: string) => void;
@@ -52,7 +56,12 @@ export function HoldingFilters({
         />
       </div>
 
-      <Tabs value={filter} onChange={(value) => onFilterChange(value as ProductFilter)}>
+      <Tabs
+        value={filter}
+        onChange={(value) => {
+          if (isProductFilter(value)) onFilterChange(value);
+        }}
+      >
         <Tabs.List scrollable>
           {FILTER_TABS.map((tab) => (
             <Tabs.Trigger key={tab} value={tab}>

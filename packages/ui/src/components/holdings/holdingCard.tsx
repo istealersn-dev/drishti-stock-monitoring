@@ -1,7 +1,12 @@
 import type React from "react";
 
 import type { Holding } from "../../lib/api";
-import { formatPnl, formatPrice, productBadgeVariant } from "../../lib/holdingFormat";
+import {
+  formatPnl,
+  formatPrice,
+  ltpDirectionArrow,
+  productBadgeVariant,
+} from "../../lib/holdingFormat";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -41,6 +46,9 @@ export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElem
         </div>
         <div className="text-right">
           <div className={`font-mono text-body-sm ${ltpColor}`}>
+            <span aria-hidden="true">
+              {ltpDirectionArrow(holding.last_price, holding.close_price)}
+            </span>{" "}
             {formatPrice(holding.last_price)}
           </div>
           <div className={`text-caption ${pnlColor}`}>{formatPnl(holding.pnl, cost)}</div>

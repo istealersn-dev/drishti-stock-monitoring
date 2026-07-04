@@ -3,6 +3,13 @@ import { useState } from "react";
 
 import { updateHoldingConfig } from "../../lib/api";
 
+function parsePriceInput(value: string): number | null {
+  const cleaned = value.trim().replace(/,/g, "");
+  if (!cleaned) return null;
+  const parsed = Number(cleaned);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 type HoldingGttForm = {
   sl: string;
   setSl: (value: string) => void;
@@ -45,18 +52,22 @@ export function useHoldingGttForm(symbol: string): HoldingGttForm {
   });
 
   const handleSetGtt = (): void => {
-    const slNumber = Number(sl);
-    const targetNumber = Number(target);
-    if (!sl.trim() || Number.isNaN(slNumber) || slNumber <= 0) {
+    const slNumber = parsePriceInput(sl);
+    if (slNumber === null || slNumber <= 0) {
       setSaveError("Enter a valid SL before setting GTT");
       return;
     }
-    mutation.mutate({
-      slThreshold: slNumber,
-      targetOne:
-        target.trim() && !Number.isNaN(targetNumber) && targetNumber > 0 ? targetNumber : null,
-      targetTwo: null,
-    });
+
+    let targetNumber: number | null = null;
+    if (target.trim()) {
+      targetNumber = parsePriceInput(target);
+      if (targetNumber === null || targetNumber <= 0) {
+        setSaveError("Enter a valid target price, or leave it blank");
+        return;
+      }
+    }
+
+    mutation.mutate({ slThreshold: slNumber, targetOne: targetNumber, targetTwo: null });
   };
 
   return { sl, setSl, target, setTarget, saveError, isPending: mutation.isPending, handleSetGtt };

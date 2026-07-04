@@ -33,3 +33,14 @@ export function productBadgeVariant(product: string): "warn" | "info" | "neutral
   if (product === "CNC") return "info";
   return "neutral";
 }
+
+/**
+ * Direction glyph for LTP vs close, so movement isn't conveyed by color alone
+ * (Design.md §7 "color-never-alone").
+ * @param lastPrice - the holding's last traded price
+ * @param closePrice - the holding's previous close price
+ * @returns "▲" if at or above close, "▼" otherwise
+ */
+export function ltpDirectionArrow(lastPrice: number, closePrice: number): "▲" | "▼" {
+  return lastPrice >= closePrice ? "▲" : "▼";
+}

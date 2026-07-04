@@ -1,7 +1,12 @@
 import type React from "react";
 
 import type { Holding } from "../../lib/api";
-import { formatPnl, formatPrice, productBadgeVariant } from "../../lib/holdingFormat";
+import {
+  formatPnl,
+  formatPrice,
+  ltpDirectionArrow,
+  productBadgeVariant,
+} from "../../lib/holdingFormat";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Table } from "../ui/table";
@@ -32,6 +37,7 @@ function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
       <Table.Cell numeric>{holding.quantity}</Table.Cell>
       <Table.Cell numeric>{formatPrice(holding.average_price)}</Table.Cell>
       <Table.Cell numeric className={ltpColor}>
+        <span aria-hidden="true">{ltpDirectionArrow(holding.last_price, holding.close_price)}</span>{" "}
         {formatPrice(holding.last_price)}
       </Table.Cell>
       <Table.Cell numeric className={pnlColor}>

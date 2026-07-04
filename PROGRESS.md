@@ -707,6 +707,48 @@ from the spec.
     Both now import `formatPrice` from `../lib/holdingFormat` / `../../lib/holdingFormat` instead of
     a local definition.
   Re-ran `pnpm --filter ui typecheck`/`lint`/`build` — all clean. No further findings; converged.
+  **Final convergence check, `/review` on PR #31 (8-angle, medium effort, full pass after round-2
+  push)**: 6 findings survived verification, all fixed:
+  - **Fixed**: `useHoldingGttForm.ts`'s `handleSetGtt` validated SL strictly (blocks submit with a
+    visible error) but silently discarded an invalid non-empty target (`"abc"`, `"-5"`) as
+    `targetOne: null` — the mutation proceeded as if the field were left blank, with no error shown.
+    Violated CLAUDE.md's "errors are values... never swallow errors silently." Added a `parsePriceInput`
+    helper (strips comma grouping too, see next fix) and an explicit target-validation branch that now
+    blocks with "Enter a valid target price, or leave it blank" instead of silently dropping the value.
+  - **Fixed**: `Number(sl)`/`Number(target)` rejected comma-grouped input (`Number("2,400")` → `NaN`)
+    with no indication the comma was the problem — a natural way to type a 4-digit Indian stock price.
+    `parsePriceInput` now strips commas before parsing.
+  - **Fixed**: `resolveHoldingStatus` had no `quantity <= 0` guard — a stale/closed-out holding still
+    present in the feed with `last_price <= sl` would render a false "AT SL" card. Added an early
+    `quantity <= 0` → `"ACTIVE"` return.
+  - **Fixed**: the rebuild dropped the old `holdings.tsx`'s `▲`/`▼` LTP direction-arrow glyph, leaving
+    LTP movement conveyed by `text-pos`/`text-neg` color alone — a real regression against the
+    project's own `color-never-alone` constraint (Design.md §7, still unchecked in this file's
+    checklist). Added `ltpDirectionArrow` to `lib/holdingFormat.ts` and applied it (as an
+    `aria-hidden` span, since screen-reader users already get the raw price and don't need the glyph
+    announced) in `holdingsTable.tsx`, `holdingCard.tsx`, and `dashboard.tsx`'s overview table.
+  - **Fixed**: `holdingFilters.tsx`'s `Tabs onChange` used `value as ProductFilter` with no runtime
+    check — violates CLAUDE.md's "no `as` casts except when narrowing after a Zod parse." Replaced
+    with an `isProductFilter` type guard (`FILTER_TABS.some((tab) => tab === value)`) so the narrowing
+    is type-system-proven instead of asserted.
+  - **Confirmed real but deferred (not fixed in this PR)**: `buildSlMap`/`resolveHoldingStatus` key
+    the GTT-SL lookup by `trading_symbol` alone, not the `${isin}-${product}` composite used
+    everywhere else in this file — if the same symbol is held under both MTF and CNC and only one
+    product has a real GTT SL, the other product's row inherits that SL and shows a false breach.
+    Traced to the root cause: the backend's `gtt_orders` SQLite table (`packages/agent/src/db/
+    schema.ts`) has no `product` column at all, and neither `stopLoss.handler.ts` nor
+    `instructions.executor.ts` persists it when creating a GTT row — so this can't be fixed UI-side.
+    Confirmed via `git show f5b3298:packages/ui/src/pages/dashboard.tsx` that this exact symbol-only
+    lookup already existed before CP6 (an earlier checkpoint), so it's a pre-existing bug, not a CP6
+    regression — doesn't block this PR. Flagged as a follow-up task (spawn_task: "Add product column
+    to gtt_orders for MTF/CNC disambiguation") requiring a schema migration plus agent-side changes,
+    out of scope for a UI-only PR per the "one concern per PR" rule.
+  Verified live via the scratch-route methodology (mock `Holding` objects, no real backend calls):
+  the ▲/▼ arrows render correctly beside LTP color in both the desktop table and mobile card; a
+  comma-formatted SL (`"2,400"`) is accepted; an invalid target (`"abc"`) now blocks submission with
+  a visible error instead of silently saving as blank. Re-ran `pnpm --filter ui typecheck`/`lint`/
+  `build` — all clean (lint: 0 errors, 13 pre-existing `local/flag-stray-position` warnings). No
+  further findings — considered converged, ready to merge.
 
 ## Constraints checklist (re-verify every checkpoint)
 

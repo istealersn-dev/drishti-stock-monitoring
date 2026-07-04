@@ -7,7 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { StatusDot } from "../components/ui/statusDot";
 import { Table } from "../components/ui/table";
 import { type GttOrder, type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
-import { formatPrice } from "../lib/holdingFormat";
+import { formatPrice, ltpDirectionArrow } from "../lib/holdingFormat";
 
 const ONE_LAKH = 100_000;
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
@@ -34,6 +34,11 @@ const SEVERITY_RANK: Record<HoldingStatus["variant"], number> = { neg: 0, warn: 
 
 function resolveHoldingStatus(holding: Holding, slMap: Map<string, number>): HoldingStatus {
   const sl = slMap.get(holding.trading_symbol);
+  // A closed-out (zero-quantity) holding has no real exposure to alert on,
+  // even if a stale SL/last_price pair would otherwise read as a breach.
+  if (holding.quantity <= 0) {
+    return { variant: "pos", label: "ACTIVE" };
+  }
   if (sl !== undefined && holding.last_price <= sl) {
     return { variant: "neg", label: "AT SL" };
   }
@@ -269,6 +274,9 @@ export function Dashboard(): React.ReactElement {
                     <Table.Cell numeric>{holding.quantity}</Table.Cell>
                     <Table.Cell numeric>{formatPrice(holding.average_price)}</Table.Cell>
                     <Table.Cell numeric className={ltpColor}>
+                      <span aria-hidden="true">
+                        {ltpDirectionArrow(holding.last_price, holding.close_price)}
+                      </span>{" "}
                       {formatPrice(holding.last_price)}
                     </Table.Cell>
                     <Table.Cell numeric className={pnlColor}>
