@@ -135,6 +135,14 @@ const HoldingConfigBodySchema = z.object({
   targetTwo: z.number().positive().nullable(),
 });
 
+const SettingsBodySchema = z
+  .object({
+    dry_run: z.boolean(),
+    pause_agent: z.boolean(),
+    poll_interval_minutes: z.number(),
+  })
+  .partial();
+
 /**
  * Build and return the configured Fastify app (without starting the server).
  * Separated from startApiServer for testability.
@@ -192,20 +200,14 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   });
 
   app.put<{ Body: Record<string, unknown> }>("/api/settings", async (request, reply) => {
-    const body = request.body;
-    const allowed = new Set(["dry_run", "pause_agent", "poll_interval_minutes"]);
-    const booleanKeys = new Set(["dry_run", "pause_agent"]);
-    const now = new Date().toISOString();
-
-    for (const [key, value] of Object.entries(body)) {
-      if (booleanKeys.has(key) && typeof value !== "boolean") {
-        return reply.status(400).send({ ok: false, error: `${key} must be a boolean` });
-      }
+    const parsed = SettingsBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, error: parsed.error.message });
     }
 
+    const now = new Date().toISOString();
     const updated: string[] = [];
-    for (const [key, value] of Object.entries(body)) {
-      if (!allowed.has(key)) continue;
+    for (const [key, value] of Object.entries(parsed.data)) {
       const stringValue = String(value);
       db.insert(agentSettings)
         .values({ key, value: stringValue, updatedAt: now })

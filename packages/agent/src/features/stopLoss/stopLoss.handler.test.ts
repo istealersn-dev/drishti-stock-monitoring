@@ -81,12 +81,30 @@ describe("handleSlBreach", () => {
     expect(mockDbInsert).toHaveBeenCalledTimes(3); // gtt_orders + sl_exit_gtt_created + sl_exit_alerted
 
     const gttRowValues = valuesSpy.mock.calls[0]?.[0] as { status: string };
-    expect(gttRowValues.status).toBe("active");
+    expect(gttRowValues.status).toBe("dry_run");
 
     const actions = valuesSpy.mock.calls
       .slice(1)
       .map((call) => (call[0] as { action: string }).action);
     expect(actions).toEqual(["sl_exit_gtt_created", "sl_exit_alerted"]);
+  });
+
+  it("fresh breach with dry-run off: writes 'active' status, not 'dry_run'", async () => {
+    // Call order inside handleSlBreach: hasActiveSlExitGtt, wasRecentlyAlerted, isDryRunActive.
+    mockDbGet
+      .mockReturnValueOnce(undefined) // hasActiveSlExitGtt: no existing row
+      .mockReturnValueOnce(undefined) // wasRecentlyAlerted: not alerted yet
+      .mockReturnValueOnce({ key: "dry_run", value: "false" }); // isDryRunActive: DB override off
+    mockCreateGTT.mockResolvedValue({ ok: true, value: "order-id-123" });
+
+    await handleSlBreach(
+      { holding: makeHolding(), lastTradedPrice: 880, slThreshold: 900 },
+      "run-005",
+    );
+
+    expect(mockCreateGTT).toHaveBeenCalledWith(expect.anything(), false);
+    const gttRowValues = valuesSpy.mock.calls[0]?.[0] as { status: string };
+    expect(gttRowValues.status).toBe("active");
   });
 
   it("alert message contains symbol, LTP, and DRY RUN note", async () => {

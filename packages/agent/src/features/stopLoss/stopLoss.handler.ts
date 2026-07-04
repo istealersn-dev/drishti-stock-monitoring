@@ -99,7 +99,7 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
         triggerPrice: slThreshold,
         limitPrice: request.limit_price,
         quantity: holding.quantity,
-        status: gttResult.ok ? "active" : "failed",
+        status: !gttResult.ok ? "failed" : dryRun ? "dry_run" : "active",
         approvalId: null,
         createdAt: now,
         updatedAt: now,

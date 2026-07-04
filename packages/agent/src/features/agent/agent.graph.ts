@@ -124,7 +124,7 @@ async function checkTargetsNode(state: Readonly<AgentState>): Promise<Partial<Ag
         symbol: hit.symbol,
         action,
         reasoning: `${label} target ₹${hit.targetPrice} reached at LTP ₹${hit.currentPrice}`,
-        dryRun: env.DRISHTI_DRY_RUN,
+        dryRun: isDryRunActive(),
         error: null,
         createdAt: new Date().toISOString(),
       })
@@ -181,7 +181,7 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
         runId: state.runId,
         action: "llm_analyse_failed",
         reasoning: null,
-        dryRun: env.DRISHTI_DRY_RUN,
+        dryRun: isDryRunActive(),
         error: result.error.message,
         createdAt: new Date().toISOString(),
       })
@@ -202,7 +202,7 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
       symbol: PORTFOLIO_SENTINEL,
       action: LLM_ANALYSE_GATE_ACTION,
       reasoning: null,
-      dryRun: env.DRISHTI_DRY_RUN,
+      dryRun: isDryRunActive(),
       error: null,
       createdAt: new Date().toISOString(),
     })
@@ -240,7 +240,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           symbol: decision.symbol,
           action: "hold",
           reasoning: decision.reasoning,
-          dryRun: env.DRISHTI_DRY_RUN,
+          dryRun: isDryRunActive(),
           error: null,
           createdAt: now,
         })
@@ -271,7 +271,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           symbol: decision.symbol,
           action: "alert_only",
           reasoning: decision.reasoning,
-          dryRun: env.DRISHTI_DRY_RUN,
+          dryRun: isDryRunActive(),
           error: null,
           createdAt: now,
         })
@@ -320,7 +320,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           symbol: decision.symbol,
           action: "gtt_modify_failed",
           reasoning: decision.reasoning,
-          dryRun: env.DRISHTI_DRY_RUN,
+          dryRun: isDryRunActive(),
           error: "gttParams missing in LLM decision",
           createdAt: now,
         })
@@ -439,7 +439,7 @@ async function logAndAlertNode(state: Readonly<AgentState>): Promise<Partial<Age
       symbol: PORTFOLIO_SENTINEL,
       action: "portfolio_summary",
       reasoning: summary,
-      dryRun: env.DRISHTI_DRY_RUN,
+      dryRun: isDryRunActive(),
       error: null,
       createdAt: new Date().toISOString(),
     })

@@ -12,9 +12,6 @@ vi.mock("../db/db.js", () => ({
   },
 }));
 vi.mock("../db/schema.js", () => ({ agentSettings: {} }));
-vi.mock("./logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-}));
 
 describe("isDryRunActive", () => {
   beforeEach(() => {
@@ -46,13 +43,13 @@ describe("isDryRunActive", () => {
     expect(isDryRunActive()).toBe(true);
   });
 
-  it("fails closed to dry-run true when the DB read throws, even if env is false", async () => {
+  it("propagates the error when the DB read throws, rather than guessing a value", async () => {
     vi.doMock("./env.js", () => ({ env: { DRISHTI_DRY_RUN: false } }));
     mockDbGet.mockImplementation(() => {
       throw new Error("SQLITE_BUSY");
     });
 
     const { isDryRunActive } = await import("./dryRun.js");
-    expect(isDryRunActive()).toBe(true);
+    expect(() => isDryRunActive()).toThrow("SQLITE_BUSY");
   });
 });
