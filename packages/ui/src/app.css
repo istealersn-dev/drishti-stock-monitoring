@@ -5,8 +5,6 @@
   --animate-spin-drk: drk-spin 0.7s linear infinite;
   --animate-blink-drk: drk-blink 1.4s step-end infinite;
   --animate-fade-drk: drk-fade 0.2s ease-out;
-  --animate-float-drk: drk-float 22s ease-in-out infinite;
-  --animate-float2-drk: drk-float2 26s ease-in-out infinite;
 
   /* ── Backgrounds ───────────────────────────────────────────── */
   --color-bg-root: #0d0d0d;
@@ -75,11 +73,6 @@
   /* ── Fonts ─────────────────────────────────────────────────── */
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
-
-  /* ── Spacing ───────────────────────────────────────────────── */
-  --spacing-sidebar: 238px;
-  --spacing-sidebar-collapsed: 52px;
-  --spacing-topbar: 53px;
 }
 
 /* ── Global reset ──────────────────────────────────────────────── */
@@ -155,26 +148,6 @@ body {
   }
 }
 
-@keyframes drk-float {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(28px, -22px);
-  }
-}
-
-@keyframes drk-float2 {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(-24px, 26px);
-  }
-}
-
 /* ── Compound component classes ────────────────────────────────── */
 @layer components {
   .btn-primary {
@@ -232,261 +205,6 @@ body {
     content: "";
     @apply absolute left-0 right-0 top-0 h-0.5 rounded-tl-card rounded-tr-card;
     background: linear-gradient(90deg, var(--color-danger), transparent);
-  }
-
-  .logo-box {
-    @apply flex h-8 w-8 items-center justify-center rounded-lg font-mono text-[15px] font-bold text-white;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-    box-shadow:
-      0 0 0 1px rgba(99, 102, 241, 0.4),
-      0 4px 16px rgba(99, 102, 241, 0.35);
-  }
-
-  .topbar {
-    @apply flex h-[53px] flex-none items-center justify-between gap-4 border-b border-border-subtle px-[18px];
-    background: rgba(13, 13, 13, 0.72);
-    backdrop-filter: blur(10px);
-  }
-
-  /* Status pill in topbar */
-  .status-pill {
-    @apply flex items-center gap-[7px] rounded-pill border px-[13px] py-[5px] pl-[11px];
-  }
-  .status-pill-success {
-    background: rgba(34, 197, 94, 0.08);
-    border-color: rgba(34, 197, 94, 0.25);
-    color: var(--color-success);
-  }
-  .status-pill-warning {
-    background: rgba(245, 158, 11, 0.1);
-    border-color: rgba(245, 158, 11, 0.4);
-    color: var(--color-warning);
-  }
-  .status-pill-danger {
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: var(--color-danger);
-  }
-
-  .status-dot {
-    @apply rounded-full flex-none;
-    width: 7px;
-    height: 7px;
-    animation: drk-pulse 1.8s ease-in-out infinite;
-  }
-  .status-dot-success {
-    background: var(--color-success);
-    box-shadow: 0 0 8px var(--color-success);
-  }
-  .status-dot-warning {
-    background: var(--color-warning);
-    box-shadow: 0 0 8px var(--color-warning);
-  }
-  .status-dot-danger {
-    background: var(--color-danger);
-    box-shadow: 0 0 8px var(--color-danger);
-  }
-
-  /* Topbar right-side buttons */
-  /* Icon button used for both the nav hamburger and the refresh button in the topbar */
-  .topbar-icon-btn {
-    @apply flex cursor-pointer items-center justify-center rounded-xl border border-border-default text-text-secondary transition-colors;
-    width: 34px;
-    height: 34px;
-    background: #1a1a1a;
-  }
-  .topbar-icon-btn:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary-text);
-    background: #181826;
-  }
-
-  .topbar-pending-btn {
-    @apply flex cursor-pointer items-center gap-[6px] rounded-xl border font-mono text-[12px] font-semibold transition-colors;
-    height: 30px;
-    padding: 0 11px;
-    border-color: rgba(245, 158, 11, 0.4);
-    background: rgba(245, 158, 11, 0.1);
-    color: var(--color-warning);
-  }
-  .topbar-pending-btn:hover {
-    background: rgba(245, 158, 11, 0.18);
-  }
-
-  /* Sidebar */
-  .sidebar-header {
-    @apply flex h-[53px] flex-none items-center gap-[10px] overflow-hidden border-b border-border-subtle px-[18px];
-  }
-
-  .sidebar-logo {
-    @apply flex flex-none items-center justify-center rounded-lg font-mono font-bold text-white;
-    width: 26px;
-    height: 26px;
-    font-size: 14px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-    box-shadow:
-      0 0 0 1px rgba(99, 102, 241, 0.4),
-      0 4px 14px rgba(99, 102, 241, 0.35);
-  }
-
-  .sidebar-collapse-btn {
-    @apply flex h-[42px] flex-none cursor-pointer items-center justify-center gap-2 border-none border-t border-border-subtle bg-transparent text-[12px] text-text-dim transition-colors;
-  }
-  .sidebar-collapse-btn:hover {
-    @apply bg-bg-elevated text-text-secondary;
-  }
-
-  .nav-item {
-    @apply relative flex h-[38px] w-full cursor-pointer items-center gap-[11px] overflow-hidden whitespace-nowrap rounded-xl border-none px-[11px] text-left text-[13.5px] font-medium text-text-tertiary transition-colors;
-    font-family: inherit;
-    background: transparent;
-  }
-  .nav-item:hover {
-    background: #19191b;
-    color: var(--color-text-primary);
-  }
-  .nav-item.active {
-    @apply bg-primary-bg text-primary-text;
-  }
-
-  .nav-pending-dot {
-    @apply absolute right-[9px] top-[8px] rounded-full;
-    width: 7px;
-    height: 7px;
-    background: var(--color-warning);
-    box-shadow: 0 0 6px var(--color-warning);
-  }
-
-  .table-row-header {
-    @apply h-9 border-b border-border-subtle text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted;
-  }
-
-  .table-row-data {
-    @apply h-11 border-b border-border-subtle text-[13px] text-text-secondary;
-  }
-
-  .badge-pill {
-    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-[11px] font-medium font-mono;
-  }
-
-  .animate-fade {
-    animation: drk-fade 0.2s ease-out;
-  }
-
-  /* ── Ambient orbs ───────────────────────────────────────────── */
-  .orb-indigo {
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.16), transparent 62%);
-  }
-  .orb-green {
-    background: radial-gradient(circle, rgba(34, 197, 94, 0.1), transparent 64%);
-  }
-
-  /* ── Login page ─────────────────────────────────────────────── */
-
-  .login-left {
-    @apply relative flex flex-col justify-between overflow-hidden border-r border-border-subtle;
-    flex: 0 0 50%;
-    padding: 44px;
-    background: linear-gradient(160deg, rgba(22, 22, 30, 0.55), rgba(11, 11, 13, 0.3));
-  }
-
-  /* Radial gradient corner overlays */
-  .login-left-overlay {
-    @apply pointer-events-none absolute inset-0;
-    background:
-      radial-gradient(85% 75% at 100% 0%, rgba(99, 102, 241, 0.22), transparent 56%),
-      radial-gradient(50% 45% at 100% 0%, rgba(244, 150, 120, 0.15), transparent 50%),
-      radial-gradient(80% 70% at 6% 96%, rgba(99, 102, 241, 0.16), transparent 62%),
-      radial-gradient(45% 40% at 0% 100%, rgba(244, 150, 120, 0.08), transparent 55%);
-  }
-
-  /* Halftone dot textures */
-  .login-halftone-purple-bl {
-    @apply pointer-events-none absolute inset-0;
-    background-image: radial-gradient(circle, rgba(140, 150, 250, 0.5) 1.3px, transparent 1.8px);
-    background-size: 19px 19px;
-    -webkit-mask-image: radial-gradient(60% 48% at 0% 100%, rgba(0, 0, 0, 0.6) 0%, transparent 70%);
-    mask-image: radial-gradient(60% 48% at 0% 100%, rgba(0, 0, 0, 0.6) 0%, transparent 70%);
-  }
-
-  .login-halftone-purple-tr {
-    @apply pointer-events-none absolute inset-0;
-    background-image: radial-gradient(circle, rgba(140, 150, 250, 0.85) 1.9px, transparent 2.5px);
-    background-size: 17px 17px;
-    -webkit-mask-image: radial-gradient(92% 72% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.75) 30%, transparent 60%);
-    mask-image: radial-gradient(92% 72% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.75) 30%, transparent 60%);
-  }
-
-  .login-halftone-orange-tr {
-    @apply pointer-events-none absolute inset-0;
-    background-image: radial-gradient(circle, rgba(246, 166, 132, 0.9) 1.9px, transparent 2.5px);
-    background-size: 17px 17px;
-    -webkit-mask-image: radial-gradient(58% 48% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.55) 20%, transparent 42%);
-    mask-image: radial-gradient(58% 48% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.55) 20%, transparent 42%);
-  }
-
-  /* Feature bullet glowing dots */
-  .feature-dot {
-    @apply flex-none rounded-full;
-    width: 7px;
-    height: 7px;
-  }
-  .feature-dot-success {
-    background: var(--color-success);
-    box-shadow: 0 0 8px var(--color-success);
-  }
-  .feature-dot-primary {
-    background: var(--color-primary);
-    box-shadow: 0 0 8px var(--color-primary);
-  }
-  .feature-dot-warning {
-    background: var(--color-warning);
-    box-shadow: 0 0 8px var(--color-warning);
-  }
-
-  /* Right panel form */
-  .login-right {
-    @apply flex items-center justify-center p-8;
-  }
-
-  .login-input {
-    @apply w-full rounded-xl border border-border-default bg-bg-surface text-text-primary outline-none transition-colors;
-    height: 44px;
-    padding: 0 13px;
-    font-family: var(--font-mono);
-    font-size: 14px;
-  }
-  .login-input:focus {
-    border-color: var(--color-primary);
-    background: var(--color-primary-surface);
-  }
-
-  .login-error-banner {
-    @apply flex items-center gap-2 rounded-xl border border-danger-border bg-danger-bg text-[12px] text-danger-text;
-    padding: 9px 11px;
-  }
-
-  .login-unlock-btn {
-    @apply flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-none font-semibold text-white transition-all;
-    height: 44px;
-    font-size: 14px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
-  }
-  .login-unlock-btn:hover:not(:disabled) {
-    filter: brightness(1.08);
-  }
-  .login-unlock-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    filter: none;
-  }
-
-  .login-cf-footer {
-    @apply flex items-center justify-center gap-2 text-text-ghost;
-    margin-top: 22px;
-    font-size: 11.5px;
-    font-family: var(--font-mono);
   }
 
   /* ── Dashboard stat cards ── */
@@ -1064,30 +782,17 @@ body {
   .log-action-chip-muted { background: rgba(120,120,120,.1); color: #9a9a9a; }
   .log-action-chip-primary { background: rgba(99,102,241,.1); color: var(--color-primary-text); }
   .log-action-chip-default { background: rgba(120,120,120,.1); color: #c8c8c8; }
-
-  /* Custom checkbox */
-  .login-checkbox {
-    @apply flex flex-none items-center justify-center rounded-md border transition-colors;
-    width: 16px;
-    height: 16px;
-    border-width: 1.5px;
-  }
-  .login-checkbox-unchecked {
-    border-color: var(--color-border-default);
-    background: transparent;
-  }
-  .login-checkbox-checked {
-    border-color: var(--color-primary);
-    background: var(--color-primary);
-  }
 }
 
 /* ══════════════════════════════════════════════════════════════════
    New design system (project/Design.md) — gold-branded, token-bound.
    Coexists with the legacy indigo tokens/classes above; those are
    retired page-by-page as each checkpoint (CP2–CP8) rebuilds it.
-   No `--spacing-*` overrides: Design.md §4 uses Tailwind's default
-   4px-based spacing scale as-is.
+   Design.md §4's general spacing uses Tailwind's default 4px-based
+   scale as-is — the only `--spacing-*` entries below (CP4) are named
+   dimensions for shell chrome Design.md §5 pins to exact pixel values
+   (sidebar width, header/footer/tab-bar heights), not a general-purpose
+   scale override.
    ══════════════════════════════════════════════════════════════════ */
 @theme {
   /* surfaces */
@@ -1188,6 +893,16 @@ body {
   /* the single shell breakpoint, plus login's secondary split (Design.md §5) */
   --breakpoint-nav: 760px;
   --breakpoint-login-split: 820px;
+
+  /* shell dimensions (Design.md §5) — named so components reference tokens,
+     not raw px, for the fixed chrome sizes the spec pins to exact pixels */
+  --spacing-sidebar-expanded: 240px;
+  --spacing-sidebar-collapsed: 64px;
+  --spacing-shell-header: 53px;
+  --spacing-mobile-header: 50px;
+  --spacing-mobile-tabbar: 62px;
+  --spacing-mobile-main-bottom: 80px;
+  --spacing-footer: 38px;
 
   /* motion — durations lifted verbatim from project/Drishti.dc.html's drk-* keyframes */
   --animate-wave-x: wave-x 17s ease-in-out -5s infinite alternate;

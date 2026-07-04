@@ -21,8 +21,8 @@ from the spec.
 | 1 | Monorepo + design tokens | **done, merged** | `feat/cp1-design-tokens` (deleted) | [#25](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/25) |
 | — | Lint baseline fix (found during CP1) | **done, merged** | `fix/lint-baseline` (deleted) | [#26](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/26) |
 | 2 | UI primitives A (Button, Badge, Card, Input, Textarea, StatusDot, Breadcrumb) | **done, merged** | `feat/cp2-ui-primitives-a` (deleted) | [#27](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/27) |
-| 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | in-progress | `feat/cp3-ui-primitives-b` | — |
-| 4 | App scaffold + responsive shell + Login | todo | — | — |
+| 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | **done, merged** | `feat/cp3-ui-primitives-b` (deleted) | [#28](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/28) |
+| 4 | App scaffold + responsive shell + Login | in-progress | `feat/cp4-app-shell-login` | — |
 | 5 | Ask Drishti (hero, composer, AmbientWave, chat) | todo | — | — |
 | 6 | Dashboard + Holdings | todo | — | — |
 | 7 | Instructions + GTT + Logs | todo | — | — |
@@ -393,6 +393,172 @@ from the spec.
   fit for when CP1's `tokens.ts`/`app.css` `@theme` gets revisited or when CP4 adds the next
   portal-based overlay (Login modal) and the stacking ladder needs a real specification.
   No other findings survived this round — considered converged.
+- **2026-07-04** — CP4: built the app scaffold, responsive shell, and Login on the new token
+  system, replacing the pre-CP1 legacy `components/layout/{shell,sidebar,topbar}.tsx` entirely.
+  New `packages/ui/src/components/shell/`: `appShell.tsx` (picks desktop vs mobile shell via a new
+  `useMediaQuery('(min-width: 760px)')` hook — `hooks/useMediaQuery.ts` — rather than duplicating
+  screens, per handoff.md §3), `sidebar.tsx` (desktop-only now — the old mobile slide-out drawer is
+  gone, replaced by the bottom-tab-bar model Design.md's mobile shell actually specifies), `appHeaderMobile.tsx`,
+  `mobileTabBar.tsx` (fixed 6-tab bar), and `appFooter.tsx` (new: Design.md's desktop shell has no
+  top header at all — only sidebar/main/footer — so the status/pending/last-poll meta the old
+  Topbar carried on both breakpoints now lives in `AppFooter` on desktop and `AppHeaderMobile` on
+  mobile). Rebuilt `pages/login.tsx` on the new tokens with the real 820px split
+  (`--breakpoint-login-split`, a `login-split:` Tailwind variant) rather than the old `sm:` (640px)
+  breakpoint; preserved the exact `loginWithKey`/`storeKey` business logic untouched. Extended
+  `Input` with `autoComplete`/`autoFocus` passthrough props (needed for the access-key field's
+  password-manager support) and kept all shell components wired to the same
+  `fetchSettings`/`fetchApprovals`/`fetchRuns` TanStack Query calls the old Shell used, so
+  dry-run/agent-status/pending-count/last-poll data continuity is unbroken.
+  **Judgment calls made** (documented per the mission's "stop only when truly unresolvable" rule —
+  none of these touch data writes/orders/LLM prompts, so proceeded rather than paused):
+  (1) Kept all 9 existing nav routes (Dashboard/Holdings/Instructions/GTT/Logs/Watchlist/Health/
+  Advisor/Settings) in the desktop `Sidebar` even though Design.md's component inventory only
+  enumerates 6 — those 3 extra routes are real, already-built app features that predate this UI
+  rebuild; removing them to match an inventory snapshot would be a functional regression. The
+  mobile `MobileTabBar` does stick to the spec's exact 6 tabs (screen space is genuinely
+  constrained there); Watchlist/Health/Advisor are desktop-only for now.
+  (2) Converted nav icons from hand-rolled inline SVGs to `lucide-react` (the mission's
+  non-negotiable icon library, already established in CP2/CP3) instead of porting the legacy SVGs.
+  (3) Changed the sidebar/footer/mobile-header pending-approval indicator from the legacy amber tint
+  to `info` (indigo), per handoff.md §8's explicit correction ("pending badge is info, distinct from
+  the warn Dry-Run pill") — the legacy build predated that correction.
+  (4) Dropped Login's decorative purple/orange halftone-texture background (real in
+  `Drishti.dc.html`, per design-reference research) and the app-shell's ambient floating orbs —
+  neither uses colors from the new token vocabulary (which reserves gold for brand and doesn't
+  define a "float" drift keyframe; only `wave-x`/`wave-y`/`breathe`/`pulse`/`spin`/`fade` exist in
+  the new system, and `wave-x`/`wave-y` are explicitly scoped to CP5's Ask-Drishti-only
+  `AmbientWave`). Replaced with a simple gold-tinted 6%-opacity overlay on Login's left panel using
+  existing tokens instead of introducing new off-system decorative colors.
+  (5) Footer's exact key-value copy is unspecified in Design.md/handoff.md beyond "meta left /
+  session right" — populated it with the same status/pending/last-poll data the old Topbar already
+  had wired, split across `AppFooter` (desktop) and `AppHeaderMobile` (mobile) as described above.
+  (6) Dropped the old Topbar's "Secured via Cloudflare Tunnel" footer microcopy — handoff.md §8
+  explicitly lists Cloudflare-tunnel/session references as removed in the latest design pass.
+  **Cleanup discovered while migrating**: deleted several now-fully-orphaned legacy `app.css`
+  entries beyond the shell/login-exclusive classes — a duplicate `.animate-fade` custom class
+  (shadowed by CP1's token-driven `animate-fade` utility, using the old `drk-fade` keyframe),
+  `.table-row-header`/`.table-row-data`/`.badge-pill` (zero importers anywhere, dead before this
+  checkpoint too), and the `--animate-float-drk`/`--animate-float2-drk` tokens + `drk-float`/
+  `drk-float2` keyframes (only ever used by the now-deleted ambient-orb classes). Also removed a
+  legacy `--spacing-sidebar-collapsed: 52px` token that was silently shadowed by (and confusingly
+  duplicate-named with) a new CP4 token of the same name at `64px` — kept the new one. Added new
+  `--spacing-*` tokens (`sidebar-expanded`, `sidebar-collapsed`, `shell-header`, `mobile-header`,
+  `mobile-tabbar`, `footer`) for the shell's Design.md-pinned exact pixel dimensions, avoiding raw
+  px arbitrary Tailwind values.
+  **Verification**: `pnpm --filter ui typecheck`/`lint`/`build` all clean (lint: 0 errors, 8
+  documented `local/flag-stray-position` warnings — all legitimate genuine-overlay uses). Browser
+  page CSS bundle shrank 123KB → 110KB from the dead-code removal. Verified live: Login's 820px
+  split (desktop side-by-side screenshot, mobile stacked screenshot) and the auth guard correctly
+  redirecting an unauthenticated session to `/login`. For the authenticated shell itself, a real
+  backend (`packages/agent`, port 4000) is running locally and correctly enforces its actual
+  configured `DRISHTI_ACCESS_KEY` — rather than attempt to bypass/guess a real credential or fight
+  the live 401-triggered `clearKey()`+redirect behavior in `lib/api.ts`, verified `Sidebar`/
+  `AppFooter`/`AppHeaderMobile`/`MobileTabBar` via a temporary, unauthenticated scratch route
+  rendering them directly with mock props (same methodology CP1-CP3 used for primitive/token
+  preview pages) — confirmed all render correctly with real data shapes, and the sidebar
+  collapse/expand toggle works in both directions (one read briefly showed a stale
+  `getBoundingClientRect()` width immediately after a click, consistent with this session's
+  documented stale-read caveat — a second, independent screenshot confirmed the toggle is correct).
+  The scratch route was deleted before committing. `AppShell`'s own `useMediaQuery`-driven
+  desktop/mobile switch was not independently live-tested (would require either a real access key
+  or further fetch-mocking against the live backend) — code-reviewed instead; the hook is a
+  standard `matchMedia` + `change`-listener pattern, and the same "pick layout by viewport width"
+  mechanism was confirmed working for Login's CSS-based 820px split.
+- **2026-07-04** — CP4 pre-PR gate, `/code-review --level high` (6-angle pass against the corrected
+  full diff — see the note below about a git staging mistake caught first). Found and fixed four
+  real issues:
+  - **Fixed (critical)**: `AppShell` originally used two separate `if (!isDesktop) return <mobile/>;
+    return <desktop/>;` branches, each mounting its own `<main><Outlet/></main>`. Since each branch's
+    `<Outlet/>` sat at a different position in the two distinct trees, React would unmount the whole
+    previous subtree and mount a fresh one every time `isDesktop` flipped (e.g. resizing a window or
+    rotating a tablet across 760px) — silently wiping any local state on the currently-routed page
+    (a half-typed Instructions draft, Holdings filter state, an Advisor conversation draft). Fixed by
+    restructuring to a single `return` with conditional siblings around one stable
+    `<main><Outlet/></main>` — `<main>` now always occupies the same child index in its parent
+    regardless of which conditional siblings render, so React correctly recognizes it as the same
+    node across the toggle and never remounts it. Verified via a scratch harness (temporary
+    unauthenticated route, deleted before commit): a stateful child rendered under `<main>` kept an
+    identical random marker value across a fresh mount at desktop width vs. a fresh mount at mobile
+    width (proving both layouts render correctly), and `window.matchMedia('(min-width: 760px)').matches`
+    correctly tracked the real viewport at both sizes — confirming the underlying hook/media-query
+    logic is sound. Live in-session resizing of an already-mounted page didn't trigger a visible
+    layout swap in this CDP-driven preview tool specifically (confirmed separately: manually
+    dispatching a `change` event on a freshly-obtained `MediaQueryList` also didn't propagate to the
+    hook's listener), which points to a CDP viewport-override limitation rather than a real bug —
+    consistent with this session's prior documented CDP/automation caveats — but the fix itself
+    (stable sibling positioning) is a well-established, standard React reconciliation technique
+    independent of that observation.
+  - **Fixed**: the legacy Topbar's `APP_VERSION = "1.4"` display was silently dropped when the shell
+    was rebuilt — not an intentional decision, just missed in the rebuild. Re-added to `AppFooter`
+    (desktop-only, matching the old Topbar's `sm:block`-gated desktop-only visibility).
+  - **Fixed**: `app.css`'s new-design-system header comment still said "No `--spacing-*` overrides:
+    Design.md §4 uses Tailwind's default 4px-based spacing scale as-is" immediately above the new
+    CP4 `--spacing-sidebar-expanded`/etc. tokens added in this same checkpoint — a self-contradicting
+    comment in the same diff. Updated the comment to clarify the new entries are named dimensions for
+    Design.md §5's exact-pixel shell chrome, not a general spacing-scale override (kept the
+    `--spacing-*` namespace itself, since that's what makes Tailwind v4 auto-generate the
+    `h-sidebar-expanded`/`w-sidebar-collapsed`/etc. utilities these components rely on).
+  - **Fixed**: the pending-approval indicator dot on `Sidebar`'s and `MobileTabBar`'s Instructions
+    nav item had no accessible label (unlike `StatusDot`, which pairs every dot with `sr-only` text)
+    — a screen-reader user got no indication the item had pending approvals beyond the link's own
+    label. Added `sr-only` "(pending approvals)" text alongside each dot.
+  - **Deferred, documented, not fixed**: several real-but-low-severity cleanup findings — `Sidebar`'s
+    nav-item hover treatment and `MobileTabBar`'s/`Sidebar`'s pending-dot rendering duplicate
+    `Button`'s ghost-variant hover classes and `StatusDot`'s/`Badge`'s dot-rendering pattern
+    respectively instead of reusing them; `login.tsx`'s local `DOT_CLASS` map is a third copy of the
+    same semantic-color-to-dot mapping `Badge` already has internally. None are drop-in reuses
+    without a visual-treatment change (`Badge` renders a bordered/tinted pill, not a bare dot; a
+    nav-link isn't a `Button`), so fixing them would mean either a visual change or a slightly
+    awkward abstraction — deferred as future cleanup candidates rather than forced now, consistent
+    with prior checkpoints' "duplicate twice/thrice before extracting" judgment calls.
+    `resolveStatus()`/the refresh-icon-button block are duplicated exactly twice between
+    `AppFooter`/`AppHeaderMobile` — left as-is since CLAUDE.md's rule explicitly tolerates exactly
+    this amount of duplication before extraction.
+  - **Note on process**: while gathering this review's diff, discovered the checkpoint's first
+    commit (`a6a97ed`) was incomplete — an earlier `git add -A -- <paths>` included a stale pathspec
+    (`packages/ui/src/components/layout`, already removed by an earlier `git rm`), which silently
+    failed the entire `git add` invocation and left `router.tsx`, `app.css`, `eslint.config.ts`,
+    `input.tsx`, `login.tsx`, and this file unstaged. The pushed commit was consequently
+    build-broken (`router.tsx` still imported the just-deleted legacy `Shell`). Caught before the
+    review agents ran (by diffing against `origin/main` and noticing the file list was too short),
+    fixed with a follow-up commit (`eab2de7`) before proceeding. Lesson: always verify `git status`
+    output column position (leading space = unstaged, no leading space = staged) after a multi-path
+    `git add`, and prefer `git diff origin/main...HEAD --stat` as a final sanity check on what a
+    checkpoint's commits actually contain before treating them as complete.
+  `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round (lint: 0 errors, the same 8
+  documented `local/flag-stray-position` warnings).
+- **2026-07-04** — CP4 `/security-review` (pre-PR gate, second half): zero findings — Login's
+  credential-handling logic is byte-for-byte unchanged, no new unsafe sinks, no sensitive data
+  exposed by the new shell components. PR opened as
+  [#29](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/29).
+- **2026-07-04** — CP4 post-PR `/review` gate on PR #29 (medium effort, 2 consolidated angles given
+  the thorough pre-PR pass already covered this exact diff). Found and fixed one real regression
+  the pre-PR pass introduced-and-missed, plus two consistency nits:
+  - **Fixed**: the pre-PR round's sr-only "(pending approvals)" fix on `Sidebar`'s collapsed nav
+    items had an unintended side effect — when `collapsed`, the visible `<span>{item.label}</span>`
+    was entirely omitted (`{!collapsed && <span>...}`), so the Instructions link's accessible name
+    collapsed to just "(pending approvals)" with no destination label at all; a screen-reader user
+    got no indication where the link went. Fixed by always rendering the label span (visible when
+    expanded, `sr-only` when collapsed) instead of omitting it — simpler than the original
+    conditional-render, and the link's accessible name is now consistently "Instructions (pending
+    approvals)" regardless of collapsed state. Re-verified live via the accessibility snapshot.
+  - **Fixed**: `AppHeaderMobile`'s pending-approvals control was a bare unstyled `<button>` with no
+    hover/focus affordance, unlike the old Topbar's dedicated `.topbar-pending-btn` treatment or the
+    adjacent refresh icon button — added `hover:brightness-110`/`focus-visible:ring-gold` classes so
+    it's visibly interactive.
+  - **Fixed**: `AppShell`'s mobile `<main>` used a raw `pb-20` (80px) instead of a named token, while
+    every other Design.md-pinned shell dimension in this checkpoint got one — added
+    `--spacing-mobile-main-bottom: 80px` (kept as its own independent token rather than derived from
+    `--spacing-mobile-tabbar`, since Design.md §5 specifies both as separate fixed values, not one
+    computed from the other) and switched to `pb-mobile-main-bottom`.
+  - Also fixed a stale `router.tsx` comment still referencing "the legacy-styled Shell chrome" that
+    this same checkpoint deleted.
+  - **Not fixed** (noted, lower-confidence/nitpick per the reviewing agent's own assessment): no
+    `aria-live` announcement when the sidebar collapse/expand state changes — the toggle button's
+    `aria-label` does swap (Expand ↔ Collapse) but isn't announced as a state change on its own.
+    Deferred as a minor a11y enhancement beyond what Design.md mandates explicitly.
+  `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round. No further findings
+  survived — considered converged.
 
 ## Constraints checklist (re-verify every checkpoint)
 

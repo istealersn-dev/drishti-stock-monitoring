@@ -12,6 +12,8 @@ type InputProperties = {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  autoComplete?: React.HTMLInputAutoCompleteAttribute;
+  autoFocus?: boolean;
   className?: string;
 };
 
@@ -31,6 +33,8 @@ type InputProperties = {
  * @param props.onChange - change handler, receives the new string value
  * @param props.placeholder - placeholder text
  * @param props.disabled - disables the input
+ * @param props.autoComplete - native autocomplete hint (e.g. "current-password")
+ * @param props.autoFocus - focus the field on mount
  * @param props.className - additional classes on the input element
  * @returns Labelled input element
  */
@@ -44,6 +48,8 @@ export function Input({
   onChange,
   placeholder,
   disabled = false,
+  autoComplete,
+  autoFocus = false,
   className = "",
 }: InputProperties): React.ReactElement {
   const [revealed, setRevealed] = useState(false);
@@ -64,6 +70,8 @@ export function Input({
           value={value}
           placeholder={placeholder}
           disabled={disabled}
+          autoComplete={autoComplete}
+          autoFocus={autoFocus}
           onChange={(event): void => onChange(event.target.value)}
           className={`h-10 min-w-0 flex-1 bg-transparent px-3 text-body text-fg outline-none placeholder:text-fg-faint disabled:cursor-not-allowed disabled:text-fg-faint ${numeric ? "text-center font-mono tabular-nums" : ""}`}
         />

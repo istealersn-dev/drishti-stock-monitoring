@@ -6,7 +6,7 @@ import {
   redirect,
 } from "@tanstack/react-router";
 
-import { Shell } from "./components/layout/shell";
+import { AppShell } from "./components/shell/appShell";
 import { isAuthenticated } from "./lib/auth";
 import { Advisor } from "./pages/advisor";
 import { CatalogPreview } from "./pages/catalogPreview";
@@ -31,7 +31,7 @@ const loginRoute = createRoute({
 });
 
 // Design-system compliance page. Kept as a standalone root-level route (not nested
-// under layoutRoute) so it doesn't render inside the legacy-styled Shell chrome — but
+// under layoutRoute) so it doesn't render inside AppShell's sidebar/footer chrome — but
 // it still needs the same auth guard as every other page, since it ships in the
 // production build like the rest of the app.
 const tokensRoute = createRoute({
@@ -74,7 +74,7 @@ const catalogRoute = createRoute({
 const layoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "layout",
-  component: Shell,
+  component: AppShell,
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: "/login" });
