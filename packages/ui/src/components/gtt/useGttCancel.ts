@@ -35,9 +35,17 @@ export function useGttCancel(orderId: string): GttCancel {
     mutation.mutate();
   };
 
+  // Reset on every close (Keep order, overlay click, Escape, the X button)
+  // so reopening the dialog for a fresh attempt doesn't show a stale error
+  // from a previous failed cancel.
+  const handleOpenChange = (open: boolean): void => {
+    if (!open) mutation.reset();
+    setConfirmOpen(open);
+  };
+
   return {
     confirmOpen,
-    setConfirmOpen,
+    setConfirmOpen: handleOpenChange,
     isPending: mutation.isPending,
     errorMessage: mutation.error !== null ? mutation.error.message : null,
     handleConfirmCancel,

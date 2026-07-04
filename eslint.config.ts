@@ -209,6 +209,7 @@ export default [
       "packages/ui/src/pages/instructions.tsx",
       "packages/ui/src/components/gtt/gttTable.tsx",
       "packages/ui/src/components/gtt/gttCard.tsx",
+      "packages/ui/src/components/gtt/gttCancelDialog.tsx",
       "packages/ui/src/pages/gtt.tsx",
       "packages/ui/src/components/logs/logFilters.tsx",
       "packages/ui/src/components/logs/logRow.tsx",

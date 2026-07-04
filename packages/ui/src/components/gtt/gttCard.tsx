@@ -5,10 +5,9 @@ import { formatDate } from "../../lib/format";
 import { gttStatusVariant, gttTypeVariant } from "../../lib/gttFormat";
 import { formatPrice } from "../../lib/holdingFormat";
 import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
 import { Card } from "../ui/card";
-import { Dialog } from "../ui/dialog";
 
+import { GttCancelDialog } from "./gttCancelDialog";
 import { useGttCancel } from "./useGttCancel";
 
 type GttCardProperties = {
@@ -62,33 +61,14 @@ export function GttCard({ order }: GttCardProperties): React.ReactElement {
       </div>
 
       {order.status === "active" && (
-        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <Dialog.Trigger>
-            <Button variant="destructive" disabled={isPending}>
-              {isPending ? "Cancelling…" : "Cancel"}
-            </Button>
-          </Dialog.Trigger>
-          <Dialog.Content
-            title="Cancel this GTT order?"
-            description={`This will cancel the ${order.type.toUpperCase()} order for ${order.symbol}. This cannot be undone.`}
-            tone="destructive"
-          >
-            {errorMessage !== null && <p className="text-caption text-neg">{errorMessage}</p>}
-            <Dialog.Footer>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setConfirmOpen(false);
-                }}
-              >
-                Keep order
-              </Button>
-              <Button variant="destructive" onClick={handleConfirmCancel} disabled={isPending}>
-                {isPending ? "Cancelling…" : "Confirm cancel"}
-              </Button>
-            </Dialog.Footer>
-          </Dialog.Content>
-        </Dialog>
+        <GttCancelDialog
+          order={order}
+          confirmOpen={confirmOpen}
+          setConfirmOpen={setConfirmOpen}
+          isPending={isPending}
+          errorMessage={errorMessage}
+          onConfirm={handleConfirmCancel}
+        />
       )}
     </Card>
   );

@@ -1,4 +1,4 @@
-type BadgeVariant = "pos" | "neg" | "warn" | "info" | "neutral";
+import type { BadgeVariant } from "../components/ui/badge";
 
 export type LogCategory = "SL_EXIT" | "GTT_CREATED" | "ALERT" | "HOLD" | "APPROVAL" | "OTHER";
 

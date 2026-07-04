@@ -1,17 +1,17 @@
-type BadgeVariant = "pos" | "neg" | "warn" | "info" | "neutral";
+import type { BadgeVariant } from "../components/ui/badge";
 
 /**
  * Maps a GTT order's status to a Badge tint — active is positive, triggered
- * is informational, cancelled falls back to neutral, anything else (e.g.
- * failed) is negative.
+ * is informational, cancelled and any unrecognized status fall back to
+ * neutral, and only the known "failed" status is negative.
  * @param status - the GTT order's status string
  * @returns a Badge variant name
  */
 export function gttStatusVariant(status: string): BadgeVariant {
   if (status === "active") return "pos";
   if (status === "triggered") return "info";
-  if (status === "cancelled") return "neutral";
-  return "neg";
+  if (status === "failed") return "neg";
+  return "neutral";
 }
 
 /**
