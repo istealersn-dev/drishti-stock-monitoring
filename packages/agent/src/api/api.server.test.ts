@@ -36,6 +36,7 @@ import {
   queryLogs,
   querySettings,
   queryApprovals,
+  validateSettingsPatch,
 } from "./api.server.js";
 
 const makeChain = (result: unknown[]): ReturnType<typeof vi.fn> => {
@@ -97,6 +98,7 @@ describe("querySettings", () => {
     const result = querySettings();
     expect(result).toMatchObject({
       dryRun: false,
+      pauseAgent: false,
       pollIntervalMinutes: 5,
       marketOpen: "09:15",
       marketClose: "15:30",
@@ -111,6 +113,48 @@ describe("querySettings", () => {
     });
     const result = querySettings();
     expect(result["dryRun"]).toBe(true);
+  });
+
+  it("applies DB override for pause_agent from the same bulk read as other settings", () => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        all: vi.fn().mockReturnValue([{ key: "pause_agent", value: "true" }]),
+      }),
+    });
+    const result = querySettings();
+    expect(result["pauseAgent"]).toBe(true);
+  });
+});
+
+describe("validateSettingsPatch", () => {
+  it("accepts a valid pause_agent value", () => {
+    const result = validateSettingsPatch({ pause_agent: "true" });
+    expect(result).toEqual({ ok: true, entries: [{ key: "pause_agent", value: "true" }] });
+  });
+
+  it("accepts a valid poll_interval_minutes value and coerces it to a string", () => {
+    const result = validateSettingsPatch({ poll_interval_minutes: "10" });
+    expect(result).toEqual({ ok: true, entries: [{ key: "poll_interval_minutes", value: "10" }] });
+  });
+
+  it("rejects a non-boolean-string value for pause_agent instead of silently failing open", () => {
+    const result = validateSettingsPatch({ pause_agent: "1" });
+    expect(result).toEqual({ ok: false, error: "Invalid value for pause_agent" });
+  });
+
+  it('rejects a JS boolean for pause_agent (must be the string "true"/"false")', () => {
+    const result = validateSettingsPatch({ pause_agent: true });
+    expect(result).toEqual({ ok: false, error: "Invalid value for pause_agent" });
+  });
+
+  it("rejects an out-of-range poll_interval_minutes", () => {
+    const result = validateSettingsPatch({ poll_interval_minutes: "120" });
+    expect(result).toEqual({ ok: false, error: "Invalid value for poll_interval_minutes" });
+  });
+
+  it("ignores unknown keys", () => {
+    const result = validateSettingsPatch({ not_a_real_setting: "x" });
+    expect(result).toEqual({ ok: true, entries: [] });
   });
 });
 

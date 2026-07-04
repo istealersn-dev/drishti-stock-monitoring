@@ -6,6 +6,7 @@ import { computeHealthReport } from "../features/health/health.engine.js";
 import { formatHealthReport } from "../features/health/health.formatter.js";
 import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
+import { isAgentPaused } from "../features/settings/settings.service.js";
 import { getCachedLevels, refreshLevels } from "../features/technicals/technicals.cache.js";
 import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
 import { getWatchlist } from "../features/watchlist/watchlist.service.js";
@@ -38,7 +39,8 @@ export function isMarketOpen(now: Date = new Date()): boolean {
 
 /**
  * Start the market-hours polling cron job.
- * The tick callback is invoked only when the market is open.
+ * The tick callback is invoked only when the market is open and the agent
+ * is not paused via the dashboard "Pause agent" toggle.
  * @param tick - Async function to run on each poll
  */
 export function startCron(tick: () => Promise<void>): void {
@@ -48,6 +50,21 @@ export function startCron(tick: () => Promise<void>): void {
   cron.schedule(expression, () => {
     if (!isMarketOpen()) {
       logger.debug("Market closed — skipping poll tick");
+      return;
+    }
+
+    let paused: boolean;
+    try {
+      paused = isAgentPaused();
+    } catch (error) {
+      logger.error("Failed to read pause_agent setting — skipping tick as a precaution", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+
+    if (paused) {
+      logger.debug("Agent paused — skipping poll tick");
       return;
     }
 
