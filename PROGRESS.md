@@ -22,8 +22,8 @@ from the spec.
 | — | Lint baseline fix (found during CP1) | **done, merged** | `fix/lint-baseline` (deleted) | [#26](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/26) |
 | 2 | UI primitives A (Button, Badge, Card, Input, Textarea, StatusDot, Breadcrumb) | **done, merged** | `feat/cp2-ui-primitives-a` (deleted) | [#27](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/27) |
 | 3 | UI primitives B (Radix: Select, Switch, Tabs, Dialog, Toast, Tooltip, ScrollArea, MessageBubble, Table) | **done, merged** | `feat/cp3-ui-primitives-b` (deleted) | [#28](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/28) |
-| 4 | App scaffold + responsive shell + Login | in-progress | `feat/cp4-app-shell-login` | — |
-| 5 | Ask Drishti (hero, composer, AmbientWave, chat) | todo | — | — |
+| 4 | App scaffold + responsive shell + Login | **done, merged** | `feat/cp4-app-shell-login` (deleted) | [#29](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/29) |
+| 5 | Ask Drishti (hero, composer, AmbientWave, chat) | in-progress | `feat/cp5-ask-drishti` | — |
 | 6 | Dashboard + Holdings | todo | — | — |
 | 7 | Instructions + GTT + Logs | todo | — | — |
 | 8 | Settings + data layer + hardening | todo | — | — |
