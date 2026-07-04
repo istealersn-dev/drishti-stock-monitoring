@@ -1,4 +1,3 @@
-import { isDryRunActive } from "../../shared/dryRun.js";
 import { env } from "../../shared/env.js";
 import { UpstoxError, err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
@@ -22,12 +21,20 @@ function writeHeaders(): HeadersInit {
 }
 
 /**
- * Create a GTT order on Upstox. Skipped entirely when DRISHTI_DRY_RUN=true.
+ * Create a GTT order on Upstox. Skipped entirely when dryRun is true.
  * @param request - GTT order parameters
+ * @param dryRun - Caller-supplied dry-run snapshot (see shared/dryRun.ts's isDryRunActive).
+ *   Taking this as a parameter rather than checking isDryRunActive() internally means a
+ *   caller that also labels a DB row's status/audit fields for this same operation reads
+ *   one consistent value instead of two independent DB reads that could disagree if the
+ *   dry_run setting changes mid-request.
  * @returns A Result containing the Upstox order_id, or a dry-run log string, or an UpstoxError
  */
-export async function createGTT(request: GttCreateRequest): Promise<Result<string, UpstoxError>> {
-  if (isDryRunActive()) {
+export async function createGTT(
+  request: GttCreateRequest,
+  dryRun: boolean,
+): Promise<Result<string, UpstoxError>> {
+  if (dryRun) {
     const summary = `${request.transaction_type} ${request.quantity}x ${request.trading_symbol} trigger=₹${request.trigger_price} limit=₹${request.limit_price}`;
     return ok(`[DRY_RUN] would create GTT: ${summary}`);
   }
@@ -78,12 +85,17 @@ export async function listGTTs(): Promise<Result<GttOrder[], UpstoxError>> {
 }
 
 /**
- * Cancel a GTT order on Upstox. Skipped entirely when DRISHTI_DRY_RUN=true.
+ * Cancel a GTT order on Upstox. Skipped entirely when dryRun is true.
  * @param orderId - The Upstox GTT order ID to cancel
+ * @param dryRun - Caller-supplied dry-run snapshot; see createGTT's @param dryRun for why
+ *   this isn't checked internally via isDryRunActive().
  * @returns A Result containing the cancelled order_id, or a dry-run log string, or an UpstoxError
  */
-export async function cancelGTT(orderId: string): Promise<Result<string, UpstoxError>> {
-  if (isDryRunActive()) {
+export async function cancelGTT(
+  orderId: string,
+  dryRun: boolean,
+): Promise<Result<string, UpstoxError>> {
+  if (dryRun) {
     return ok(`[DRY_RUN] would cancel GTT: ${orderId}`);
   }
 

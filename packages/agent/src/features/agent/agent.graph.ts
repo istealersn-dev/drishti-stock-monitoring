@@ -288,7 +288,8 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
         continue;
       }
 
-      const cancelResult = await cancelGTT(gttId);
+      const dryRun = isDryRunActive();
+      const cancelResult = await cancelGTT(gttId, dryRun);
       if (cancelResult.ok) {
         db.update(gttOrders)
           .set({ status: "cancelled", updatedAt: now })
@@ -301,7 +302,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           symbol: decision.symbol,
           action: "gtt_cancel",
           reasoning: decision.reasoning,
-          dryRun: isDryRunActive(),
+          dryRun,
           error: cancelResult.ok ? null : cancelResult.error.message,
           createdAt: now,
         })
@@ -319,7 +320,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           symbol: decision.symbol,
           action: "gtt_modify_failed",
           reasoning: decision.reasoning,
-          dryRun: isDryRunActive(),
+          dryRun: env.DRISHTI_DRY_RUN,
           error: "gttParams missing in LLM decision",
           createdAt: now,
         })
@@ -339,7 +340,8 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
       const holding = state.holdings.find((h) => h.trading_symbol === decision.symbol);
       if (!holding) continue;
 
-      const cancelResult = await cancelGTT(gttId);
+      const dryRun = isDryRunActive();
+      const cancelResult = await cancelGTT(gttId, dryRun);
       if (!cancelResult.ok) {
         logger.error("executeActions: cancel before modify failed", {
           symbol: decision.symbol,
@@ -351,7 +353,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
             symbol: decision.symbol,
             action: "gtt_modify_failed",
             reasoning: decision.reasoning,
-            dryRun: isDryRunActive(),
+            dryRun,
             error: cancelResult.error.message,
             createdAt: now,
           })
@@ -369,10 +371,13 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
         (decision.gttParams.newTriggerPrice * GTT_LIMIT_BUFFER).toFixed(2),
       );
 
-      const createResult = await createGTT({
-        ...newRequest,
-        limit_price: newLimitPrice,
-      });
+      const createResult = await createGTT(
+        {
+          ...newRequest,
+          limit_price: newLimitPrice,
+        },
+        dryRun,
+      );
 
       if (createResult.ok) {
         db.insert(gttOrders)
@@ -383,7 +388,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
             triggerPrice: decision.gttParams.newTriggerPrice,
             limitPrice: newLimitPrice,
             quantity: holding.quantity,
-            status: isDryRunActive() ? "dry_run" : "active",
+            status: dryRun ? "dry_run" : "active",
             approvalId: null,
             createdAt: now,
             updatedAt: now,
@@ -397,7 +402,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           symbol: decision.symbol,
           action: "gtt_modify",
           reasoning: decision.reasoning,
-          dryRun: isDryRunActive(),
+          dryRun,
           error: createResult.ok ? null : createResult.error.message,
           createdAt: now,
         })

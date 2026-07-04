@@ -1,15 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockIsDryRunActive } = vi.hoisted(() => ({
-  mockIsDryRunActive: vi.fn().mockReturnValue(false),
-}));
-
 vi.mock("../../shared/env.js", () => ({
   env: {
     UPSTOX_ACCESS_TOKEN: "test-access-token",
   },
 }));
-vi.mock("../../shared/dryRun.js", () => ({ isDryRunActive: mockIsDryRunActive }));
 
 import type { Holding } from "../portfolio/portfolio.schema.js";
 
@@ -65,10 +60,8 @@ describe("createGTT (dry run)", () => {
   });
 
   it("returns ok with dry-run message without calling fetch", async () => {
-    mockIsDryRunActive.mockReturnValue(true);
-
     const request = buildSlExitRequest(makeHolding(), 900);
-    const result = await createGTT(request);
+    const result = await createGTT(request, true);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -76,8 +69,6 @@ describe("createGTT (dry run)", () => {
       expect(result.value).toContain("AXISBANK-EQ");
     }
     expect(fetch).not.toHaveBeenCalled();
-
-    mockIsDryRunActive.mockReturnValue(false);
   });
 });
 
@@ -87,9 +78,7 @@ describe("cancelGTT (dry run)", () => {
   });
 
   it("returns ok with dry-run message without calling fetch", async () => {
-    mockIsDryRunActive.mockReturnValue(true);
-
-    const result = await cancelGTT("order-123");
+    const result = await cancelGTT("order-123", true);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -97,7 +86,5 @@ describe("cancelGTT (dry run)", () => {
       expect(result.value).toContain("order-123");
     }
     expect(fetch).not.toHaveBeenCalled();
-
-    mockIsDryRunActive.mockReturnValue(false);
   });
 });

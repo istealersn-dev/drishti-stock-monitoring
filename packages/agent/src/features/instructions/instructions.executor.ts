@@ -102,17 +102,21 @@ export async function executeApprovedInstruction(
 
   const limitPrice = Number((entryHigh * BUY_LIMIT_BUFFER).toFixed(2));
 
-  const gttResult = await createGTT({
-    transaction_type: "BUY",
-    trading_symbol: approval.symbol,
-    exchange: "NSE",
-    instrument_token: instrumentToken,
-    product: "D",
-    quantity: qty,
-    order_type: "LIMIT",
-    trigger_price: entryHigh,
-    limit_price: limitPrice,
-  });
+  const dryRun = isDryRunActive();
+  const gttResult = await createGTT(
+    {
+      transaction_type: "BUY",
+      trading_symbol: approval.symbol,
+      exchange: "NSE",
+      instrument_token: instrumentToken,
+      product: "D",
+      quantity: qty,
+      order_type: "LIMIT",
+      trigger_price: entryHigh,
+      limit_price: limitPrice,
+    },
+    dryRun,
+  );
 
   if (!gttResult.ok) {
     db.insert(agentLogs)
@@ -121,7 +125,7 @@ export async function executeApprovedInstruction(
         symbol: approval.symbol,
         action: "buy_entry_gtt_failed",
         reasoning: `Buy GTT failed for ${approval.symbol}: ${gttResult.error.message}`,
-        dryRun: isDryRunActive(),
+        dryRun,
         error: gttResult.error.message,
         createdAt: now,
       })
@@ -143,7 +147,7 @@ export async function executeApprovedInstruction(
       triggerPrice: entryHigh,
       limitPrice,
       quantity: qty,
-      status: isDryRunActive() ? "dry_run" : "active",
+      status: dryRun ? "dry_run" : "active",
       approvalId,
       createdAt: now,
       updatedAt: now,
@@ -188,7 +192,7 @@ export async function executeApprovedInstruction(
       symbol: approval.symbol,
       action: "buy_entry_gtt_created",
       reasoning: `Buy GTT placed for ${approval.symbol} at ₹${entryHigh}. ${gttResult.value}`,
-      dryRun: isDryRunActive(),
+      dryRun,
       error: null,
       createdAt: now,
     })
@@ -199,7 +203,7 @@ export async function executeApprovedInstruction(
     symbol: approval.symbol,
     qty,
     entryHigh,
-    dryRun: isDryRunActive(),
+    dryRun,
   });
 
   if (approval.slackTs) {

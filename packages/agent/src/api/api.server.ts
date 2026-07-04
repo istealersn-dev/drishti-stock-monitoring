@@ -194,7 +194,14 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   app.put<{ Body: Record<string, unknown> }>("/api/settings", async (request, reply) => {
     const body = request.body;
     const allowed = new Set(["dry_run", "pause_agent", "poll_interval_minutes"]);
+    const booleanKeys = new Set(["dry_run", "pause_agent"]);
     const now = new Date().toISOString();
+
+    for (const [key, value] of Object.entries(body)) {
+      if (booleanKeys.has(key) && typeof value !== "boolean") {
+        return reply.status(400).send({ ok: false, error: `${key} must be a boolean` });
+      }
+    }
 
     const updated: string[] = [];
     for (const [key, value] of Object.entries(body)) {
