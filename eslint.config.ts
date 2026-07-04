@@ -185,6 +185,12 @@ export default [
       "packages/ui/src/components/ui/messageBubble.tsx",
       "packages/ui/src/components/ui/typingIndicator.tsx",
       "packages/ui/src/components/ui/table.tsx",
+      "packages/ui/src/pages/login.tsx",
+      "packages/ui/src/components/shell/appShell.tsx",
+      "packages/ui/src/components/shell/sidebar.tsx",
+      "packages/ui/src/components/shell/appHeaderMobile.tsx",
+      "packages/ui/src/components/shell/mobileTabBar.tsx",
+      "packages/ui/src/components/shell/appFooter.tsx",
     ],
     plugins: {
       local: { rules: { "flag-stray-position": flagStrayPositionRule } },

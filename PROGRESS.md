@@ -393,6 +393,77 @@ from the spec.
   fit for when CP1's `tokens.ts`/`app.css` `@theme` gets revisited or when CP4 adds the next
   portal-based overlay (Login modal) and the stacking ladder needs a real specification.
   No other findings survived this round — considered converged.
+- **2026-07-04** — CP4: built the app scaffold, responsive shell, and Login on the new token
+  system, replacing the pre-CP1 legacy `components/layout/{shell,sidebar,topbar}.tsx` entirely.
+  New `packages/ui/src/components/shell/`: `appShell.tsx` (picks desktop vs mobile shell via a new
+  `useMediaQuery('(min-width: 760px)')` hook — `hooks/useMediaQuery.ts` — rather than duplicating
+  screens, per handoff.md §3), `sidebar.tsx` (desktop-only now — the old mobile slide-out drawer is
+  gone, replaced by the bottom-tab-bar model Design.md's mobile shell actually specifies), `appHeaderMobile.tsx`,
+  `mobileTabBar.tsx` (fixed 6-tab bar), and `appFooter.tsx` (new: Design.md's desktop shell has no
+  top header at all — only sidebar/main/footer — so the status/pending/last-poll meta the old
+  Topbar carried on both breakpoints now lives in `AppFooter` on desktop and `AppHeaderMobile` on
+  mobile). Rebuilt `pages/login.tsx` on the new tokens with the real 820px split
+  (`--breakpoint-login-split`, a `login-split:` Tailwind variant) rather than the old `sm:` (640px)
+  breakpoint; preserved the exact `loginWithKey`/`storeKey` business logic untouched. Extended
+  `Input` with `autoComplete`/`autoFocus` passthrough props (needed for the access-key field's
+  password-manager support) and kept all shell components wired to the same
+  `fetchSettings`/`fetchApprovals`/`fetchRuns` TanStack Query calls the old Shell used, so
+  dry-run/agent-status/pending-count/last-poll data continuity is unbroken.
+  **Judgment calls made** (documented per the mission's "stop only when truly unresolvable" rule —
+  none of these touch data writes/orders/LLM prompts, so proceeded rather than paused):
+  (1) Kept all 9 existing nav routes (Dashboard/Holdings/Instructions/GTT/Logs/Watchlist/Health/
+  Advisor/Settings) in the desktop `Sidebar` even though Design.md's component inventory only
+  enumerates 6 — those 3 extra routes are real, already-built app features that predate this UI
+  rebuild; removing them to match an inventory snapshot would be a functional regression. The
+  mobile `MobileTabBar` does stick to the spec's exact 6 tabs (screen space is genuinely
+  constrained there); Watchlist/Health/Advisor are desktop-only for now.
+  (2) Converted nav icons from hand-rolled inline SVGs to `lucide-react` (the mission's
+  non-negotiable icon library, already established in CP2/CP3) instead of porting the legacy SVGs.
+  (3) Changed the sidebar/footer/mobile-header pending-approval indicator from the legacy amber tint
+  to `info` (indigo), per handoff.md §8's explicit correction ("pending badge is info, distinct from
+  the warn Dry-Run pill") — the legacy build predated that correction.
+  (4) Dropped Login's decorative purple/orange halftone-texture background (real in
+  `Drishti.dc.html`, per design-reference research) and the app-shell's ambient floating orbs —
+  neither uses colors from the new token vocabulary (which reserves gold for brand and doesn't
+  define a "float" drift keyframe; only `wave-x`/`wave-y`/`breathe`/`pulse`/`spin`/`fade` exist in
+  the new system, and `wave-x`/`wave-y` are explicitly scoped to CP5's Ask-Drishti-only
+  `AmbientWave`). Replaced with a simple gold-tinted 6%-opacity overlay on Login's left panel using
+  existing tokens instead of introducing new off-system decorative colors.
+  (5) Footer's exact key-value copy is unspecified in Design.md/handoff.md beyond "meta left /
+  session right" — populated it with the same status/pending/last-poll data the old Topbar already
+  had wired, split across `AppFooter` (desktop) and `AppHeaderMobile` (mobile) as described above.
+  (6) Dropped the old Topbar's "Secured via Cloudflare Tunnel" footer microcopy — handoff.md §8
+  explicitly lists Cloudflare-tunnel/session references as removed in the latest design pass.
+  **Cleanup discovered while migrating**: deleted several now-fully-orphaned legacy `app.css`
+  entries beyond the shell/login-exclusive classes — a duplicate `.animate-fade` custom class
+  (shadowed by CP1's token-driven `animate-fade` utility, using the old `drk-fade` keyframe),
+  `.table-row-header`/`.table-row-data`/`.badge-pill` (zero importers anywhere, dead before this
+  checkpoint too), and the `--animate-float-drk`/`--animate-float2-drk` tokens + `drk-float`/
+  `drk-float2` keyframes (only ever used by the now-deleted ambient-orb classes). Also removed a
+  legacy `--spacing-sidebar-collapsed: 52px` token that was silently shadowed by (and confusingly
+  duplicate-named with) a new CP4 token of the same name at `64px` — kept the new one. Added new
+  `--spacing-*` tokens (`sidebar-expanded`, `sidebar-collapsed`, `shell-header`, `mobile-header`,
+  `mobile-tabbar`, `footer`) for the shell's Design.md-pinned exact pixel dimensions, avoiding raw
+  px arbitrary Tailwind values.
+  **Verification**: `pnpm --filter ui typecheck`/`lint`/`build` all clean (lint: 0 errors, 8
+  documented `local/flag-stray-position` warnings — all legitimate genuine-overlay uses). Browser
+  page CSS bundle shrank 123KB → 110KB from the dead-code removal. Verified live: Login's 820px
+  split (desktop side-by-side screenshot, mobile stacked screenshot) and the auth guard correctly
+  redirecting an unauthenticated session to `/login`. For the authenticated shell itself, a real
+  backend (`packages/agent`, port 4000) is running locally and correctly enforces its actual
+  configured `DRISHTI_ACCESS_KEY` — rather than attempt to bypass/guess a real credential or fight
+  the live 401-triggered `clearKey()`+redirect behavior in `lib/api.ts`, verified `Sidebar`/
+  `AppFooter`/`AppHeaderMobile`/`MobileTabBar` via a temporary, unauthenticated scratch route
+  rendering them directly with mock props (same methodology CP1-CP3 used for primitive/token
+  preview pages) — confirmed all render correctly with real data shapes, and the sidebar
+  collapse/expand toggle works in both directions (one read briefly showed a stale
+  `getBoundingClientRect()` width immediately after a click, consistent with this session's
+  documented stale-read caveat — a second, independent screenshot confirmed the toggle is correct).
+  The scratch route was deleted before committing. `AppShell`'s own `useMediaQuery`-driven
+  desktop/mobile switch was not independently live-tested (would require either a real access key
+  or further fetch-mocking against the live backend) — code-reviewed instead; the hook is a
+  standard `matchMedia` + `change`-listener pattern, and the same "pick layout by viewport width"
+  mechanism was confirmed working for Login's CSS-based 820px split.
 
 ## Constraints checklist (re-verify every checkpoint)
 

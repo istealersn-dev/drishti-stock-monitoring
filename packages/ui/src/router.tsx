@@ -6,7 +6,7 @@ import {
   redirect,
 } from "@tanstack/react-router";
 
-import { Shell } from "./components/layout/shell";
+import { AppShell } from "./components/shell/appShell";
 import { isAuthenticated } from "./lib/auth";
 import { Advisor } from "./pages/advisor";
 import { CatalogPreview } from "./pages/catalogPreview";
@@ -74,7 +74,7 @@ const catalogRoute = createRoute({
 const layoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "layout",
-  component: Shell,
+  component: AppShell,
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: "/login" });

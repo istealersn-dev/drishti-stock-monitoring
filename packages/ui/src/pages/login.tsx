@@ -1,24 +1,36 @@
 import { useNavigate } from "@tanstack/react-router";
-import React, { useState } from "react";
+import { AlertCircle, Lock } from "lucide-react";
+import type React from "react";
+import { useState } from "react";
 
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Switch } from "../components/ui/switch";
 import { loginWithKey } from "../lib/api";
 import { storeKey } from "../lib/auth";
 
 const FEATURES = [
   {
-    dot: "feature-dot-success",
+    variant: "pos" as const,
     text: "Autonomous stop-loss & GTT management across your NSE / BSE book",
   },
-  { dot: "feature-dot-primary", text: "MTF interest burn tracked to the rupee, every single day" },
+  { variant: "info" as const, text: "MTF interest burn tracked to the rupee, every single day" },
   {
-    dot: "feature-dot-warning",
+    variant: "warn" as const,
     text: "Every agent decision logged with full LLM reasoning & audit trail",
   },
-] as const;
+];
+
+const DOT_CLASS: Record<(typeof FEATURES)[number]["variant"], string> = {
+  pos: "bg-pos",
+  info: "bg-info",
+  warn: "bg-warn",
+};
 
 /**
- * Access key gate — full-screen split layout shown when unauthenticated.
- * Left: marketing panel with halftone textures. Right: access key form.
+ * Access key gate (Design.md §5 — 820px split: side-by-side marketing panel
+ * + form above 820px, form only below). Left panel is decorative/hidden on
+ * narrow viewports; right panel holds the access-key form.
  * @returns Login page element
  */
 export function Login(): React.ReactElement {
@@ -46,165 +58,91 @@ export function Login(): React.ReactElement {
   };
 
   return (
-    <div className="relative flex h-screen w-full overflow-hidden bg-bg-root text-text-primary">
-      {/* Ambient orbs */}
-      <div className="orb-indigo pointer-events-none absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full animate-float-drk blur-[36px]" />
-      <div className="orb-green pointer-events-none absolute -bottom-32 right-20 h-[480px] w-[480px] rounded-full animate-float2-drk blur-[40px]" />
+    <div className="flex h-dvh w-full bg-bg-base text-fg">
+      {/* ── Left marketing panel — hidden below the 820px login split ── */}
+      <div className="relative hidden flex-1 flex-col justify-between overflow-hidden bg-bg-chrome p-11 login-split:flex">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[image:var(--gradient-gold)] opacity-[0.06]"
+        />
 
-      {/* ── Left marketing panel — hidden on mobile ── */}
-      <div className="login-left hidden sm:flex">
-        <div className="login-left-overlay" />
-        <div className="login-halftone-purple-bl" />
-        <div className="login-halftone-purple-tr" />
-        <div className="login-halftone-orange-tr" />
-
-        {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="logo-box">दृ</div>
+          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-[image:var(--gradient-gold)] font-mono text-body font-bold text-bg-base">
+            दृ
+          </span>
           <div className="flex items-baseline gap-2">
-            <span className="text-[17px] font-bold tracking-tight">Drishti</span>
-            <span className="text-[13px] font-medium text-text-faint">दृष्टि</span>
+            <span className="text-title font-bold tracking-tight text-fg">Drishti</span>
+            <span className="text-body-sm font-medium text-fg-faint">दृष्टि</span>
           </div>
         </div>
 
-        {/* Body copy */}
-        <div className="relative z-10 max-w-[480px]">
-          <p className="mb-7 text-[22px] font-semibold leading-[1.45] tracking-[-0.01em] text-text-primary">
+        <div className="relative z-10 max-w-lg">
+          <p className="mb-7 text-h1 font-semibold text-fg">
             Your portfolio, watched every minute the market is open.
           </p>
           <div className="mb-8 flex flex-col gap-4">
-            {FEATURES.map(({ dot, text }) => (
+            {FEATURES.map(({ variant, text }) => (
               <div key={text} className="flex items-center gap-3">
-                <span className={`feature-dot ${dot}`} />
-                <span className="text-[13.5px] text-text-secondary">{text}</span>
+                <span
+                  aria-hidden="true"
+                  className={`h-2 w-2 flex-none rounded-full ${DOT_CLASS[variant]}`}
+                />
+                <span className="text-body text-fg-soft">{text}</span>
               </div>
             ))}
           </div>
           <div className="mb-4 h-px bg-border-strong" />
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <span className="font-mono text-[11.5px] text-text-ghost">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="font-mono text-caption text-fg-ghost">
               © 2026 Drishti दृष्टि · All rights reserved
             </span>
-            <span className="text-[11.5px] text-text-ghost">
-              Private deployment · single operator
-            </span>
+            <span className="text-caption text-fg-ghost">Private deployment · single operator</span>
           </div>
         </div>
       </div>
 
       {/* ── Right form panel ── */}
-      <div className="login-right flex-1 max-w-full sm:flex-[0_0_50%] sm:max-w-[50%]">
-        <div className="w-full max-w-[320px]">
-          <h1 className="mb-1.5 text-[20px] font-semibold tracking-[-0.01em] text-text-primary">
-            Welcome back
-          </h1>
-          <p className="mb-6 text-[12.5px] text-text-muted">
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="w-full max-w-xs">
+          <h1 className="mb-1.5 text-title font-semibold text-fg">Welcome back</h1>
+          <p className="mb-6 text-body-sm text-fg-muted">
             Enter your access key to open the dashboard.
           </p>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-0">
-            <label className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-dim">
-              Access key
-            </label>
-            <input
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <Input
+              id="login-access-key"
+              label="Access key"
               type="password"
               value={key}
-              onChange={(e) => {
-                setKey(e.target.value);
-              }}
+              onChange={setKey}
               placeholder="••••••••••••"
               autoComplete="current-password"
               autoFocus
-              className="login-input mb-4"
             />
 
-            {/* Trust this device */}
-            <div className="mb-5 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  setRemember((r) => !r);
-                }}
-                className="flex cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-[12.5px] text-text-tertiary"
-              >
-                <span
-                  className={`login-checkbox ${remember ? "login-checkbox-checked" : "login-checkbox-unchecked"}`}
-                >
-                  {remember && (
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#fff"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </span>
-                Trust this device
-              </button>
-              <span className="font-mono text-[11.5px] text-text-dim">30-day session</span>
+            <div className="flex items-center justify-between">
+              <Switch
+                id="login-remember"
+                label="Trust this device"
+                checked={remember}
+                onChange={setRemember}
+              />
+              <span className="font-mono text-caption text-fg-faint">30-day session</span>
             </div>
 
             {error !== null && (
-              <div className="login-error-banner mb-4 animate-fade">
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="shrink-0"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
+              <div className="flex items-center gap-2 rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg animate-fade">
+                <AlertCircle aria-hidden="true" className="h-4 w-4 flex-none" />
                 {error}
               </div>
             )}
 
-            <button type="submit" className="login-unlock-btn" disabled={!key.trim() || loading}>
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="11" width="18" height="11" rx="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
+            <Button type="submit" variant="primary" disabled={!key.trim() || loading}>
+              <Lock aria-hidden="true" className="h-4 w-4" />
               {loading ? "Verifying…" : "Unlock dashboard"}
-            </button>
+            </Button>
           </form>
-
-          <div className="login-cf-footer">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="11" width="18" height="11" rx="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            Secured via Cloudflare Tunnel
-          </div>
         </div>
       </div>
     </div>
