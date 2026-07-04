@@ -559,6 +559,54 @@ from the spec.
     Deferred as a minor a11y enhancement beyond what Design.md mandates explicitly.
   `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round. No further findings
   survived — considered converged.
+- **2026-07-04** — CP5 pre-PR gate, `/code-review --level high` (3 consolidated angles against the
+  CP5 diff — rename `/advisor`→`/ask` + rebuild as a two-view hero/conversation page). Found and
+  fixed six real issues, refuted/deferred a few others:
+  - **Fixed**: `handleNewChat`/the breadcrumb's "return to hero" crumb could fire while a mutation
+    for the *previous* session was still in flight; since `onSuccess`/`onError` were registered at
+    the `useMutation` hook level (not per-call), a stale response settling after the user switched
+    sessions would blindly clear `question`/set `askError` for whatever session/view happened to be
+    current — silently wiping a freshly-typed draft or attaching a stale error to the wrong
+    conversation. Fixed by moving the callbacks to per-call `mutate(text, { onSuccess, onError })`,
+    capturing the session id at ask-time and comparing it against a ref kept in sync with the
+    current session id — a stale settle becomes a safe no-op (except cache invalidation, which
+    still runs unconditionally) instead of corrupting the now-current session's state.
+  - **Fixed**: `AmbientWave` read `prefers-reduced-motion` once at mount with no `change` listener,
+    so toggling the OS-level setting while the hero stayed mounted didn't freeze/unfreeze the
+    animation until unmount+remount. Restructured to start/stop the `requestAnimationFrame` loop
+    from a `change`-listener-driven function, applied once at mount and again on every subsequent
+    preference change.
+  - **Fixed**: the new `Breadcrumb` `onClick`-button crumb (and, for consistency, the pre-existing
+    `href` crumb) had no `focus-visible` ring, unlike every other interactive primitive in the
+    codebase — added the same `focus-visible:ring-2 focus-visible:ring-gold` treatment.
+  - **Fixed**: the shared `MessageBubble` (CP3) was missing `whitespace-pre-wrap` that the old
+    hand-rolled advisor bubble had — multi-line/multi-paragraph assistant answers would have
+    collapsed to a single line. Fixed once in the shared component, benefiting every consumer.
+  - **Fixed**: `AmbientWave` hardcoded `#cbb460` as a fresh JS literal duplicating
+    `tokens.color.goldLine` (the exact non-CSS-consumer export `tokens.ts`'s own doc comment calls
+    out for "canvas drawing"); switched to importing it. Also named the wave's amplitude/wavelength/
+    speed magic numbers as documented constants (`MAX_AMPLITUDE_PX`, `WAVELENGTH_WIDTH_DIVISOR`,
+    `PHASE_SPEED_PER_MS`, etc.).
+  - **Refuted**: the session-filtered (vs. old all-history-grouped) conversation view is a
+    deliberate, spec-documented UX change (handoff.md §3/§8 — one active conversation, no history
+    browser), not accidental data loss; server-side history is untouched, just not surfaced
+    per-session in this UI pass.
+  - **Deferred, documented, not fixed**: `Composer` hand-rolls its own `<input>` instead of reusing
+    the shared `Input` component — real duplication, but `Input`'s self-contained labelled-field
+    structure doesn't cleanly fit a form row with an external send-button sibling without extending
+    it; `MessageList`'s local `Message` type duplicates `AdvisoryConversation`'s shape rather than
+    importing it — arguably the *more* correct choice (a presentational component shouldn't couple
+    to the exact backend/Zod schema shape) rather than a bug, so left as a loose-coupling design
+    choice, not "fixed." The inline loading spinner in `ask.tsx` intentionally does NOT reuse the
+    existing `components/ui/spinner.tsx` — that component still uses pre-CP1 legacy tokens
+    (`animate-spin-drk`, legacy border/text colors) and is used across several not-yet-rebuilt
+    pages; reusing it here would have pulled old-token styling into new-token UI.
+  Re-verified live: `MessageBubble`'s `getComputedStyle(...).whiteSpace === "pre-wrap"` after the
+  fix; the new focus-visible classes are present on the crumb (confirmed via class list — actual
+  ring visibility couldn't be triggered via a programmatic `.focus()` call, the same
+  `:focus-visible`-requires-genuine-keyboard-intent browser heuristic already documented in this
+  session's CP3 Tooltip investigation, not a fresh bug). `pnpm --filter ui typecheck`/`lint`/`build`
+  all clean after this round (lint: 0 errors, 12 documented `local/flag-stray-position` warnings).
 
 ## Constraints checklist (re-verify every checkpoint)
 

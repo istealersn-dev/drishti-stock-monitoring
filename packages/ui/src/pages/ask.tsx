@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AmbientWave } from "../components/ask/ambientWave";
 import { Composer } from "../components/ask/composer";
@@ -28,6 +28,15 @@ export function Ask(): React.ReactElement {
   const [askError, setAskError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  // Read inside async mutation callbacks so a stale response (settling after
+  // the user has since switched sessions via "New chat") can be told apart
+  // from the still-current one, instead of blindly clearing `question`/
+  // `askError` for whatever session happens to be active when it resolves.
+  const sessionIdReference = useRef(sessionId);
+  useEffect(() => {
+    sessionIdReference.current = sessionId;
+  }, [sessionId]);
+
   const {
     data: conversations = [],
     isLoading,
@@ -40,14 +49,6 @@ export function Ask(): React.ReactElement {
 
   const mutation = useMutation({
     mutationFn: (text: string) => askAdvisor(text, sessionId),
-    onSuccess: () => {
-      setAskError(null);
-      setQuestion("");
-      void queryClient.invalidateQueries({ queryKey: ["advisor-conversations"] });
-    },
-    onError: (error: Error) => {
-      setAskError(error.message);
-    },
   });
 
   const sessionMessages = conversations.filter((message) => message.sessionId === sessionId);
@@ -55,9 +56,21 @@ export function Ask(): React.ReactElement {
   const handleAsk = (text: string): void => {
     const trimmed = text.trim();
     if (!trimmed || mutation.isPending) return;
+    const askedForSession = sessionId;
     setAskError(null);
     setView("conversation");
-    mutation.mutate(trimmed);
+    mutation.mutate(trimmed, {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: ["advisor-conversations"] });
+        if (askedForSession !== sessionIdReference.current) return;
+        setAskError(null);
+        setQuestion("");
+      },
+      onError: (error: Error) => {
+        if (askedForSession !== sessionIdReference.current) return;
+        setAskError(error.message);
+      },
+    });
   };
 
   const handleReturnToHero = (): void => {

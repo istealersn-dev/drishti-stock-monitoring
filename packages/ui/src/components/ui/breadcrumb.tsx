@@ -36,14 +36,17 @@ export function Breadcrumb({ items, className = "" }: BreadcrumbProperties): Rea
                 {item.label}
               </span>
             ) : item.href !== undefined ? (
-              <a href={item.href} className="text-fg-muted transition-colors hover:text-fg">
+              <a
+                href={item.href}
+                className="rounded text-fg-muted transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              >
                 {item.label}
               </a>
             ) : item.onClick !== undefined ? (
               <button
                 type="button"
                 onClick={item.onClick}
-                className="text-fg-muted transition-colors hover:text-fg"
+                className="rounded text-fg-muted transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 {item.label}
               </button>

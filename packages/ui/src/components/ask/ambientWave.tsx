@@ -1,8 +1,16 @@
 import { useEffect, useRef } from "react";
 import type React from "react";
 
+import { tokens } from "../../tokens/tokens";
+
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-const STROKE_COLOR = "#cbb460"; // --color-gold-line (Design.md §2 "ambient wave strokes")
+const STROKE_ALPHA = 0.35;
+const STROKE_WIDTH = 1;
+const MAX_AMPLITUDE_PX = 28; // peak vertical displacement of the wave line
+const AMPLITUDE_HEIGHT_RATIO = 0.12; // scales amplitude down on short containers
+const MIN_WAVELENGTH_PX = 220;
+const WAVELENGTH_WIDTH_DIVISOR = 3; // roughly 3 wave cycles across the container width
+const PHASE_SPEED_PER_MS = 0.00025; // one full cycle ≈ 25s, matching the wave-x/-y blob durations
 
 function drawWave(
   context: CanvasRenderingContext2D,
@@ -14,16 +22,15 @@ function drawWave(
   if (width === 0 || height === 0) return;
 
   const centerY = height / 2;
-  const amplitude = Math.min(28, height * 0.12);
-  const wavelength = Math.max(220, width / 3);
-  const speed = 0.00025;
+  const amplitude = Math.min(MAX_AMPLITUDE_PX, height * AMPLITUDE_HEIGHT_RATIO);
+  const wavelength = Math.max(MIN_WAVELENGTH_PX, width / WAVELENGTH_WIDTH_DIVISOR);
 
-  context.strokeStyle = STROKE_COLOR;
-  context.globalAlpha = 0.35;
-  context.lineWidth = 1;
+  context.strokeStyle = tokens.color.goldLine;
+  context.globalAlpha = STROKE_ALPHA;
+  context.lineWidth = STROKE_WIDTH;
   context.beginPath();
   for (let x = 0; x <= width; x += 4) {
-    const phase = (x / wavelength) * Math.PI * 2 + elapsedMs * speed;
+    const phase = (x / wavelength) * Math.PI * 2 + elapsedMs * PHASE_SPEED_PER_MS;
     const y = centerY + Math.sin(phase) * amplitude;
     if (x === 0) {
       context.moveTo(x, y);
@@ -40,10 +47,11 @@ function drawWave(
  * question is asked. Persists a time origin in a ref so re-renders never
  * reset the animation phase; a single continuously-running
  * `requestAnimationFrame` loop redraws the canvas each frame from elapsed
- * time relative to that origin. Freezes to one static frame when the user
- * prefers reduced motion — the CSS blob drift is frozen separately via
- * `app.css`'s global `prefers-reduced-motion` override on
- * `.animate-wave-x`/`-y`/`-breathe`.
+ * time relative to that origin. Starts/stops that loop live in response to
+ * the `prefers-reduced-motion` media query changing (not just its value at
+ * mount), freezing to one static frame when reduced motion is preferred —
+ * the CSS blob drift is frozen separately via `app.css`'s global
+ * `prefers-reduced-motion` override on `.animate-wave-x`/`-y`/`-breathe`.
  * @returns Ambient wave decoration element
  */
 export function AmbientWave(): React.ReactElement {
@@ -64,23 +72,41 @@ export function AmbientWave(): React.ReactElement {
     resize();
     window.addEventListener("resize", resize);
 
-    if (window.matchMedia(REDUCED_MOTION_QUERY).matches) {
-      drawWave(context, canvas.width, canvas.height, 0);
-      return (): void => {
-        window.removeEventListener("resize", resize);
-      };
-    }
+    const reducedMotionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+    let frameId: number | null = null;
 
-    let frameId: number;
-    const tick = (): void => {
-      drawWave(context, canvas.width, canvas.height, performance.now() - originReference.current);
+    const stop = (): void => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+        frameId = null;
+      }
+    };
+
+    const start = (): void => {
+      stop();
+      const tick = (): void => {
+        drawWave(context, canvas.width, canvas.height, performance.now() - originReference.current);
+        frameId = requestAnimationFrame(tick);
+      };
       frameId = requestAnimationFrame(tick);
     };
-    frameId = requestAnimationFrame(tick);
+
+    const applyMotionPreference = (): void => {
+      if (reducedMotionQuery.matches) {
+        stop();
+        drawWave(context, canvas.width, canvas.height, 0);
+      } else {
+        start();
+      }
+    };
+
+    applyMotionPreference();
+    reducedMotionQuery.addEventListener("change", applyMotionPreference);
 
     return (): void => {
       window.removeEventListener("resize", resize);
-      cancelAnimationFrame(frameId);
+      reducedMotionQuery.removeEventListener("change", applyMotionPreference);
+      stop();
     };
   }, []);
 
