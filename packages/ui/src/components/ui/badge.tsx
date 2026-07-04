@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import type React from "react";
 
-type BadgeVariant = "pos" | "neg" | "warn" | "info" | "neutral";
+export type BadgeVariant = "pos" | "neg" | "warn" | "info" | "neutral";
 
 type BadgeProperties = {
   variant?: BadgeVariant;
