@@ -1,15 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockDbSelect, mockDbInsert, mockIsAgentPaused } = vi.hoisted(() => ({
+const { mockDbSelect, mockDbInsert } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
   mockDbInsert: vi.fn(),
-  mockIsAgentPaused: vi.fn(),
 }));
 
 vi.mock("../db/db.js", () => ({ db: { select: mockDbSelect, insert: mockDbInsert } }));
-vi.mock("../features/settings/settings.service.js", () => ({
-  isAgentPaused: mockIsAgentPaused,
-}));
 vi.mock("../db/schema.js", () => ({
   agentRuns: {},
   agentLogs: {},
@@ -93,10 +89,7 @@ describe("queryLogs", () => {
 });
 
 describe("querySettings", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockIsAgentPaused.mockReturnValue(false);
-  });
+  beforeEach(() => vi.clearAllMocks());
 
   it("returns env defaults when no DB overrides", () => {
     mockDbSelect.mockReturnValue({
@@ -122,11 +115,12 @@ describe("querySettings", () => {
     expect(result["dryRun"]).toBe(true);
   });
 
-  it("delegates pauseAgent to isAgentPaused() as the single source of truth", () => {
+  it("applies DB override for pause_agent from the same bulk read as other settings", () => {
     mockDbSelect.mockReturnValue({
-      from: vi.fn().mockReturnValue({ all: vi.fn().mockReturnValue([]) }),
+      from: vi.fn().mockReturnValue({
+        all: vi.fn().mockReturnValue([{ key: "pause_agent", value: "true" }]),
+      }),
     });
-    mockIsAgentPaused.mockReturnValue(true);
     const result = querySettings();
     expect(result["pauseAgent"]).toBe(true);
   });

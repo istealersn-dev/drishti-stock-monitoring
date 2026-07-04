@@ -25,7 +25,11 @@ import { submitBuyInstruction } from "../features/instructions/instructions.pipe
 import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { ParsedInstructionSchema } from "../features/instructions/instructions.schema.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
-import { isAgentPaused } from "../features/settings/settings.service.js";
+import {
+  BOOLEAN_SETTING_VALUES,
+  isBooleanSettingEnabled,
+  PAUSE_AGENT_SETTINGS_KEY,
+} from "../features/settings/settings.service.js";
 import { getCachedLevels, saveLevels } from "../features/technicals/technicals.cache.js";
 import { computeLevels, fetchOHLCV } from "../features/technicals/technicals.service.js";
 import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
@@ -40,7 +44,7 @@ import { logger } from "../shared/logger.js";
 const API_RUNS_LIMIT = 20;
 const API_LOGS_LIMIT = 100;
 
-const BOOLEAN_SETTING_SCHEMA = z.enum(["true", "false"]);
+const BOOLEAN_SETTING_SCHEMA = z.enum(BOOLEAN_SETTING_VALUES);
 const SETTINGS_VALUE_PARSERS = {
   dry_run: BOOLEAN_SETTING_SCHEMA,
   pause_agent: BOOLEAN_SETTING_SCHEMA,
@@ -102,7 +106,7 @@ export function querySettings(): Record<string, string | number | boolean> {
         : overrides["dry_run"] === "false"
           ? false
           : env.DRISHTI_DRY_RUN,
-    pauseAgent: isAgentPaused(),
+    pauseAgent: isBooleanSettingEnabled(overrides[PAUSE_AGENT_SETTINGS_KEY]),
     pollIntervalMinutes:
       overrides["poll_interval_minutes"] !== undefined
         ? Number(overrides["poll_interval_minutes"])
