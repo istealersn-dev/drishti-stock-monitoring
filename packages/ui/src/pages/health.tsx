@@ -4,6 +4,7 @@ import type React from "react";
 import { StatCard } from "../components/dashboard/statCard";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
+import { Spinner } from "../components/ui/spinner";
 import { Table } from "../components/ui/table";
 import { type Underperformer, fetchHealth } from "../lib/api";
 import { formatInr } from "../lib/format";
@@ -47,11 +48,7 @@ export function Health(): React.ReactElement {
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <span
-          role="status"
-          aria-label="Loading"
-          className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
-        />
+        <Spinner />
       </div>
     );
   }

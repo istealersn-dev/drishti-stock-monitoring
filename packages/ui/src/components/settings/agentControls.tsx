@@ -63,7 +63,10 @@ export function AgentControls({
           <div className={`text-body-sm font-medium ${dryRun ? "text-warn" : "text-fg"}`}>
             Dry Run {dryRun ? "ON" : "OFF"}
           </div>
-          <p className="mt-0.5 text-caption text-fg-faint">No real orders will be placed</p>
+          <p className="mt-0.5 text-caption text-fg-faint">
+            Updates agent config — real-order gating also depends on the DRISHTI_DRY_RUN environment
+            variable set at process start
+          </p>
         </div>
         <Switch
           id="dry-run"

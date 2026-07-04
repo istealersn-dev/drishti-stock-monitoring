@@ -8,6 +8,7 @@ import { AgentControls } from "../components/settings/agentControls";
 import { DangerZone } from "../components/settings/dangerZone";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import { Spinner } from "../components/ui/spinner";
 import { type Settings as SettingsType, fetchSettings, updateSettings } from "../lib/api";
 import { clearKey } from "../lib/auth";
 
@@ -80,11 +81,7 @@ export function Settings(): React.ReactElement {
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <span
-          role="status"
-          aria-label="Loading"
-          className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
-        />
+        <Spinner />
       </div>
     );
   }

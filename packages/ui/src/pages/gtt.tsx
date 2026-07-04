@@ -3,6 +3,7 @@ import type React from "react";
 
 import { GttCard } from "../components/gtt/gttCard";
 import { GttTable } from "../components/gtt/gttTable";
+import { Spinner } from "../components/ui/spinner";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { fetchGttOrders } from "../lib/api";
 
@@ -27,11 +28,7 @@ export function Gtt(): React.ReactElement {
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <span
-          role="status"
-          aria-label="Loading"
-          className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
-        />
+        <Spinner />
       </div>
     );
   }

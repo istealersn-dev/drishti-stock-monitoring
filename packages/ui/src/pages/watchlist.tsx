@@ -6,6 +6,7 @@ import { StatCard } from "../components/dashboard/statCard";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
+import { Spinner } from "../components/ui/spinner";
 import { Table } from "../components/ui/table";
 import {
   type ProximityAlert,
@@ -211,11 +212,7 @@ export function Watchlist(): React.ReactElement {
         </div>
       ) : isLoading ? (
         <div className="flex h-24 items-center justify-center">
-          <span
-            role="status"
-            aria-label="Loading"
-            className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
-          />
+          <Spinner />
         </div>
       ) : entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
