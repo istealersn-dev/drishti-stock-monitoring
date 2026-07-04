@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const {
   mockFetchHoldings,
@@ -415,6 +415,10 @@ describe("buildAgentGraph", () => {
   });
 
   describe("gtt_cancel", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
     // db.select() is shared across unrelated queries in one graph run (wasRecentlyAlerted,
     // findActiveGttId, isDryRunActive) — discriminate by the table passed to .from() so
     // setting up the dry-run/active-GTT state for this test doesn't corrupt the other
@@ -505,7 +509,6 @@ describe("buildAgentGraph", () => {
       await graph.run(makeInitialState());
 
       expect(mockDbUpdate).toHaveBeenCalledOnce();
-      vi.unstubAllGlobals();
     });
   });
 
