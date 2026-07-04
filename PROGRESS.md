@@ -527,6 +527,38 @@ from the spec.
     checkpoint's commits actually contain before treating them as complete.
   `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round (lint: 0 errors, the same 8
   documented `local/flag-stray-position` warnings).
+- **2026-07-04** — CP4 `/security-review` (pre-PR gate, second half): zero findings — Login's
+  credential-handling logic is byte-for-byte unchanged, no new unsafe sinks, no sensitive data
+  exposed by the new shell components. PR opened as
+  [#29](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/29).
+- **2026-07-04** — CP4 post-PR `/review` gate on PR #29 (medium effort, 2 consolidated angles given
+  the thorough pre-PR pass already covered this exact diff). Found and fixed one real regression
+  the pre-PR pass introduced-and-missed, plus two consistency nits:
+  - **Fixed**: the pre-PR round's sr-only "(pending approvals)" fix on `Sidebar`'s collapsed nav
+    items had an unintended side effect — when `collapsed`, the visible `<span>{item.label}</span>`
+    was entirely omitted (`{!collapsed && <span>...}`), so the Instructions link's accessible name
+    collapsed to just "(pending approvals)" with no destination label at all; a screen-reader user
+    got no indication where the link went. Fixed by always rendering the label span (visible when
+    expanded, `sr-only` when collapsed) instead of omitting it — simpler than the original
+    conditional-render, and the link's accessible name is now consistently "Instructions (pending
+    approvals)" regardless of collapsed state. Re-verified live via the accessibility snapshot.
+  - **Fixed**: `AppHeaderMobile`'s pending-approvals control was a bare unstyled `<button>` with no
+    hover/focus affordance, unlike the old Topbar's dedicated `.topbar-pending-btn` treatment or the
+    adjacent refresh icon button — added `hover:brightness-110`/`focus-visible:ring-gold` classes so
+    it's visibly interactive.
+  - **Fixed**: `AppShell`'s mobile `<main>` used a raw `pb-20` (80px) instead of a named token, while
+    every other Design.md-pinned shell dimension in this checkpoint got one — added
+    `--spacing-mobile-main-bottom: 80px` (kept as its own independent token rather than derived from
+    `--spacing-mobile-tabbar`, since Design.md §5 specifies both as separate fixed values, not one
+    computed from the other) and switched to `pb-mobile-main-bottom`.
+  - Also fixed a stale `router.tsx` comment still referencing "the legacy-styled Shell chrome" that
+    this same checkpoint deleted.
+  - **Not fixed** (noted, lower-confidence/nitpick per the reviewing agent's own assessment): no
+    `aria-live` announcement when the sidebar collapse/expand state changes — the toggle button's
+    `aria-label` does swap (Expand ↔ Collapse) but isn't announced as a state change on its own.
+    Deferred as a minor a11y enhancement beyond what Design.md mandates explicitly.
+  `pnpm --filter ui typecheck`/`lint`/`build` all clean after this round. No further findings
+  survived — considered converged.
 
 ## Constraints checklist (re-verify every checkpoint)
 

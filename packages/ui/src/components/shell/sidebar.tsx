@@ -115,14 +115,14 @@ export function Sidebar({
               className={`relative flex h-9 items-center gap-3 rounded-lg px-2.5 text-body-sm transition-colors ${collapsed ? "justify-center" : ""} ${isActive ? "bg-gold-tint text-fg" : "text-fg-muted hover:bg-surface-hover hover:text-fg"}`}
             >
               <Icon aria-hidden="true" className="h-5 w-5 flex-none" />
-              {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+              <span className={collapsed ? "sr-only" : "flex-1 truncate"}>{item.label}</span>
               {hasBadge && (
                 <>
                   <span
                     aria-hidden="true"
                     className={`absolute h-1.5 w-1.5 rounded-full bg-info ${collapsed ? "right-1.5 top-1.5" : "right-2.5 top-1/2 -translate-y-1/2"}`}
                   />
-                  <span className="sr-only">(pending approvals)</span>
+                  <span className="sr-only"> (pending approvals)</span>
                 </>
               )}
             </Link>

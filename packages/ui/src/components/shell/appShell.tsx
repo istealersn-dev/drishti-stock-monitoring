@@ -101,7 +101,7 @@ export function AppShell(): React.ReactElement {
           className={
             isDesktop
               ? "min-w-0 flex-1 overflow-y-auto p-5"
-              : "min-h-0 flex-1 overflow-y-auto p-4 pb-20"
+              : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom"
           }
         >
           <Outlet />
