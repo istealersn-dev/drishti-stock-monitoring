@@ -25,8 +25,8 @@ from the spec.
 | 4 | App scaffold + responsive shell + Login | **done, merged** | `feat/cp4-app-shell-login` (deleted) | [#29](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/29) |
 | 5 | Ask Drishti (hero, composer, AmbientWave, chat) | **done, merged** | `feat/cp5-ask-drishti` (deleted) | [#30](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/30) |
 | 6 | Dashboard + Holdings | **done, merged** | `feat/cp6-dashboard-holdings` (deleted) | [#31](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/31) |
-| 7 | Instructions + GTT + Logs | in-progress | `feat/cp7-instructions-gtt-logs` | — |
-| 8 | Settings + data layer + hardening | todo | — | — |
+| 7 | Instructions + GTT + Logs | **done, merged** | `feat/cp7-instructions-gtt-logs` (deleted) | [#32](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/32) |
+| 8 | Settings + data layer + hardening | in-progress | `feat/cp8-settings-hardening` | — |
 
 ## Decisions log
 
