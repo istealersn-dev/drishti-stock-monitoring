@@ -1,12 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import React from "react";
+import type React from "react";
 
-import { Spinner } from "../components/ui/spinner";
+import { NeedsAttentionCard } from "../components/dashboard/needsAttentionCard";
+import { StatCard } from "../components/dashboard/statCard";
+import { Badge } from "../components/ui/badge";
+import { StatusDot } from "../components/ui/statusDot";
+import { Table } from "../components/ui/table";
 import { type GttOrder, type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
 
 const ONE_LAKH = 100_000;
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
+const NEAR_SL_BAND = 1.05; // within 5% above the SL trigger counts as "near"
 
 function formatInr(amount: number): string {
   const abs = Math.abs(amount);
@@ -21,19 +26,19 @@ function formatPrice(price: number): string {
 }
 
 type HoldingStatus = {
-  variant: "success" | "warning" | "danger";
+  variant: "pos" | "warn" | "neg";
   label: string;
 };
 
 function resolveHoldingStatus(holding: Holding, slMap: Map<string, number>): HoldingStatus {
   const sl = slMap.get(holding.trading_symbol);
   if (sl !== undefined && holding.last_price <= sl) {
-    return { variant: "danger", label: "AT SL" };
+    return { variant: "neg", label: "AT SL" };
   }
-  if (sl !== undefined && holding.last_price <= sl * 1.05) {
-    return { variant: "warning", label: "NEAR SL" };
+  if (sl !== undefined && holding.last_price <= sl * NEAR_SL_BAND) {
+    return { variant: "warn", label: "NEAR SL" };
   }
-  return { variant: "success", label: "ACTIVE" };
+  return { variant: "pos", label: "ACTIVE" };
 }
 
 function buildSlMap(gttOrders: GttOrder[]): Map<string, number> {
@@ -46,38 +51,10 @@ function buildSlMap(gttOrders: GttOrder[]): Map<string, number> {
   return map;
 }
 
-type StatCardProperties = {
-  label: string;
-  value: React.ReactNode;
-  sub: React.ReactNode;
-  accent: "indigo" | "success" | "warning" | "danger";
-};
-
-function StatCard({ label, value, sub, accent }: StatCardProperties): React.ReactElement {
-  return (
-    <div className="stat-card">
-      <div className={`stat-card-accent stat-card-accent-${accent}`} />
-      <div className="stat-card-label">{label}</div>
-      <div className="stat-card-value">{value}</div>
-      <div className="stat-card-sub">{sub}</div>
-    </div>
-  );
-}
-
-const TABLE_HEADERS = [
-  { label: "Symbol" },
-  { label: "Exch" },
-  { label: "Qty", right: true },
-  { label: "Avg", right: true },
-  { label: "LTP", right: true },
-  { label: "P&L ₹", right: true },
-  { label: "P&L %", right: true },
-  { label: "SL", right: true },
-  { label: "Status", right: true },
-];
-
 /**
- * Dashboard page — 4 stat cards + holdings overview table.
+ * Dashboard (Design.md/handoff.md §3 — "stats + needs-attention") — 4 stat
+ * cards, a Needs Attention section (holdings at or within 5% of their GTT
+ * stop-loss, breach-first), and the full holdings overview table.
  * @returns Dashboard page element
  */
 export function Dashboard(): React.ReactElement {
@@ -116,9 +93,16 @@ export function Dashboard(): React.ReactElement {
   const dayPnlSign = dayPnl >= 0 ? "+" : "−";
   const slMap = buildSlMap(gttOrders);
 
+  const needsAttention = holdings
+    .map((holding) => ({ holding, status: resolveHoldingStatus(holding, slMap) }))
+    .filter(({ status }) => status.variant !== "pos")
+    .sort((a, b) =>
+      a.status.variant === b.status.variant ? 0 : a.status.variant === "neg" ? -1 : 1,
+    );
+
   if (isError) {
     return (
-      <div className="rounded-card border border-danger/30 bg-danger/5 p-4 text-danger-text">
+      <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
         Failed to load portfolio data. Is the agent running?
       </div>
     );
@@ -127,151 +111,181 @@ export function Dashboard(): React.ReactElement {
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Spinner size="lg" />
+        <span
+          role="status"
+          aria-label="Loading"
+          className="h-6 w-6 animate-spin rounded-full border-2 border-border-strong border-t-gold"
+        />
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-drk space-y-[14px]">
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-[14px] sm:grid-cols-4">
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3.5 nav:grid-cols-4">
         <StatCard
           label="Total portfolio value"
-          accent="indigo"
+          accent="info"
           value={formatInr(totalValue)}
           sub={
             <>
-              <span className={totalPnlPct >= 0 ? "text-success" : "text-danger"}>
+              <span className={totalPnlPct >= 0 ? "text-pos" : "text-neg"}>
                 {totalPnlPct >= 0 ? "+" : ""}
                 {totalPnlPct.toFixed(2)}%
               </span>{" "}
-              <span>vs cost</span>
+              vs cost
             </>
           }
         />
-
         <StatCard
           label="Unrealised P&L today"
-          accent={dayPnl >= 0 ? "success" : "danger"}
+          accent={dayPnl >= 0 ? "pos" : "neg"}
           value={
-            <span className={dayPnl >= 0 ? "text-success" : "text-danger"}>
+            <span className={dayPnl >= 0 ? "text-pos" : "text-neg"}>
               {dayPnlSign}
               {formatInr(Math.abs(dayPnl))}
             </span>
           }
           sub="marked-to-market"
         />
-
         <StatCard
           label="MTF interest burn"
-          accent={mtfBurnPerDay > 0 ? "warning" : "success"}
+          accent={mtfBurnPerDay > 0 ? "warn" : "pos"}
           value={
             mtfBurnPerDay > 0 ? (
-              <>
-                <span className="text-warning">{formatInr(mtfBurnPerDay)}</span>
-                <span className="text-[13px] font-medium text-[#8a6d2f]">/day</span>
-              </>
+              <span className="text-warn">
+                {formatInr(mtfBurnPerDay)}
+                <span className="text-body-sm font-medium text-fg-muted">/day</span>
+              </span>
             ) : (
-              <span className="text-text-tertiary">—</span>
+              <span className="text-fg-muted">—</span>
             )
           }
           sub={mtfBurnPerDay > 0 ? "@ 18% p.a." : "No MTF positions"}
         />
-
         <StatCard
           label="Active GTTs"
-          accent="success"
-          value={<span className="text-success">{gttOrders.length}</span>}
+          accent="pos"
+          value={<span className="text-pos">{gttOrders.length}</span>}
           sub="SL orders live"
         />
       </div>
 
-      {/* Holdings overview table */}
-      <div className="holdings-card">
-        <div className="flex items-center justify-between border-b border-[#2a2a2a] px-4 py-[13px]">
-          <span className="text-[13px] font-semibold text-text-primary">Holdings overview</span>
-          <span className="font-mono text-[11px] text-text-dim">
+      <section className="flex flex-col gap-2.5">
+        <div className="flex items-center gap-2">
+          <h2 className="text-title font-semibold text-fg">Needs attention</h2>
+          {needsAttention.length > 0 && <Badge variant="warn">{needsAttention.length}</Badge>}
+        </div>
+        {needsAttention.length === 0 ? (
+          <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">
+            <StatusDot variant="pos" label="All positions safe" pulse={false} />
+            <div>
+              <p className="text-body-sm font-medium text-fg">All positions safe</p>
+              <p className="text-caption text-fg-muted">No holdings near their stop-loss.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2.5 nav:grid-cols-2">
+            {needsAttention.map(({ holding, status }) => {
+              const sl = slMap.get(holding.trading_symbol) ?? 0;
+              const pnlPct =
+                holding.average_price > 0
+                  ? (holding.pnl / (holding.quantity * holding.average_price)) * 100
+                  : 0;
+              const distanceToSlPercentage = sl > 0 ? ((holding.last_price - sl) / sl) * 100 : 0;
+              return (
+                <NeedsAttentionCard
+                  key={holding.isin}
+                  symbol={holding.trading_symbol}
+                  statusLabel={status.label}
+                  variant={status.variant === "neg" ? "danger" : "warning"}
+                  ltp={holding.last_price}
+                  pnlPercentage={pnlPct}
+                  sl={sl}
+                  distanceToSlPercentage={distanceToSlPercentage}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-title font-semibold text-fg">Holdings overview</h2>
+          <span className="font-mono text-caption text-fg-faint">
             {holdings.length} position{holdings.length !== 1 ? "s" : ""}
           </span>
         </div>
 
-        <div className="scroll-x-touch">
-          <div className="holdings-table-inner">
-            {/* Column headers */}
-            <div className="holdings-col-grid holdings-col-header">
-              {TABLE_HEADERS.map((col) => (
-                <span key={col.label} className={col.right === true ? "text-right" : ""}>
-                  {col.label}
-                </span>
-              ))}
-            </div>
-
-            {holdings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-1.5 py-10">
-                <p className="text-[13.5px] font-medium text-text-tertiary">No positions</p>
-                <p className="text-[12px] text-text-dim">
-                  Holdings will appear once data is synced.
-                </p>
-              </div>
-            ) : (
-              holdings.map((holding) => {
+        {holdings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
+            <p className="text-body-sm font-medium text-fg-muted">No positions</p>
+            <p className="text-caption text-fg-faint">Holdings will appear once data is synced.</p>
+          </div>
+        ) : (
+          <Table>
+            <Table.Head>
+              <Table.Row>
+                <Table.HeaderCell>Symbol</Table.HeaderCell>
+                <Table.HeaderCell>Exch</Table.HeaderCell>
+                <Table.HeaderCell align="right">Qty</Table.HeaderCell>
+                <Table.HeaderCell align="right">Avg</Table.HeaderCell>
+                <Table.HeaderCell align="right">LTP</Table.HeaderCell>
+                <Table.HeaderCell align="right">P&amp;L ₹</Table.HeaderCell>
+                <Table.HeaderCell align="right">P&amp;L %</Table.HeaderCell>
+                <Table.HeaderCell align="right">SL</Table.HeaderCell>
+                <Table.HeaderCell align="right">Status</Table.HeaderCell>
+              </Table.Row>
+            </Table.Head>
+            <Table.Body>
+              {holdings.map((holding) => {
                 const status = resolveHoldingStatus(holding, slMap);
                 const sl = slMap.get(holding.trading_symbol);
-                const pnlColor = holding.pnl >= 0 ? "text-success" : "text-danger";
+                const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
                 const ltpColor =
-                  holding.last_price >= holding.close_price ? "text-success" : "text-danger";
+                  holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
                 const pnlPct =
                   holding.average_price > 0
                     ? (holding.pnl / (holding.quantity * holding.average_price)) * 100
                     : 0;
 
                 return (
-                  <div key={holding.isin} className="holdings-col-grid holdings-data-row">
-                    <span className="font-mono text-[13px] font-semibold text-text-primary">
+                  <Table.Row key={holding.isin}>
+                    <Table.Cell className="font-mono uppercase">
                       {holding.trading_symbol}
-                    </span>
-                    <span className="text-[11.5px] text-text-tertiary">{holding.exchange}</span>
-                    <span className="text-right font-mono text-[12px] text-[#bcbcbc]">
-                      {holding.quantity}
-                    </span>
-                    <span className="text-right font-mono text-[12px] text-[#bcbcbc]">
-                      {formatPrice(holding.average_price)}
-                    </span>
-                    <span className={`text-right font-mono text-[12px] ${ltpColor}`}>
+                    </Table.Cell>
+                    <Table.Cell>{holding.exchange}</Table.Cell>
+                    <Table.Cell numeric>{holding.quantity}</Table.Cell>
+                    <Table.Cell numeric>{formatPrice(holding.average_price)}</Table.Cell>
+                    <Table.Cell numeric className={ltpColor}>
                       {formatPrice(holding.last_price)}
-                    </span>
-                    <span className={`text-right font-mono text-[12px] ${pnlColor}`}>
+                    </Table.Cell>
+                    <Table.Cell numeric className={pnlColor}>
                       {holding.pnl >= 0 ? "+" : "−"}
                       {formatInr(Math.abs(holding.pnl))}
-                    </span>
-                    <span className={`text-right font-mono text-[12px] font-semibold ${pnlColor}`}>
+                    </Table.Cell>
+                    <Table.Cell numeric className={pnlColor}>
                       {pnlPct >= 0 ? "+" : ""}
                       {pnlPct.toFixed(2)}%
-                    </span>
-                    <span className="text-right font-mono text-[12px] text-text-tertiary">
-                      {sl !== undefined ? formatPrice(sl) : "—"}
-                    </span>
-                    <span className="flex justify-end">
-                      <span
-                        className={`holding-status-badge holding-status-badge-${status.variant}`}
-                      >
-                        <span
-                          className={`holding-status-dot holding-status-dot-${status.variant}`}
-                        />
-                        {status.label}
+                    </Table.Cell>
+                    <Table.Cell numeric>{sl !== undefined ? formatPrice(sl) : "—"}</Table.Cell>
+                    <Table.Cell align="right">
+                      <span className="inline-flex items-center gap-1.5">
+                        <StatusDot variant={status.variant} label={status.label} pulse={false} />
+                        <span className="text-caption text-fg-muted">{status.label}</span>
                       </span>
-                    </span>
-                  </div>
+                    </Table.Cell>
+                  </Table.Row>
                 );
-              })
-            )}
-          </div>
-        </div>
-      </div>
+              })}
+            </Table.Body>
+          </Table>
+        )}
+      </section>
 
       {holdingData?.cachedAt != null && (
-        <p className="text-[11px] text-text-faint">
+        <p className="text-caption text-fg-faint">
           Prices cached at {new Date(holdingData.cachedAt).toLocaleTimeString("en-IN")}
         </p>
       )}

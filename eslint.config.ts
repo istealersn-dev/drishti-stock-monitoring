@@ -197,6 +197,13 @@ export default [
       "packages/ui/src/components/ask/composer.tsx",
       "packages/ui/src/components/ask/messageList.tsx",
       "packages/ui/src/pages/ask.tsx",
+      "packages/ui/src/components/dashboard/statCard.tsx",
+      "packages/ui/src/components/dashboard/needsAttentionCard.tsx",
+      "packages/ui/src/pages/dashboard.tsx",
+      "packages/ui/src/components/holdings/holdingFilters.tsx",
+      "packages/ui/src/components/holdings/holdingsTable.tsx",
+      "packages/ui/src/components/holdings/holdingCard.tsx",
+      "packages/ui/src/pages/holdings.tsx",
     ],
     plugins: {
       local: { rules: { "flag-stray-position": flagStrayPositionRule } },
