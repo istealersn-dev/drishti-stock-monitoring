@@ -82,7 +82,7 @@ export function AgentControls({
         <div>
           <div className="text-body-sm font-medium text-fg">Pause agent</div>
           <p className="mt-0.5 text-caption text-fg-faint">
-            {pauseAgent ? "Scheduler halted — no new runs" : "Scheduler active — polls on schedule"}
+            Updates agent config — the scheduler doesn't consult this setting yet
           </p>
         </div>
         <Switch

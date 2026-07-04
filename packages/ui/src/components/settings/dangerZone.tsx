@@ -6,10 +6,9 @@ import { Card } from "../ui/card";
 type DangerRowProperties = {
   title: string;
   description: string;
-  buttonLabel: string;
 };
 
-function DangerRow({ title, description, buttonLabel }: DangerRowProperties): React.ReactElement {
+function DangerRow({ title, description }: DangerRowProperties): React.ReactElement {
   return (
     <div className="flex items-center justify-between gap-3">
       <div>
@@ -17,7 +16,7 @@ function DangerRow({ title, description, buttonLabel }: DangerRowProperties): Re
         <p className="mt-0.5 text-caption text-fg-faint">{description}</p>
       </div>
       <Button variant="destructive" disabled title="Not yet available — backend endpoint pending">
-        {buttonLabel}
+        Unavailable
       </Button>
     </div>
   );
@@ -39,20 +38,11 @@ export function DangerZone(): React.ReactElement {
         Irreversible actions. Not yet available — backend endpoints pending.
       </p>
 
-      <DangerRow
-        title="Cancel all active GTTs"
-        description="Removes every pending trigger order"
-        buttonLabel="Cancel all"
-      />
-      <DangerRow
-        title="Reset agent logs"
-        description="Permanently clears the audit trail"
-        buttonLabel="Reset logs"
-      />
+      <DangerRow title="Cancel all active GTTs" description="Removes every pending trigger order" />
+      <DangerRow title="Reset agent logs" description="Permanently clears the audit trail" />
       <DangerRow
         title="Reject all pending approvals"
         description="Declines every approval awaiting decision"
-        buttonLabel="Reject all"
       />
     </Card>
   );

@@ -206,13 +206,13 @@ export function Watchlist(): React.ReactElement {
         </section>
       )}
 
-      {isError ? (
-        <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-          Failed to load watchlist. Is the agent running?
-        </div>
-      ) : isLoading ? (
+      {isLoading ? (
         <div className="flex h-24 items-center justify-center">
           <Spinner />
+        </div>
+      ) : isError ? (
+        <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
+          Failed to load watchlist. Is the agent running?
         </div>
       ) : entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
