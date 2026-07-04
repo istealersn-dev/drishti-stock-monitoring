@@ -26,7 +26,10 @@ from the spec.
 | 5 | Ask Drishti (hero, composer, AmbientWave, chat) | **done, merged** | `feat/cp5-ask-drishti` (deleted) | [#30](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/30) |
 | 6 | Dashboard + Holdings | **done, merged** | `feat/cp6-dashboard-holdings` (deleted) | [#31](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/31) |
 | 7 | Instructions + GTT + Logs | **done, merged** | `feat/cp7-instructions-gtt-logs` (deleted) | [#32](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/32) |
-| 8 | Settings + data layer + hardening | in-progress | `feat/cp8-settings-hardening` | — |
+| 8 | Settings + data layer + hardening | **done, merged** | `feat/cp8-settings-hardening` (deleted) | [#33](https://github.com/istealersn-dev/drishti-stock-monitoring/pull/33) |
+
+**All 8 checkpoints complete.** The Drishti UI rebuild is finished — every page runs on the new
+gold-branded token system; the legacy indigo CSS system has been fully retired.
 
 ## Decisions log
 
