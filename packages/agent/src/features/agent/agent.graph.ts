@@ -4,6 +4,7 @@ import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
 import { isMarketOpen } from "../../scheduler/cron.js";
 import { wasRecentlyAlerted } from "../../shared/dedup.js";
+import { isDryRunActive } from "../../shared/dryRun.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { TRADING_DAY_MS } from "../../shared/timeWindows.js";
@@ -300,7 +301,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           symbol: decision.symbol,
           action: "gtt_cancel",
           reasoning: decision.reasoning,
-          dryRun: env.DRISHTI_DRY_RUN,
+          dryRun: isDryRunActive(),
           error: cancelResult.ok ? null : cancelResult.error.message,
           createdAt: now,
         })
@@ -318,7 +319,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           symbol: decision.symbol,
           action: "gtt_modify_failed",
           reasoning: decision.reasoning,
-          dryRun: env.DRISHTI_DRY_RUN,
+          dryRun: isDryRunActive(),
           error: "gttParams missing in LLM decision",
           createdAt: now,
         })
@@ -350,7 +351,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
             symbol: decision.symbol,
             action: "gtt_modify_failed",
             reasoning: decision.reasoning,
-            dryRun: env.DRISHTI_DRY_RUN,
+            dryRun: isDryRunActive(),
             error: cancelResult.error.message,
             createdAt: now,
           })
@@ -382,7 +383,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
             triggerPrice: decision.gttParams.newTriggerPrice,
             limitPrice: newLimitPrice,
             quantity: holding.quantity,
-            status: env.DRISHTI_DRY_RUN ? "dry_run" : "active",
+            status: isDryRunActive() ? "dry_run" : "active",
             approvalId: null,
             createdAt: now,
             updatedAt: now,
@@ -396,7 +397,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
           symbol: decision.symbol,
           action: "gtt_modify",
           reasoning: decision.reasoning,
-          dryRun: env.DRISHTI_DRY_RUN,
+          dryRun: isDryRunActive(),
           error: createResult.ok ? null : createResult.error.message,
           createdAt: now,
         })

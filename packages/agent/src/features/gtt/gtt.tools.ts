@@ -1,3 +1,4 @@
+import { isDryRunActive } from "../../shared/dryRun.js";
 import { env } from "../../shared/env.js";
 import { UpstoxError, err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
@@ -26,7 +27,7 @@ function writeHeaders(): HeadersInit {
  * @returns A Result containing the Upstox order_id, or a dry-run log string, or an UpstoxError
  */
 export async function createGTT(request: GttCreateRequest): Promise<Result<string, UpstoxError>> {
-  if (env.DRISHTI_DRY_RUN) {
+  if (isDryRunActive()) {
     const summary = `${request.transaction_type} ${request.quantity}x ${request.trading_symbol} trigger=₹${request.trigger_price} limit=₹${request.limit_price}`;
     return ok(`[DRY_RUN] would create GTT: ${summary}`);
   }
@@ -82,7 +83,7 @@ export async function listGTTs(): Promise<Result<GttOrder[], UpstoxError>> {
  * @returns A Result containing the cancelled order_id, or a dry-run log string, or an UpstoxError
  */
 export async function cancelGTT(orderId: string): Promise<Result<string, UpstoxError>> {
-  if (env.DRISHTI_DRY_RUN) {
+  if (isDryRunActive()) {
     return ok(`[DRY_RUN] would cancel GTT: ${orderId}`);
   }
 

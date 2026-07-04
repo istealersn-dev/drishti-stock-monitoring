@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockDbSelect, mockDbInsert } = vi.hoisted(() => ({
+const { mockDbSelect, mockDbInsert, mockIsDryRunActive } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
   mockDbInsert: vi.fn(),
+  mockIsDryRunActive: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock("../db/db.js", () => ({ db: { select: mockDbSelect, insert: mockDbInsert } }));
+vi.mock("../shared/dryRun.js", () => ({ isDryRunActive: mockIsDryRunActive }));
 vi.mock("../db/schema.js", () => ({
   agentRuns: {},
   agentLogs: {},
@@ -94,6 +96,7 @@ describe("querySettings", () => {
     mockDbSelect.mockReturnValue({
       from: vi.fn().mockReturnValue({ all: vi.fn().mockReturnValue([]) }),
     });
+    mockIsDryRunActive.mockReturnValue(false);
     const result = querySettings();
     expect(result).toMatchObject({
       dryRun: false,
@@ -109,6 +112,7 @@ describe("querySettings", () => {
         all: vi.fn().mockReturnValue([{ key: "dry_run", value: "true" }]),
       }),
     });
+    mockIsDryRunActive.mockReturnValue(true);
     const result = querySettings();
     expect(result["dryRun"]).toBe(true);
   });

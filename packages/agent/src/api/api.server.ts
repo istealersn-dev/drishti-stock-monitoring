@@ -33,6 +33,7 @@ import {
   getWatchlist,
   removeFromWatchlist,
 } from "../features/watchlist/watchlist.service.js";
+import { isDryRunActive } from "../shared/dryRun.js";
 import { env } from "../shared/env.js";
 import { logger } from "../shared/logger.js";
 
@@ -88,12 +89,7 @@ export function querySettings(): Record<string, string | number | boolean> {
   const overrides = Object.fromEntries(rows.map((r) => [r.key, r.value]));
 
   return {
-    dryRun:
-      overrides["dry_run"] === "true"
-        ? true
-        : overrides["dry_run"] === "false"
-          ? false
-          : env.DRISHTI_DRY_RUN,
+    dryRun: isDryRunActive(),
     pauseAgent: overrides["pause_agent"] === "true",
     pollIntervalMinutes:
       overrides["poll_interval_minutes"] !== undefined
@@ -271,7 +267,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
       return reply.status(409).send({ ok: false, error: `Order is already ${row.status}` });
     }
 
-    if (env.DRISHTI_DRY_RUN) {
+    if (isDryRunActive()) {
       logger.info("[DRY_RUN] would cancel GTT", { id, symbol: row.symbol });
     } else {
       logger.warn("GTT cancelled in DB; Upstox remote cancel unavailable without upstoxOrderId", {

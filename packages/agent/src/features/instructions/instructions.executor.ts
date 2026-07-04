@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders, stockConfig } from "../../db/schema.js";
-import { env } from "../../shared/env.js";
+import { isDryRunActive } from "../../shared/dryRun.js";
 import { logger } from "../../shared/logger.js";
 import { resolveApproval, getApproval } from "../approval/approval.store.js";
 import { createGTT } from "../gtt/gtt.tools.js";
@@ -121,7 +121,7 @@ export async function executeApprovedInstruction(
         symbol: approval.symbol,
         action: "buy_entry_gtt_failed",
         reasoning: `Buy GTT failed for ${approval.symbol}: ${gttResult.error.message}`,
-        dryRun: env.DRISHTI_DRY_RUN,
+        dryRun: isDryRunActive(),
         error: gttResult.error.message,
         createdAt: now,
       })
@@ -143,7 +143,7 @@ export async function executeApprovedInstruction(
       triggerPrice: entryHigh,
       limitPrice,
       quantity: qty,
-      status: env.DRISHTI_DRY_RUN ? "dry_run" : "active",
+      status: isDryRunActive() ? "dry_run" : "active",
       approvalId,
       createdAt: now,
       updatedAt: now,
@@ -188,7 +188,7 @@ export async function executeApprovedInstruction(
       symbol: approval.symbol,
       action: "buy_entry_gtt_created",
       reasoning: `Buy GTT placed for ${approval.symbol} at ₹${entryHigh}. ${gttResult.value}`,
-      dryRun: env.DRISHTI_DRY_RUN,
+      dryRun: isDryRunActive(),
       error: null,
       createdAt: now,
     })
@@ -199,7 +199,7 @@ export async function executeApprovedInstruction(
     symbol: approval.symbol,
     qty,
     entryHigh,
-    dryRun: env.DRISHTI_DRY_RUN,
+    dryRun: isDryRunActive(),
   });
 
   if (approval.slackTs) {
