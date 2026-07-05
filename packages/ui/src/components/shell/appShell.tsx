@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type React from "react";
 
 import { useMediaQuery } from "../../hooks/useMediaQuery";
-import { fetchApprovals, fetchRuns, fetchSettings } from "../../lib/api";
+import { fetchApprovals, fetchHoldings, fetchRuns, fetchSettings } from "../../lib/api";
+import { formatInr } from "../../lib/format";
+import { sumHoldingsValue } from "../../lib/holdingFormat";
 
 import { AppFooter } from "./appFooter";
 import { AppHeaderMobile } from "./appHeaderMobile";
@@ -49,6 +51,13 @@ export function AppShell(): React.ReactElement {
     queryKey: ["runs"],
     queryFn: fetchRuns,
   });
+  // Shares the ["holdings"] cache with Dashboard's own query — no extra
+  // network cost, just reads whatever Dashboard (or this shell) already
+  // fetched, to drive the footer/header's portfolio-value meta.
+  const { data: holdingData } = useQuery({
+    queryKey: ["holdings"],
+    queryFn: fetchHoldings,
+  });
 
   useEffect(() => {
     return (): void => {
@@ -57,14 +66,20 @@ export function AppShell(): React.ReactElement {
   }, []);
 
   const dryRun = settings?.dryRun ?? false;
-  const agentStatus = settingsError ? "error" : settings?.pauseAgent ? "unknown" : "live";
+  const paused = settings?.pauseAgent ?? false;
   const pendingCount = approvals.filter((approval) => approval.status === "pending").length;
   const lastPollAt = runs[0]?.startedAt ?? null;
+  const portfolioValue = sumHoldingsValue(holdingData?.holdings ?? []);
 
   const handleRefresh = (): void => {
     if (spinTimerReference.current !== null) clearTimeout(spinTimerReference.current);
     setSpinning(true);
-    void queryClient.invalidateQueries();
+    // Excludes ["health"] — that query triggers a real live Upstox+LLM call
+    // (see BrokerCard), so the shell's refresh button (available from every
+    // page) shouldn't force one just to spin the footer/header icon.
+    void queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey[0] !== "health",
+    });
     spinTimerReference.current = setTimeout(() => {
       setSpinning(false);
     }, 800);
@@ -81,7 +96,8 @@ export function AppShell(): React.ReactElement {
       {!isDesktop && (
         <AppHeaderMobile
           dryRun={dryRun}
-          agentStatus={agentStatus}
+          paused={paused}
+          hasError={settingsError}
           pendingCount={pendingCount}
           spinning={spinning}
           onRefresh={handleRefresh}
@@ -110,8 +126,10 @@ export function AppShell(): React.ReactElement {
       {isDesktop && (
         <AppFooter
           dryRun={dryRun}
-          agentStatus={agentStatus}
+          paused={paused}
+          hasError={settingsError}
           pendingCount={pendingCount}
+          portfolioValueLabel={formatInr(portfolioValue)}
           lastPollLabel={formatPollTime(lastPollAt)}
           spinning={spinning}
           onRefresh={handleRefresh}

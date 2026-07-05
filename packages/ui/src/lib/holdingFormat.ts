@@ -1,5 +1,7 @@
 import type { BadgeVariant } from "../components/ui/badge";
 
+import type { Holding } from "./api";
+
 /**
  * Formats a price with 2 decimal places, en-IN grouping (no ₹ prefix — callers
  * that need the symbol prepend it themselves).
@@ -8,6 +10,17 @@ import type { BadgeVariant } from "../components/ui/badge";
  */
 export function formatPrice(price: number): string {
   return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * Sums a holdings list's current market value (quantity × last price).
+ * Shared by Dashboard's headline stat and the shell footer/header's
+ * portfolio-value meta so the two can't silently drift on the formula.
+ * @param holdings - the holdings to sum
+ * @returns total current market value in rupees
+ */
+export function sumHoldingsValue(holdings: Holding[]): number {
+  return holdings.reduce((sum, h) => sum + h.quantity * h.last_price, 0);
 }
 
 /**

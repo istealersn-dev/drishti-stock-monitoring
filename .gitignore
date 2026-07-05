@@ -24,3 +24,6 @@ packages/*/build/
 packages/token-refresh/screenshots/
 packages/token-refresh/logs/*
 !packages/token-refresh/logs/.gitkeep
+
+# Design reference project (pulled from claude.ai design project, read-only reference)
+docs/Drishti portfolio dashboard/*

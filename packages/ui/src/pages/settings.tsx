@@ -1,16 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
 
 import { AgentControls } from "../components/settings/agentControls";
+import { BrokerCard } from "../components/settings/brokerCard";
 import { DangerZone } from "../components/settings/dangerZone";
+import { ModelRuntimeCard } from "../components/settings/modelRuntimeCard";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Spinner } from "../components/ui/spinner";
+import { Tabs } from "../components/ui/tabs";
 import { type Settings as SettingsType, fetchSettings, updateSettings } from "../lib/api";
-import { clearKey } from "../lib/auth";
+import { useLogout } from "../lib/auth";
+
+type SettingsTab = "brokers" | "agent" | "runtime" | "danger";
+const SETTINGS_TABS: SettingsTab[] = ["brokers", "agent", "runtime", "danger"];
+
+function isSettingsTab(value: string): value is SettingsTab {
+  return SETTINGS_TABS.some((tab) => tab === value);
+}
 
 type FormState = {
   dryRun: boolean;
@@ -27,17 +36,18 @@ function formFromSettings(settings: SettingsType): FormState {
 }
 
 /**
- * Settings page (Design.md/handoff.md §3) — agent controls, sign-out, and
- * danger zone in a 2-column layout. The design spec's "Model & API access"
- * (bring-your-own-key multi-provider form) and Brokers section are
- * intentionally omitted: this project is hardcoded to a single local LM
- * Studio provider (see repo CLAUDE.md), and the real backend has no
- * broker/provider data model to back a form like that.
+ * Settings page (Design.md/handoff.md §3) — tabbed Brokers / Agent controls /
+ * Model & runtime / Danger zone, matching the reference's desktop tab bar
+ * (which isolates the danger zone behind its own tab rather than showing it
+ * always-visible). Brokers and Model & runtime are scoped to what's
+ * actually true rather than the reference's multi-broker/BYO-provider forms
+ * — see BrokerCard/ModelRuntimeCard for why.
  * @returns Settings page element
  */
 export function Settings(): React.ReactElement {
-  const navigate = useNavigate();
+  const handleSignOut = useLogout();
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<SettingsTab>("brokers");
 
   const {
     data: settings,
@@ -73,11 +83,6 @@ export function Settings(): React.ReactElement {
     });
   };
 
-  const handleSignOut = (): void => {
-    clearKey();
-    void navigate({ to: "/login" });
-  };
-
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -95,41 +100,74 @@ export function Settings(): React.ReactElement {
   }
 
   return (
-    <div className="grid grid-cols-1 items-start gap-3.5 nav:grid-cols-2">
-      <AgentControls
-        settings={settings}
-        dryRun={form.dryRun}
-        pauseAgent={form.pauseAgent}
-        pollIntervalMinutes={form.pollIntervalMinutes}
-        onDryRunChange={(value) => {
-          setForm((previous) => ({ ...previous, dryRun: value }));
-        }}
-        onPauseAgentChange={(value) => {
-          setForm((previous) => ({ ...previous, pauseAgent: value }));
-        }}
-        onPollIntervalChange={(value) => {
-          setForm((previous) => ({ ...previous, pollIntervalMinutes: value }));
-        }}
-        onSave={handleSave}
-        isPending={mutation.isPending}
-        isError={mutation.isError}
-        isSuccess={mutation.isSuccess}
-      />
-
-      <div className="flex flex-col gap-3.5">
-        <Card className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-body-sm text-fg">Signed in via access key</div>
-            <p className="mt-0.5 text-caption text-fg-faint">This device</p>
-          </div>
-          <Button variant="secondary" onClick={handleSignOut}>
-            <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
-            Sign out
-          </Button>
-        </Card>
-
-        <DangerZone />
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-title font-semibold text-fg">Settings</h1>
+        <p className="mt-1 text-body-sm text-fg-muted">
+          Manage agent behaviour and runtime for your Drishti deployment.
+        </p>
       </div>
+
+      <Tabs
+        value={tab}
+        onChange={(value) => {
+          if (isSettingsTab(value)) setTab(value);
+        }}
+      >
+        <Tabs.List>
+          <Tabs.Trigger value="brokers">Brokers</Tabs.Trigger>
+          <Tabs.Trigger value="agent">Agent controls</Tabs.Trigger>
+          <Tabs.Trigger value="runtime">Model & runtime</Tabs.Trigger>
+          <Tabs.Trigger value="danger">Danger zone</Tabs.Trigger>
+        </Tabs.List>
+
+        <Tabs.Content value="brokers" className="mt-4">
+          <BrokerCard />
+        </Tabs.Content>
+
+        <Tabs.Content value="agent" className="mt-4">
+          <div className="grid grid-cols-1 items-start gap-3.5 nav:grid-cols-2">
+            <AgentControls
+              settings={settings}
+              dryRun={form.dryRun}
+              pauseAgent={form.pauseAgent}
+              pollIntervalMinutes={form.pollIntervalMinutes}
+              onDryRunChange={(value) => {
+                setForm((previous) => ({ ...previous, dryRun: value }));
+              }}
+              onPauseAgentChange={(value) => {
+                setForm((previous) => ({ ...previous, pauseAgent: value }));
+              }}
+              onPollIntervalChange={(value) => {
+                setForm((previous) => ({ ...previous, pollIntervalMinutes: value }));
+              }}
+              onSave={handleSave}
+              isPending={mutation.isPending}
+              isError={mutation.isError}
+              isSuccess={mutation.isSuccess}
+            />
+
+            <Card className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-body-sm text-fg">Signed in via access key</div>
+                <p className="mt-0.5 text-caption text-fg-faint">This device</p>
+              </div>
+              <Button variant="secondary" onClick={handleSignOut}>
+                <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
+                Sign out
+              </Button>
+            </Card>
+          </div>
+        </Tabs.Content>
+
+        <Tabs.Content value="runtime" className="mt-4">
+          <ModelRuntimeCard />
+        </Tabs.Content>
+
+        <Tabs.Content value="danger" className="mt-4">
+          <DangerZone />
+        </Tabs.Content>
+      </Tabs>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, ShieldCheck } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -13,6 +13,14 @@ import { Spinner } from "../components/ui/spinner";
 import { askAdvisor, fetchAdvisoryConversations } from "../lib/api";
 
 type View = "hero" | "conversation";
+
+/** Local-time greeting matching Drishti.dc.html's `greeting` state (morning/afternoon/evening). */
+function timeOfDayGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning.";
+  if (hour < 17) return "Good afternoon.";
+  return "Good evening.";
+}
 
 /**
  * Ask Drishti (Design.md §5) — empty-state hero (headline, suggestion grid,
@@ -100,19 +108,26 @@ export function Ask(): React.ReactElement {
 
   if (view === "hero") {
     return (
-      <div className="relative flex h-full flex-col items-center justify-center gap-8 overflow-hidden px-6 text-center">
+      <div className="relative flex h-full flex-col items-center justify-center overflow-hidden px-6">
         <AmbientWave />
-        <div className="relative z-10 flex flex-col items-center gap-8">
+        <div className="relative z-10 flex w-full max-w-2xl flex-col gap-6">
           <div>
-            <h1 className="text-display font-semibold text-fg">Ask Drishti</h1>
-            <p className="mt-2 text-body text-fg-muted">
-              Ask about a holding, a sector, or how your portfolio is doing today.
+            <div className="mb-3 inline-flex items-center gap-1.5 font-mono text-caption font-semibold uppercase tracking-wide text-gold">
+              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
+              SEBI-aware portfolio intelligence
+            </div>
+            <h1 className="text-display font-semibold text-fg">
+              {timeOfDayGreeting()}
+              <br />
+              Ask me anything about your book.
+            </h1>
+            <p className="mt-3 max-w-xl text-body text-fg-muted">
+              Drishti reads your live NSE / BSE holdings, MTF exposure and agent activity — and
+              knows SEBI rules cold. Ask about risk, positions, tax, or compliance.
             </p>
           </div>
-          <SuggestionGrid onSelect={handleAsk} />
-        </div>
-        <div className="relative z-10 w-full max-w-2xl">
           <Composer
+            variant="hero"
             value={question}
             onChange={setQuestion}
             onSubmit={() => {
@@ -120,18 +135,30 @@ export function Ask(): React.ReactElement {
             }}
             disabled={isPendingForSession}
           />
+          <SuggestionGrid onSelect={handleAsk} />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 px-6">
       <div className="flex items-center justify-between gap-3">
-        <Breadcrumb
-          items={[{ label: "Ask Drishti", onClick: handleReturnToHero }, { label: "Conversation" }]}
-        />
-        <Button variant="ghost" onClick={handleNewChat}>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-[image:var(--gradient-gold)] font-mono text-micro font-bold text-bg-base"
+          >
+            दृ
+          </span>
+          <Breadcrumb
+            items={[
+              { label: "Ask Drishti", onClick: handleReturnToHero },
+              { label: "Conversation" },
+            ]}
+          />
+        </div>
+        <Button variant="secondary" onClick={handleNewChat}>
           <Plus aria-hidden="true" className="h-4 w-4" />
           New chat
         </Button>

@@ -7,49 +7,18 @@ import { Badge } from "../components/ui/badge";
 import { Spinner } from "../components/ui/spinner";
 import { StatusDot } from "../components/ui/statusDot";
 import { Table } from "../components/ui/table";
-import { type GttOrder, type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
+import { fetchGttOrders, fetchHoldings } from "../lib/api";
 import { formatInr } from "../lib/format";
-import { formatPrice, ltpDirectionArrow } from "../lib/holdingFormat";
+import { formatPrice, ltpDirectionArrow, sumHoldingsValue } from "../lib/holdingFormat";
+import { type HoldingStatus, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
-const NEAR_SL_BAND = 1.05; // within 5% above the SL trigger counts as "near"
-
-type HoldingStatus = {
-  variant: "pos" | "warn" | "neg";
-  label: string;
-};
 
 // "pos" is never actually looked up (needsAttention filters it out before
 // sorting) but is listed so the Record stays exhaustive over the full
 // HoldingStatus["variant"] union without a type assertion.
 const SEVERITY_RANK: Record<HoldingStatus["variant"], number> = { neg: 0, warn: 1, pos: 2 };
-
-function resolveHoldingStatus(holding: Holding, slMap: Map<string, number>): HoldingStatus {
-  const sl = slMap.get(holding.trading_symbol);
-  // A closed-out (zero-quantity) holding has no real exposure to alert on,
-  // even if a stale SL/last_price pair would otherwise read as a breach.
-  if (holding.quantity <= 0) {
-    return { variant: "pos", label: "ACTIVE" };
-  }
-  if (sl !== undefined && holding.last_price <= sl) {
-    return { variant: "neg", label: "AT SL" };
-  }
-  if (sl !== undefined && holding.last_price <= sl * NEAR_SL_BAND) {
-    return { variant: "warn", label: "NEAR SL" };
-  }
-  return { variant: "pos", label: "ACTIVE" };
-}
-
-function buildSlMap(gttOrders: GttOrder[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const order of gttOrders) {
-    if (order.type === "SL" && !map.has(order.symbol)) {
-      map.set(order.symbol, order.triggerPrice);
-    }
-  }
-  return map;
-}
 
 /**
  * Dashboard (Design.md/handoff.md §3 — "stats + needs-attention") — 4 stat
@@ -80,7 +49,7 @@ export function Dashboard(): React.ReactElement {
   const isLoading = holdingsLoading || gttLoading;
   const isError = holdingsError || gttError;
 
-  const totalValue = holdings.reduce((sum, h) => sum + h.quantity * h.last_price, 0);
+  const totalValue = sumHoldingsValue(holdings);
   const totalCost = holdings.reduce((sum, h) => sum + h.quantity * h.average_price, 0);
   const totalPnl = holdings.reduce((sum, h) => sum + h.pnl, 0);
   const dayPnl = holdings.reduce((sum, h) => sum + h.day_change * h.quantity, 0);
@@ -128,7 +97,7 @@ export function Dashboard(): React.ReactElement {
       <div className="grid grid-cols-2 gap-3.5 nav:grid-cols-4">
         <StatCard
           label="Total portfolio value"
-          accent="info"
+          accent="gold"
           value={formatInr(totalValue)}
           sub={
             <>

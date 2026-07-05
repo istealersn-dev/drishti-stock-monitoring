@@ -75,6 +75,19 @@ body {
   --color-gold-tint: #ecd5a0;
   --color-gold-line: #cbb460;
   --gradient-gold: linear-gradient(135deg, #c8a24a, #9a7a2e);
+  --pattern-dot-gold-strong: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-gold) 78%, transparent) 1.9px,
+    transparent 2.5px
+  );
+  --pattern-dot-gold-subtle: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-gold) 45%, transparent) 1.3px,
+    transparent 1.8px
+  );
+  --glow-gold-corners:
+    radial-gradient(85% 75% at 100% 0%, color-mix(in srgb, var(--color-gold) 22%, transparent), transparent 56%),
+    radial-gradient(80% 70% at 6% 96%, color-mix(in srgb, var(--color-gold) 16%, transparent), transparent 62%);
 
   /* semantic */
   --color-pos: #22c55e;
@@ -153,6 +166,9 @@ body {
   --spacing-mobile-tabbar: 62px;
   --spacing-mobile-main-bottom: 80px;
   --spacing-footer: 38px;
+  /* Ask Drishti's ambient blobs (Drishti.dc.html's startWave() glow divs) */
+  --spacing-ask-blob-lg: 540px;
+  --spacing-ask-blob-sm: 480px;
 
   /* motion — durations lifted verbatim from project/Drishti.dc.html's drk-* keyframes */
   --animate-wave-x: wave-x 17s ease-in-out -5s infinite alternate;
@@ -161,6 +177,24 @@ body {
   --animate-pulse: pulse 2.4s ease-in-out infinite;
   --animate-spin: spin 0.65s linear infinite;
   --animate-fade: fade 0.2s ease-out;
+}
+
+/* Login left-panel halftone dots — Design.md gold-only recolor of
+   project/Drishti.dc.html's two-tone (gold + peach) dot texture, collapsed to
+   gold-only per the token vocabulary. The prototype layers two grids: a wider
+   one at the top-right corner and a subtler, smaller-dot one at bottom-left. */
+.pattern-dot-gold-strong {
+  background-image: var(--pattern-dot-gold-strong);
+  background-size: 17px 17px;
+  -webkit-mask-image: radial-gradient(92% 72% at 100% 0%, #000 0%, rgb(0 0 0 / 0.75) 30%, transparent 60%);
+  mask-image: radial-gradient(92% 72% at 100% 0%, #000 0%, rgb(0 0 0 / 0.75) 30%, transparent 60%);
+}
+
+.pattern-dot-gold-subtle {
+  background-image: var(--pattern-dot-gold-subtle);
+  background-size: 19px 19px;
+  -webkit-mask-image: radial-gradient(60% 48% at 0% 100%, rgb(0 0 0 / 0.6) 0%, transparent 70%);
+  mask-image: radial-gradient(60% 48% at 0% 100%, rgb(0 0 0 / 0.6) 0%, transparent 70%);
 }
 
 @keyframes wave-x {

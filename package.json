@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter agent dev",
     "dev:ui": "pnpm --filter ui dev",
+    "dev:all": "pnpm --parallel --filter agent --filter ui dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",

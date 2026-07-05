@@ -81,7 +81,7 @@ export function InstructionComposer({
               onClick={() => {
                 onChange(chip);
               }}
-              className="rounded-pill border border-border-strong bg-surface-2 px-3 py-1 font-mono text-caption text-fg-muted transition-colors hover:border-border-muted hover:text-fg"
+              className="cursor-pointer rounded-pill border border-border-strong bg-surface-2 px-3 py-1 font-mono text-caption text-fg-muted transition-colors hover:border-border-muted hover:text-fg"
             >
               {chip}
             </button>

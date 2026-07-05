@@ -2,7 +2,7 @@ import type React from "react";
 import { useState } from "react";
 
 import type { Approval, ParsedInstruction } from "../../lib/api";
-import { formatPriceOrDash } from "../../lib/format";
+import { formatInr, formatPriceOrDash } from "../../lib/format";
 import { Badge, type BadgeVariant } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -16,6 +16,20 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
 
 function resolveStatusVariant(status: string): BadgeVariant {
   return STATUS_VARIANT[status] ?? "neutral";
+}
+
+// "Awaiting" matches Drishti.dc.html's pending-approval badge copy — the
+// backend's own status value stays "pending" (ApprovalStatus in
+// packages/agent), this is purely the display label.
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Awaiting",
+  approved: "Approved",
+  rejected: "Rejected",
+  expired: "Expired",
+};
+
+function resolveStatusLabel(status: string): string {
+  return STATUS_LABEL[status] ?? status;
 }
 
 type ElapsedTone = "fresh" | "warn" | "urgent";
@@ -34,10 +48,30 @@ function resolveElapsed(createdAt: string): { text: string; tone: ElapsedTone } 
 }
 
 function formatEntry(parsed: ParsedInstruction): string {
-  if (parsed.entryLow != null && parsed.entryHigh != null) {
-    return `${formatPriceOrDash(parsed.entryLow)}–${formatPriceOrDash(parsed.entryHigh)}`;
+  const { entryLow, entryHigh } = parsed;
+  if (entryLow !== null && entryHigh !== null) {
+    return `${formatPriceOrDash(entryLow)}–${formatPriceOrDash(entryHigh)}`;
   }
-  return formatPriceOrDash(parsed.entryLow);
+  // Previously always formatted entryLow here, so an entryHigh-only
+  // instruction silently rendered "—" instead of its one known bound.
+  return formatPriceOrDash(entryLow ?? entryHigh);
+}
+
+/**
+ * Estimated order value at the midpoint entry price (CLAUDE.md — "the agent
+ * calculates suggested qty from available cash/margin at the midpoint entry
+ * price"), matching Drishti.dc.html's "est ₹X" footer figure.
+ * @param parsed - the parsed instruction, or null if parsing failed
+ * @param suggestedQty - the agent's suggested order quantity
+ * @returns the estimated value in rupees, or null if no entry price is available
+ */
+function estimateOrderValue(parsed: ParsedInstruction | null, suggestedQty: number): number | null {
+  if (parsed === null) return null;
+  const { entryLow, entryHigh } = parsed;
+  if (entryLow !== null && entryHigh !== null) return ((entryLow + entryHigh) / 2) * suggestedQty;
+  if (entryLow !== null) return entryLow * suggestedQty;
+  if (entryHigh !== null) return entryHigh * suggestedQty;
+  return null;
 }
 
 function formatTarget(parsed: ParsedInstruction, index: number): string {
@@ -82,18 +116,21 @@ export function ApprovalCard({
 }: ApprovalCardProperties): React.ReactElement {
   const parsed = approval.parsedInstruction;
   const elapsed = resolveElapsed(approval.createdAt);
+  const estimatedValue = estimateOrderValue(parsed, approval.suggestedQty);
   const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
 
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="font-mono text-body-sm font-semibold uppercase text-fg">
-            {approval.symbol}
+          <div className="text-body-sm font-semibold text-fg">
+            {parsed?.stockName ?? approval.symbol}
           </div>
-          <div className="font-mono text-caption text-fg-faint">#{approval.id.slice(0, 8)}</div>
+          <div className="font-mono text-caption uppercase text-fg-faint">{approval.symbol}</div>
         </div>
-        <Badge variant={resolveStatusVariant(approval.status)}>{approval.status}</Badge>
+        <Badge variant={resolveStatusVariant(approval.status)}>
+          {resolveStatusLabel(approval.status)}
+        </Badge>
       </div>
 
       {parsed !== null && (
@@ -122,8 +159,21 @@ export function ApprovalCard({
       <div className="flex items-center justify-between font-mono text-caption">
         <span className="text-fg-muted">
           Qty <span className="text-fg">{approval.suggestedQty}</span>
+          {estimatedValue !== null && (
+            <>
+              {" "}
+              · est <span className="text-fg">{formatInr(estimatedValue)}</span>
+            </>
+          )}
         </span>
         <span className={ELAPSED_CLASS[elapsed.tone]}>{elapsed.text}</span>
+      </div>
+
+      {/* Same 8-char id prefix format as GttCard/GttTable's "Approval" line,
+          so a GTT row spawned from this card can be cross-referenced back to
+          it — a hover-only tooltip isn't reachable on the mobile shell. */}
+      <div className="text-caption text-fg-faint">
+        Approval <span className="font-mono">{approval.id.slice(0, 8)}</span>
       </div>
 
       {actionError !== null && <p className="text-caption text-neg">{actionError}</p>}

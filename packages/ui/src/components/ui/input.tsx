@@ -81,7 +81,7 @@ export function Input({
             onClick={(): void => setRevealed((current) => !current)}
             disabled={disabled}
             aria-label={revealed ? "Hide value" : "Show value"}
-            className="flex h-10 w-10 flex-none items-center justify-center text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:text-fg-faint"
+            className="flex h-10 w-10 flex-none cursor-pointer items-center justify-center text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:text-fg-faint"
           >
             {revealed ? (
               <EyeOff aria-hidden="true" className="h-4 w-4" />

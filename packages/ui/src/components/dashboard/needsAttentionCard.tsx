@@ -36,7 +36,7 @@ type NeedsAttentionCardProperties = {
  * single agent-wide `pauseAgent` setting — so it's intentionally omitted
  * here rather than wired to nothing.)
  * @param props.symbol - trading symbol
- * @param props.statusLabel - "AT SL" or "NEAR SL"
+ * @param props.statusLabel - "Breach" or "Watch"
  * @param props.variant - severity, drives the left border/status dot color
  * @param props.ltp - last traded price
  * @param props.pnlPercentage - unrealised P&L percent

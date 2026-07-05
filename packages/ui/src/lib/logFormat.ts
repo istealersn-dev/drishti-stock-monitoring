@@ -19,12 +19,15 @@ export function resolveLogCategory(action: string): LogCategory {
   return "OTHER";
 }
 
+// Matches Drishti.dc.html's actionStyle() exactly for the categories with a
+// confirmed real backend action string (gtt_created→amber, approval→green) —
+// GTT_CREATED and APPROVAL were previously green/blue, not amber/green.
 const CATEGORY_VARIANT: Record<LogCategory, BadgeVariant> = {
   SL_EXIT: "neg",
-  GTT_CREATED: "pos",
+  GTT_CREATED: "warn",
   ALERT: "warn",
   HOLD: "neutral",
-  APPROVAL: "info",
+  APPROVAL: "pos",
   OTHER: "neutral",
 };
 
