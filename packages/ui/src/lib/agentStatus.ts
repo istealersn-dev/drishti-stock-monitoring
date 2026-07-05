@@ -1,5 +1,13 @@
 import type { BadgeVariant } from "../components/ui/badge";
 
+// The backend only caches successful health reports (/api/health reruns a
+// full live Upstox+LLM computation on every request while there's no cached
+// success yet) — so during an outage, the app default's 30s refetchInterval
+// would retry that live call every 30s for as long as any consumer of the
+// ["health"] query stays mounted. Shared by BrokerCard and the Ask composer
+// so a second consumer can't reintroduce the same problem by omitting it.
+export const HEALTH_CHECK_INTERVAL_MS = 5 * 60_000;
+
 export type HealthStatus = {
   variant: "pos" | "neg" | "warn";
   label: string;

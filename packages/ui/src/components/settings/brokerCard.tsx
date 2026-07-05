@@ -1,16 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 
+import { HEALTH_CHECK_INTERVAL_MS } from "../../lib/agentStatus";
 import { fetchHealth } from "../../lib/api";
 import { Card } from "../ui/card";
 import { StatusDot } from "../ui/statusDot";
-
-// The backend only caches successful health reports (/api/health reruns a
-// full live Upstox+LLM computation on every request while there's no cached
-// success yet) — so during an outage, the app default's 30s refetchInterval
-// would retry that live call every 30s for as long as this tab stays open.
-// Overridden below to a slower 5-minute cadence.
-const HEALTH_CHECK_INTERVAL_MS = 5 * 60_000;
 
 /**
  * Brokers card (handoff.md §4 `BrokerCard.tsx`, scoped to what's actually

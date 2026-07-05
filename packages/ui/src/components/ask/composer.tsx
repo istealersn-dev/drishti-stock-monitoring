@@ -1,6 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import type React from "react";
 
+import { HEALTH_CHECK_INTERVAL_MS } from "../../lib/agentStatus";
+import { fetchHealth } from "../../lib/api";
 import { LM_MODEL_SHORT_LABEL } from "../../lib/llmConfig";
 import { Button } from "../ui/button";
 
@@ -39,6 +42,15 @@ export function Composer({
   variant = "conversation",
 }: ComposerProperties): React.ReactElement {
   const isHero = variant === "hero";
+  // Shares the ["health"] cache with BrokerCard — same query key, same
+  // 5-minute interval override, so opening Ask Drishti alone doesn't spin up
+  // a second, more frequent poll of the same live Upstox+LLM health check.
+  const { isError: llmUnreachable } = useQuery({
+    queryKey: ["health"],
+    queryFn: fetchHealth,
+    staleTime: HEALTH_CHECK_INTERVAL_MS,
+    refetchInterval: HEALTH_CHECK_INTERVAL_MS,
+  });
 
   return (
     <form
@@ -78,7 +90,10 @@ export function Composer({
       <div className="mt-2 flex items-center justify-between gap-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="inline-flex items-center gap-1.5 rounded-md border border-border-strong px-2 py-1 font-mono text-micro text-fg-muted">
-            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-pos" />
+            <span
+              aria-hidden="true"
+              className={`h-1.5 w-1.5 rounded-full ${llmUnreachable ? "bg-neg" : "bg-pos"}`}
+            />
             {LM_MODEL_SHORT_LABEL}
           </span>
           {isHero && (
