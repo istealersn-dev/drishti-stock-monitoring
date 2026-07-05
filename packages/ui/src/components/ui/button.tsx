@@ -29,7 +29,7 @@ const VARIANT_CLASS: Record<ButtonVariant | "icon", string> = {
     "px-4 py-2 rounded-xl text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-2",
   destructive:
     "px-4 py-2 rounded-xl border border-neg-ring bg-neg-tint text-neg-soft hover:brightness-110 active:brightness-90",
-  icon: "h-8 w-8 rounded-lg text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-2",
+  icon: "h-8 w-8 rounded-lg border border-border-strong bg-surface-input text-fg-muted hover:border-gold hover:text-gold-bright active:bg-surface-2",
 };
 
 /**
