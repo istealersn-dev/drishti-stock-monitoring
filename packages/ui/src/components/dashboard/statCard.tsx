@@ -2,13 +2,14 @@ import type React from "react";
 
 import { Card } from "../ui/card";
 
-type StatAccent = "pos" | "neg" | "warn" | "info";
+type StatAccent = "pos" | "neg" | "warn" | "info" | "gold";
 
 const ACCENT_BORDER_CLASS: Record<StatAccent, string> = {
   pos: "border-t-pos",
   neg: "border-t-neg",
   warn: "border-t-warn",
   info: "border-t-info",
+  gold: "border-t-gold",
 };
 
 type StatCardProperties = {

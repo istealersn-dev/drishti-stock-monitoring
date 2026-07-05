@@ -7,15 +7,21 @@ import { type ProductFilter, HoldingFilters } from "../components/holdings/holdi
 import { HoldingsTable } from "../components/holdings/holdingsTable";
 import { Spinner } from "../components/ui/spinner";
 import { useMediaQuery } from "../hooks/useMediaQuery";
-import { type Holding, fetchHoldings } from "../lib/api";
+import { type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
+import { buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
-function applyFilter(holdings: Holding[], filter: ProductFilter, search: string): Holding[] {
+function applyFilter(
+  holdings: Holding[],
+  filter: ProductFilter,
+  search: string,
+  slMap: Map<string, number>,
+): Holding[] {
   let result = holdings;
-  if (filter !== "ALL") {
-    result =
-      filter === "NSE" || filter === "BSE"
-        ? result.filter((h) => h.exchange === filter)
-        : result.filter((h) => h.product === filter);
+  if (filter === "MTF" || filter === "CNC") {
+    result = result.filter((h) => h.product === filter);
+  } else if (filter === "BREACH" || filter === "WATCH") {
+    const wantVariant = filter === "BREACH" ? "neg" : "warn";
+    result = result.filter((h) => resolveHoldingStatus(h, slMap).variant === wantVariant);
   }
   if (search.trim()) {
     const lower = search.toLowerCase();
@@ -44,9 +50,14 @@ export function Holdings(): React.ReactElement {
     queryKey: ["holdings"],
     queryFn: fetchHoldings,
   });
+  const { data: gttOrders = [] } = useQuery({
+    queryKey: ["gtt", "active"],
+    queryFn: () => fetchGttOrders("active"),
+  });
 
   const holdings = data?.holdings ?? [];
-  const visible = applyFilter(holdings, filter, search);
+  const slMap = buildSlMap(gttOrders);
+  const visible = applyFilter(holdings, filter, search, slMap);
 
   if (isLoading) {
     return (

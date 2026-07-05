@@ -3,9 +3,20 @@ import type React from "react";
 
 import { Tabs } from "../ui/tabs";
 
-export type ProductFilter = "ALL" | "CNC" | "MTF" | "NSE" | "BSE";
+export type ProductFilter = "ALL" | "MTF" | "CNC" | "BREACH" | "WATCH";
 
-export const FILTER_TABS: ProductFilter[] = ["ALL", "CNC", "MTF", "NSE", "BSE"];
+export const FILTER_TABS: ProductFilter[] = ["ALL", "MTF", "CNC", "BREACH", "WATCH"];
+
+// Drishti.dc.html's filter tabs are title-case ("All", "Breach", "Watch") except
+// the two product acronyms — the filter's own identifier stays uppercase for
+// the `Tabs` value/comparison, this is purely the display label.
+const FILTER_TAB_LABEL: Record<ProductFilter, string> = {
+  ALL: "All",
+  MTF: "MTF",
+  CNC: "CNC",
+  BREACH: "Breach",
+  WATCH: "Watch",
+};
 
 function isProductFilter(value: string): value is ProductFilter {
   return FILTER_TABS.some((tab) => tab === value);
@@ -65,7 +76,7 @@ export function HoldingFilters({
         <Tabs.List scrollable>
           {FILTER_TABS.map((tab) => (
             <Tabs.Trigger key={tab} value={tab}>
-              {tab}
+              {FILTER_TAB_LABEL[tab]}
             </Tabs.Trigger>
           ))}
         </Tabs.List>
