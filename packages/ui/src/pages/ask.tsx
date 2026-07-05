@@ -142,7 +142,7 @@ export function Ask(): React.ReactElement {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 px-6">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1.5">
           <span
