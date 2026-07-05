@@ -29,8 +29,10 @@ const DOT_CLASS: Record<(typeof FEATURES)[number]["variant"], string> = {
 
 /**
  * Access key gate (Design.md §5 — 820px split: side-by-side marketing panel
- * + form above 820px, form only below). Left panel is decorative/hidden on
- * narrow viewports; right panel holds the access-key form.
+ * + form above 820px, form only below, 50:50 split per
+ * project/Drishti.dc.html's `loginRightW: '50%'`). Left panel is
+ * decorative/hidden on narrow viewports; right panel holds the access-key
+ * form.
  * @returns Login page element
  */
 export function Login(): React.ReactElement {
@@ -63,7 +65,15 @@ export function Login(): React.ReactElement {
       <div className="relative hidden flex-1 flex-col justify-between overflow-hidden bg-bg-chrome p-11 login-split:flex">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[image:var(--gradient-gold)] opacity-[0.06]"
+          className="pointer-events-none absolute inset-0 bg-[image:var(--glow-gold-corners)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pattern-dot-gold-strong pointer-events-none absolute inset-0"
+        />
+        <div
+          aria-hidden="true"
+          className="pattern-dot-gold-subtle pointer-events-none absolute inset-0"
         />
 
         <div className="relative z-10 flex items-center gap-3">
@@ -102,7 +112,7 @@ export function Login(): React.ReactElement {
       </div>
 
       {/* ── Right form panel ── */}
-      <div className="flex flex-1 items-center justify-center p-6">
+      <div className="relative flex flex-1 items-center justify-center p-6">
         <div className="w-full max-w-xs">
           <h1 className="mb-1.5 text-title font-semibold text-fg">Welcome back</h1>
           <p className="mb-6 text-body-sm text-fg-muted">
