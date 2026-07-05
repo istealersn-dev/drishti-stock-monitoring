@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 
-import { fetchHoldings } from "../../lib/api";
+import { fetchHealth } from "../../lib/api";
 import { Card } from "../ui/card";
 import { StatusDot } from "../ui/statusDot";
 
@@ -9,23 +9,28 @@ import { StatusDot } from "../ui/statusDot";
  * Brokers card (handoff.md §4 `BrokerCard.tsx`, scoped to what's actually
  * true) — this app is hardcoded to a single Upstox account (CLAUDE.md), not
  * a multi-broker abstraction, so this shows Upstox's real connection state
- * (derived from whether the shared holdings query is succeeding) instead of
- * the reference's Angel One/Groww/HDFC Sky rows, which have no backing
- * integration. There's also no per-broker Read/Place-Order permission
- * model — order placement is gated by the Dry Run toggle in Agent controls
- * — so no toggle switches are shown here either.
+ * instead of the reference's Angel One/Groww/HDFC Sky rows, which have no
+ * backing integration. There's also no per-broker Read/Place-Order
+ * permission model — order placement is gated by the Dry Run toggle in
+ * Agent controls — so no toggle switches are shown here either.
+ *
+ * Status is derived from `/api/health` (which does a real, live Upstox
+ * holdings fetch), not `/api/holdings` — that endpoint only ever reads a
+ * local cache and returns `ok: true` even when Upstox itself is failing
+ * (e.g. an expired access token), which would silently show "Connected"
+ * while Dashboard has no data.
  * @returns Broker card element
  */
 export function BrokerCard(): React.ReactElement {
   const { isLoading, isError } = useQuery({
-    queryKey: ["holdings"],
-    queryFn: fetchHoldings,
+    queryKey: ["health"],
+    queryFn: fetchHealth,
   });
 
   const status = isLoading
     ? { variant: "warn" as const, label: "Checking…" }
     : isError
-      ? { variant: "neg" as const, label: "Connection issue" }
+      ? { variant: "neg" as const, label: "Connection issue — check agent logs" }
       : { variant: "pos" as const, label: "Connected" };
 
   return (
