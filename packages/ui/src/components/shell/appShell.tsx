@@ -6,6 +6,7 @@ import type React from "react";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { fetchApprovals, fetchHoldings, fetchRuns, fetchSettings } from "../../lib/api";
 import { formatInr } from "../../lib/format";
+import { sumHoldingsValue } from "../../lib/holdingFormat";
 
 import { AppFooter } from "./appFooter";
 import { AppHeaderMobile } from "./appHeaderMobile";
@@ -68,15 +69,17 @@ export function AppShell(): React.ReactElement {
   const paused = settings?.pauseAgent ?? false;
   const pendingCount = approvals.filter((approval) => approval.status === "pending").length;
   const lastPollAt = runs[0]?.startedAt ?? null;
-  const portfolioValue = (holdingData?.holdings ?? []).reduce(
-    (sum, h) => sum + h.quantity * h.last_price,
-    0,
-  );
+  const portfolioValue = sumHoldingsValue(holdingData?.holdings ?? []);
 
   const handleRefresh = (): void => {
     if (spinTimerReference.current !== null) clearTimeout(spinTimerReference.current);
     setSpinning(true);
-    void queryClient.invalidateQueries();
+    // Excludes ["health"] — that query triggers a real live Upstox+LLM call
+    // (see BrokerCard), so the shell's refresh button (available from every
+    // page) shouldn't force one just to spin the footer/header icon.
+    void queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey[0] !== "health",
+    });
     spinTimerReference.current = setTimeout(() => {
       setSpinning(false);
     }, 800);
@@ -92,6 +95,7 @@ export function AppShell(): React.ReactElement {
     <div className="flex h-dvh flex-col bg-bg-base">
       {!isDesktop && (
         <AppHeaderMobile
+          dryRun={dryRun}
           paused={paused}
           hasError={settingsError}
           pendingCount={pendingCount}

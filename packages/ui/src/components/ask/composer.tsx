@@ -50,11 +50,7 @@ export function Composer({
         event.preventDefault();
         onSubmit();
       }}
-      className={
-        isHero
-          ? "rounded-2xl border border-border-strong bg-surface-3 p-3.5 shadow-card transition-colors focus-within:border-border-focus"
-          : "sticky bottom-0 rounded-2xl border border-border-strong bg-surface-3 p-3.5 shadow-card transition-colors focus-within:border-border-focus"
-      }
+      className={`${isHero ? "" : "sticky bottom-0 "}rounded-2xl border border-border-strong bg-surface-3 p-3.5 shadow-card transition-colors focus-within:border-border-focus`}
     >
       <label htmlFor="ask-composer-input" className="sr-only">
         Ask Drishti
@@ -66,7 +62,10 @@ export function Composer({
           onChange(event.target.value);
         }}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
+          // isComposing guards IME composition (e.g. transliterated Hindi,
+          // CJK): the Enter that confirms a candidate must not also submit
+          // the still-in-progress message.
+          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
             onSubmit();
           }

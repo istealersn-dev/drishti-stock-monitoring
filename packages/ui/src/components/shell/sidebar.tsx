@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
   ChevronLeft,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 
-import { clearKey } from "../../lib/auth";
+import { useLogout } from "../../lib/auth";
 
 type NavItem = {
   path: string;
@@ -94,12 +94,7 @@ export function Sidebar({
 }: SidebarProperties): React.ReactElement {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
-  const navigate = useNavigate();
-
-  const handleLogout = (): void => {
-    clearKey();
-    void navigate({ to: "/login" });
-  };
+  const handleLogout = useLogout();
 
   return (
     <aside

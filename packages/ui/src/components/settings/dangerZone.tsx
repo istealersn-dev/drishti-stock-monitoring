@@ -14,6 +14,13 @@ function DangerCard({ title, description, warning }: DangerCardProperties): Reac
       <div className="text-body-sm font-medium text-fg">{title}</div>
       <p className="text-caption text-fg-faint">{description}</p>
       <p className="text-caption text-fg-muted">⚠ {warning}</p>
+      {/* Deliberately not the shared Button: its disabled state forces
+          `bg-surface-2` (graying out every variant, including a solid-red
+          one) so a permanently-disabled control reads as "temporarily
+          unavailable." Here disabled is permanent by design and must stay
+          visibly red per the explicit ask, which Button's shared disabled
+          treatment can't express without changing that treatment for every
+          other disabled button in the app. */}
       <button
         type="button"
         disabled

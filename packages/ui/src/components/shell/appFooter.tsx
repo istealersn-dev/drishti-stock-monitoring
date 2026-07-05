@@ -1,7 +1,8 @@
 import { RefreshCw } from "lucide-react";
 import type React from "react";
 
-import { Badge, type BadgeVariant } from "../ui/badge";
+import { resolveHealth, resolveStatusPill } from "../../lib/agentStatus";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { StatusDot } from "../ui/statusDot";
 
@@ -17,26 +18,6 @@ type AppFooterProperties = {
   spinning: boolean;
   onRefresh: () => void;
 };
-
-/** Health dot + label reflect whether the agent is actively polling — independent of dry-run. */
-function resolveHealth(
-  paused: boolean,
-  hasError: boolean,
-): { variant: "pos" | "neg" | "warn"; label: string } {
-  if (hasError) return { variant: "neg", label: "Error" };
-  if (paused) return { variant: "warn", label: "Agent paused" };
-  return { variant: "pos", label: "Systems operational" };
-}
-
-/** Status pill takes priority: Dry Run overrides Paused overrides Running (Drishti.dc.html §status). */
-function resolveStatusPill(
-  dryRun: boolean,
-  paused: boolean,
-): { variant: BadgeVariant; label: string } {
-  if (dryRun) return { variant: "warn", label: "Dry Run" };
-  if (paused) return { variant: "neutral", label: "Paused" };
-  return { variant: "pos", label: "Running" };
-}
 
 /**
  * Desktop-only shell footer (Design.md §5 — 38px, meta left / session right,

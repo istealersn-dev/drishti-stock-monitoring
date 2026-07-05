@@ -8,8 +8,8 @@ import { Spinner } from "../components/ui/spinner";
 import { StatusDot } from "../components/ui/statusDot";
 import { Table } from "../components/ui/table";
 import { fetchGttOrders, fetchHoldings } from "../lib/api";
-import { formatInr, isToday } from "../lib/format";
-import { formatPrice, ltpDirectionArrow } from "../lib/holdingFormat";
+import { formatInr } from "../lib/format";
+import { formatPrice, ltpDirectionArrow, sumHoldingsValue } from "../lib/holdingFormat";
 import { type HoldingStatus, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
@@ -44,21 +44,12 @@ export function Dashboard(): React.ReactElement {
     queryKey: ["gtt", "active"],
     queryFn: () => fetchGttOrders("active"),
   });
-  // Shares the ["gtt"] cache with the GTT Orders page — needed here only to
-  // count today's triggers, since the active-only query above excludes them.
-  const { data: allGttOrders = [] } = useQuery({
-    queryKey: ["gtt"],
-    queryFn: () => fetchGttOrders(),
-  });
 
   const holdings = holdingData?.holdings ?? [];
   const isLoading = holdingsLoading || gttLoading;
   const isError = holdingsError || gttError;
-  const triggeredToday = allGttOrders.filter(
-    (order) => order.status === "triggered" && isToday(order.updatedAt),
-  ).length;
 
-  const totalValue = holdings.reduce((sum, h) => sum + h.quantity * h.last_price, 0);
+  const totalValue = sumHoldingsValue(holdings);
   const totalCost = holdings.reduce((sum, h) => sum + h.quantity * h.average_price, 0);
   const totalPnl = holdings.reduce((sum, h) => sum + h.pnl, 0);
   const dayPnl = holdings.reduce((sum, h) => sum + h.day_change * h.quantity, 0);
@@ -148,7 +139,7 @@ export function Dashboard(): React.ReactElement {
           label="Active GTTs"
           accent="pos"
           value={<span className="text-pos">{gttOrders.length}</span>}
-          sub={`${triggeredToday} triggered today`}
+          sub="SL orders live"
         />
       </div>
 

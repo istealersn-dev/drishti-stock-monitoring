@@ -184,11 +184,23 @@ export function AmbientWave(): React.ReactElement {
       }
     };
 
+    // While the rAF loop runs, renderFrame re-reads canvas.clientWidth/Height
+    // every frame, so it self-corrects on resize. But when reduced-motion is
+    // active, applyMotionPreference only calls renderFrame(0) once — with no
+    // loop to catch a later resize, the backing store would stay pinned to
+    // whatever size it was at that single call, stretching the drawing
+    // relative to the CSS box on the next window/orientation resize.
+    const handleResize = (): void => {
+      if (reducedMotionQuery.matches) renderFrame(0);
+    };
+
     applyMotionPreference();
     reducedMotionQuery.addEventListener("change", applyMotionPreference);
+    window.addEventListener("resize", handleResize);
 
     return (): void => {
       reducedMotionQuery.removeEventListener("change", applyMotionPreference);
+      window.removeEventListener("resize", handleResize);
       stop();
     };
   }, []);

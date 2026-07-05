@@ -1,3 +1,5 @@
+import { useNavigate } from "@tanstack/react-router";
+
 const STORAGE_KEY = "drishti:key";
 
 /**
@@ -35,4 +37,18 @@ export function clearKey(): void {
  */
 export function isAuthenticated(): boolean {
   return getStoredKey() !== null;
+}
+
+/**
+ * Logout action shared by every entry point (Sidebar's "Log out", Settings'
+ * "Sign out") so the sequence — clear the key, redirect to /login — can't
+ * drift between call sites if it ever needs a third step.
+ * @returns a function that clears the stored key and navigates to /login
+ */
+export function useLogout(): () => void {
+  const navigate = useNavigate();
+  return (): void => {
+    clearKey();
+    void navigate({ to: "/login" });
+  };
 }

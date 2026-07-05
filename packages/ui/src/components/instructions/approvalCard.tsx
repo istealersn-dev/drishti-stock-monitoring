@@ -163,7 +163,9 @@ export function ApprovalCard({
             </>
           )}
         </span>
-        <span className={ELAPSED_CLASS[elapsed.tone]}>{elapsed.text}</span>
+        <span className={ELAPSED_CLASS[elapsed.tone]} title={`Approval #${approval.id}`}>
+          {elapsed.text}
+        </span>
       </div>
 
       {actionError !== null && <p className="text-caption text-neg">{actionError}</p>}

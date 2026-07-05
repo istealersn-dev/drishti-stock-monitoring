@@ -48,18 +48,3 @@ export function formatLogTime(iso: string): string {
     hour12: false,
   });
 }
-
-/**
- * Whether an ISO timestamp falls on today's local calendar date.
- * @param iso - ISO 8601 timestamp
- * @returns true if the timestamp is today, in local time
- */
-export function isToday(iso: string): boolean {
-  const date = new Date(iso);
-  const now = new Date();
-  return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  );
-}
