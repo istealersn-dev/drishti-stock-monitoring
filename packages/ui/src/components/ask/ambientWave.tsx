@@ -69,14 +69,25 @@ function drawWave(
   context.lineJoin = "round";
   context.strokeStyle = tokens.color.goldLine;
 
+  // x/foldProximity/tilt depend only on the segment position and this frame's
+  // foldX/width/height — not on which line is being drawn — so precompute
+  // them once per frame instead of recomputing them LINE_COUNT times over.
+  const segments: { xn: number; x: number; foldProximity: number; tilt: number }[] = [];
+  for (let segment = 0; segment <= SEGMENTS_PER_LINE; segment += 1) {
+    const xn = segment / SEGMENTS_PER_LINE;
+    segments.push({
+      xn,
+      x: xn * width,
+      foldProximity: Math.exp(-((xn - foldX) ** 2) / (2 * FOLD_GAUSSIAN_VARIANCE)),
+      tilt: (xn - 0.5) * height * TILT_HEIGHT_RATIO,
+    });
+  }
+
   for (let line = 0; line < LINE_COUNT; line += 1) {
     const lineOffset = line / (LINE_COUNT - 1); // 0..1 position within the bundle
     context.beginPath();
     for (let segment = 0; segment <= SEGMENTS_PER_LINE; segment += 1) {
-      const xn = segment / SEGMENTS_PER_LINE;
-      const x = xn * width;
-      const foldProximity = Math.exp(-((xn - foldX) ** 2) / (2 * FOLD_GAUSSIAN_VARIANCE));
-      const tilt = (xn - 0.5) * height * TILT_HEIGHT_RATIO;
+      const { xn, x, foldProximity, tilt } = segments[segment];
       const spread =
         (lineOffset - 0.5) *
         height *

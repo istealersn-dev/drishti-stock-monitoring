@@ -48,10 +48,13 @@ function resolveElapsed(createdAt: string): { text: string; tone: ElapsedTone } 
 }
 
 function formatEntry(parsed: ParsedInstruction): string {
-  if (parsed.entryLow != null && parsed.entryHigh != null) {
-    return `${formatPriceOrDash(parsed.entryLow)}–${formatPriceOrDash(parsed.entryHigh)}`;
+  const { entryLow, entryHigh } = parsed;
+  if (entryLow !== null && entryHigh !== null) {
+    return `${formatPriceOrDash(entryLow)}–${formatPriceOrDash(entryHigh)}`;
   }
-  return formatPriceOrDash(parsed.entryLow);
+  // Previously always formatted entryLow here, so an entryHigh-only
+  // instruction silently rendered "—" instead of its one known bound.
+  return formatPriceOrDash(entryLow ?? entryHigh);
 }
 
 /**
@@ -163,9 +166,14 @@ export function ApprovalCard({
             </>
           )}
         </span>
-        <span className={ELAPSED_CLASS[elapsed.tone]} title={`Approval #${approval.id}`}>
-          {elapsed.text}
-        </span>
+        <span className={ELAPSED_CLASS[elapsed.tone]}>{elapsed.text}</span>
+      </div>
+
+      {/* Same 8-char id prefix format as GttCard/GttTable's "Approval" line,
+          so a GTT row spawned from this card can be cross-referenced back to
+          it — a hover-only tooltip isn't reachable on the mobile shell. */}
+      <div className="text-caption text-fg-faint">
+        Approval <span className="font-mono">{approval.id.slice(0, 8)}</span>
       </div>
 
       {actionError !== null && <p className="text-caption text-neg">{actionError}</p>}

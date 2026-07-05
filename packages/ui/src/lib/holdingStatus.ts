@@ -39,7 +39,10 @@ export function resolveHoldingStatus(holding: Holding, slMap: Map<string, number
 export function buildSlMap(gttOrders: GttOrder[]): Map<string, number> {
   const map = new Map<string, number>();
   for (const order of gttOrders) {
-    if (order.type === "SL" && !map.has(order.symbol)) {
+    // packages/agent only ever writes "sl_exit" (stopLoss.handler.ts,
+    // agent.graph.ts) or "buy_entry" (instructions.executor.ts) — never the
+    // literal "SL" this used to check, which meant this map was always empty.
+    if (order.type === "sl_exit" && !map.has(order.symbol)) {
       map.set(order.symbol, order.triggerPrice);
     }
   }

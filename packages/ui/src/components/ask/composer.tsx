@@ -1,6 +1,7 @@
 import { Send } from "lucide-react";
 import type React from "react";
 
+import { LM_MODEL_SHORT_LABEL } from "../../lib/llmConfig";
 import { Button } from "../ui/button";
 
 type ComposerProperties = {
@@ -17,11 +18,6 @@ type ComposerProperties = {
    */
   variant?: "hero" | "conversation";
 };
-
-// The app is hardcoded to a single local LLM provider (CLAUDE.md — LM Studio,
-// no BYO-provider/cloud API), so this is a static label, not fetched from an
-// endpoint — there's nothing to select or configure.
-const MODEL_LABEL = "gemma-4-12b · lm studio";
 
 /**
  * Ask Drishti composer (handoff.md §9 — `sticky`, not `fixed`) — a bordered
@@ -83,7 +79,7 @@ export function Composer({
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="inline-flex items-center gap-1.5 rounded-md border border-border-strong px-2 py-1 font-mono text-micro text-fg-muted">
             <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-pos" />
-            {MODEL_LABEL}
+            {LM_MODEL_SHORT_LABEL}
           </span>
           {isHero && (
             <span className="font-mono text-micro text-fg-faint">Reads your live book</span>

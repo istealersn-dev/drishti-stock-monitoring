@@ -1,5 +1,6 @@
 import type React from "react";
 
+import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 
 type DangerCardProperties = {
@@ -14,21 +15,20 @@ function DangerCard({ title, description, warning }: DangerCardProperties): Reac
       <div className="text-body-sm font-medium text-fg">{title}</div>
       <p className="text-caption text-fg-faint">{description}</p>
       <p className="text-caption text-fg-muted">⚠ {warning}</p>
-      {/* Deliberately not the shared Button: its disabled state forces
-          `bg-surface-2` (graying out every variant, including a solid-red
-          one) so a permanently-disabled control reads as "temporarily
+      {/* Button's disabled state normally forces bg-surface-2 (graying out
+          every variant) so a disabled control reads as "temporarily
           unavailable." Here disabled is permanent by design and must stay
-          visibly red per the explicit ask, which Button's shared disabled
-          treatment can't express without changing that treatment for every
-          other disabled button in the app. */}
-      <button
+          visibly red per the explicit ask — overridden with the same
+          `!`-important technique composer.tsx already uses (!p-0) rather
+          than re-deriving Button's chrome from scratch. */}
+      <Button
         type="button"
         disabled
         title="Not yet available — backend endpoint pending"
-        className="mt-auto w-fit cursor-not-allowed rounded-xl bg-neg px-4 py-2 text-body-sm font-semibold text-fg"
+        className="mt-auto w-fit disabled:!border-transparent disabled:!bg-neg disabled:!text-fg disabled:!shadow-none"
       >
         Unavailable
-      </button>
+      </Button>
     </div>
   );
 }
