@@ -166,6 +166,9 @@ body {
   --spacing-mobile-tabbar: 62px;
   --spacing-mobile-main-bottom: 80px;
   --spacing-footer: 38px;
+  /* Ask Drishti's ambient blobs (Drishti.dc.html's startWave() glow divs) */
+  --spacing-ask-blob-lg: 540px;
+  --spacing-ask-blob-sm: 480px;
 
   /* motion — durations lifted verbatim from project/Drishti.dc.html's drk-* keyframes */
   --animate-wave-x: wave-x 17s ease-in-out -5s infinite alternate;
