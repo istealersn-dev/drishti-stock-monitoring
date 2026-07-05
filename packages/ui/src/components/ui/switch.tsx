@@ -43,7 +43,7 @@ export function Switch({
         checked={checked}
         onCheckedChange={onChange}
         disabled={disabled}
-        className="flex h-11 w-11 flex-none items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-11 w-11 flex-none cursor-pointer items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span
           className={`pointer-events-none block h-6 w-11 rounded-pill transition-colors ${checked ? "bg-pos" : "bg-surface-2"} ${className}`}

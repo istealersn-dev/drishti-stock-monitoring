@@ -64,7 +64,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProperties>(
         type={type}
         disabled={disabled}
         onClick={onClick}
-        className={`inline-flex items-center justify-center gap-2 text-body-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[image:none] disabled:bg-surface-2 disabled:text-fg-faint disabled:shadow-none ${VARIANT_CLASS[variant]} ${className}`}
+        className={`inline-flex cursor-pointer items-center justify-center gap-2 text-body-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[image:none] disabled:bg-surface-2 disabled:text-fg-faint disabled:shadow-none ${VARIANT_CLASS[variant]} ${className}`}
         {...rest}
       >
         {children}

@@ -55,7 +55,7 @@ function TabsTrigger({
   return (
     <TabsPrimitive.Trigger
       value={value}
-      className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-body-sm font-medium text-fg-muted outline-none transition-colors focus-visible:ring-2 focus-visible:ring-gold data-[state=active]:bg-gold/[0.16] data-[state=active]:text-gold ${className}`}
+      className={`cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-body-sm font-medium text-fg-muted outline-none transition-colors focus-visible:ring-2 focus-visible:ring-gold data-[state=active]:bg-gold/[0.16] data-[state=active]:text-gold ${className}`}
     >
       {children}
     </TabsPrimitive.Trigger>

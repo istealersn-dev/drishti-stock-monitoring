@@ -40,7 +40,7 @@ export function SuggestionGrid({ onSelect }: SuggestionGridProperties): React.Re
           onClick={() => {
             onSelect(text);
           }}
-          className="rounded-xl border border-border-strong bg-surface-2 px-4 py-3 text-left transition-colors hover:border-border-muted hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+          className="cursor-pointer rounded-xl border border-border-strong bg-surface-2 px-4 py-3 text-left transition-colors hover:border-border-muted hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
           <span className="mb-1 block font-mono text-caption font-semibold uppercase tracking-wide text-gold">
             {category}

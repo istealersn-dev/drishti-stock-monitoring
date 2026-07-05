@@ -64,7 +64,7 @@ export function AppHeaderMobile({
               void navigate({ to: "/instructions" });
             }}
             aria-label={`${pendingCount} pending approvals`}
-            className="rounded-pill transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="cursor-pointer rounded-pill transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <Badge variant="info">{pendingCount} pending</Badge>
           </button>

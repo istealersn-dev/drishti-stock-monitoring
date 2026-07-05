@@ -111,7 +111,7 @@ export function Sidebar({
             type="button"
             onClick={onToggle}
             aria-label="Expand sidebar"
-            className="mx-auto flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-[image:var(--gradient-gold)] font-mono text-body-sm font-bold text-bg-base"
+            className="mx-auto flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-lg bg-[image:var(--gradient-gold)] font-mono text-body-sm font-bold text-bg-base"
           >
             दृ
           </button>
@@ -132,7 +132,7 @@ export function Sidebar({
               type="button"
               onClick={onToggle}
               aria-label="Collapse sidebar"
-              className="flex h-7 w-7 flex-none items-center justify-center rounded-lg text-fg-faint transition-colors hover:bg-surface-hover hover:text-fg-muted"
+              className="flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-lg text-fg-faint transition-colors hover:bg-surface-hover hover:text-fg-muted"
             >
               <ChevronLeft aria-hidden="true" className="h-4 w-4" />
             </button>
@@ -166,7 +166,7 @@ export function Sidebar({
           type="button"
           onClick={handleLogout}
           title={collapsed ? "Log out" : undefined}
-          className={`flex h-9 items-center gap-3 rounded-lg px-2.5 text-body-sm text-neg transition-colors hover:bg-neg-tint hover:text-neg-soft ${collapsed ? "justify-center" : ""}`}
+          className={`flex h-9 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-body-sm text-neg transition-colors hover:bg-neg-tint hover:text-neg-soft ${collapsed ? "justify-center" : ""}`}
         >
           <LogOut aria-hidden="true" className="h-5 w-5 flex-none" />
           <span className={collapsed ? "sr-only" : "flex-1 truncate text-left"}>Log out</span>

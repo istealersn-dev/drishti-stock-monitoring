@@ -46,7 +46,7 @@ export function Breadcrumb({ items, className = "" }: BreadcrumbProperties): Rea
               <button
                 type="button"
                 onClick={item.onClick}
-                className="rounded text-fg-muted transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className="cursor-pointer rounded text-fg-muted transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 {item.label}
               </button>

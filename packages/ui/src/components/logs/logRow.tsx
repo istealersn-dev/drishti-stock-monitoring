@@ -34,7 +34,7 @@ export function LogRow({ log }: LogRowProperties): React.ReactElement {
         onClick={() => {
           setExpanded((previous) => !previous);
         }}
-        className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-hover"
+        className="grid w-full cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-hover"
       >
         <div className="leading-tight">
           <div className="font-mono text-body-sm text-fg">{formatLogTime(log.createdAt)}</div>
