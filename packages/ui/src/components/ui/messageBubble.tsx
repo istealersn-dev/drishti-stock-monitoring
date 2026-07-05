@@ -8,7 +8,9 @@ type MessageBubbleProperties = {
 };
 
 /**
- * Ask Drishti chat bubble (Design.md §6) — user messages are gold-tint,
+ * Ask Drishti chat bubble (Design.md §6) — user messages are a translucent
+ * gold wash (12% fill / 24% border, bright `fg` text — matching
+ * Drishti.dc.html's `rgba(200,162,74,.12)` bubble, not a solid tint),
  * right-aligned; assistant messages are surface, left-aligned. Forwards its
  * ref to the inner bubble `<div>` (the same node `className` applies to,
  * matching Badge/Card's ref+className co-location) rather than the outer
@@ -28,7 +30,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProperties>
       <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
         <div
           ref={ref}
-          className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-body ${isUser ? "bg-gold-tint text-bg-base" : "border border-border-strong bg-surface text-fg"} ${className}`}
+          className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-body ${isUser ? "border border-gold/[0.24] bg-gold/[0.12] text-fg" : "border border-border-strong bg-surface text-fg"} ${className}`}
         >
           {children}
         </div>

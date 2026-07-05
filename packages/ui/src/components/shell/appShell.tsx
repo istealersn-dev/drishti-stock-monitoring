@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type React from "react";
 
 import { useMediaQuery } from "../../hooks/useMediaQuery";
-import { fetchApprovals, fetchRuns, fetchSettings } from "../../lib/api";
+import { fetchApprovals, fetchHoldings, fetchRuns, fetchSettings } from "../../lib/api";
+import { formatInr } from "../../lib/format";
 
 import { AppFooter } from "./appFooter";
 import { AppHeaderMobile } from "./appHeaderMobile";
@@ -49,6 +50,13 @@ export function AppShell(): React.ReactElement {
     queryKey: ["runs"],
     queryFn: fetchRuns,
   });
+  // Shares the ["holdings"] cache with Dashboard's own query — no extra
+  // network cost, just reads whatever Dashboard (or this shell) already
+  // fetched, to drive the footer/header's portfolio-value meta.
+  const { data: holdingData } = useQuery({
+    queryKey: ["holdings"],
+    queryFn: fetchHoldings,
+  });
 
   useEffect(() => {
     return (): void => {
@@ -57,9 +65,13 @@ export function AppShell(): React.ReactElement {
   }, []);
 
   const dryRun = settings?.dryRun ?? false;
-  const agentStatus = settingsError ? "error" : settings?.pauseAgent ? "unknown" : "live";
+  const paused = settings?.pauseAgent ?? false;
   const pendingCount = approvals.filter((approval) => approval.status === "pending").length;
   const lastPollAt = runs[0]?.startedAt ?? null;
+  const portfolioValue = (holdingData?.holdings ?? []).reduce(
+    (sum, h) => sum + h.quantity * h.last_price,
+    0,
+  );
 
   const handleRefresh = (): void => {
     if (spinTimerReference.current !== null) clearTimeout(spinTimerReference.current);
@@ -80,8 +92,8 @@ export function AppShell(): React.ReactElement {
     <div className="flex h-dvh flex-col bg-bg-base">
       {!isDesktop && (
         <AppHeaderMobile
-          dryRun={dryRun}
-          agentStatus={agentStatus}
+          paused={paused}
+          hasError={settingsError}
           pendingCount={pendingCount}
           spinning={spinning}
           onRefresh={handleRefresh}
@@ -110,8 +122,10 @@ export function AppShell(): React.ReactElement {
       {isDesktop && (
         <AppFooter
           dryRun={dryRun}
-          agentStatus={agentStatus}
+          paused={paused}
+          hasError={settingsError}
           pendingCount={pendingCount}
+          portfolioValueLabel={formatInr(portfolioValue)}
           lastPollLabel={formatPollTime(lastPollAt)}
           spinning={spinning}
           onRefresh={handleRefresh}

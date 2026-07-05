@@ -6,24 +6,22 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { StatusDot } from "../ui/statusDot";
 
-type AgentStatus = "live" | "error" | "unknown";
-
 type AppHeaderMobileProperties = {
-  dryRun: boolean;
-  agentStatus: AgentStatus;
+  paused: boolean;
+  hasError: boolean;
   pendingCount: number;
   spinning: boolean;
   onRefresh: () => void;
 };
 
-function resolveStatus(
-  dryRun: boolean,
-  agentStatus: AgentStatus,
+/** Mirrors AppFooter's health resolution (Drishti.dc.html's footHealthLabel/-Color) — paused/error-driven, independent of dry-run. */
+function resolveHealth(
+  paused: boolean,
+  hasError: boolean,
 ): { variant: "pos" | "neg" | "warn"; label: string } {
-  if (agentStatus === "error") return { variant: "neg", label: "ERROR" };
-  if (dryRun) return { variant: "warn", label: "DRY RUN" };
-  if (agentStatus === "live") return { variant: "pos", label: "LIVE" };
-  return { variant: "warn", label: "UNKNOWN" };
+  if (hasError) return { variant: "neg", label: "Error" };
+  if (paused) return { variant: "warn", label: "Agent paused" };
+  return { variant: "pos", label: "Systems operational" };
 }
 
 /**
@@ -31,22 +29,22 @@ function resolveStatus(
  * agent status + pending-approval meta the desktop shell instead shows in
  * `AppFooter` (the mobile shell has no footer). Pairs with `MobileTabBar`
  * for the mobile shell (< 760px).
- * @param props.dryRun - whether dry-run mode is active
- * @param props.agentStatus - current agent operational status
+ * @param props.paused - whether the agent poll tick is paused
+ * @param props.hasError - whether the settings/health fetch failed
  * @param props.pendingCount - number of pending buy approvals
  * @param props.spinning - whether the refresh icon should spin
  * @param props.onRefresh - callback to refresh all data
  * @returns Mobile app header element
  */
 export function AppHeaderMobile({
-  dryRun,
-  agentStatus,
+  paused,
+  hasError,
   pendingCount,
   spinning,
   onRefresh,
 }: AppHeaderMobileProperties): React.ReactElement {
   const navigate = useNavigate();
-  const { variant, label } = resolveStatus(dryRun, agentStatus);
+  const { variant, label } = resolveHealth(paused, hasError);
 
   return (
     <header className="sticky top-0 z-30 flex h-mobile-header flex-none items-center justify-between gap-2 border-b border-border bg-bg-chrome/85 px-3 backdrop-blur-md">

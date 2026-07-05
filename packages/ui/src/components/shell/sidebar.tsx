@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
   ChevronLeft,
@@ -6,12 +6,15 @@ import {
   History,
   LayoutDashboard,
   Layers,
+  LogOut,
   MessageSquare,
   Send,
   Settings as SettingsIcon,
   Table2,
 } from "lucide-react";
 import type React from "react";
+
+import { clearKey } from "../../lib/auth";
 
 type NavItem = {
   path: string;
@@ -20,7 +23,11 @@ type NavItem = {
   pendingBadge?: boolean;
 };
 
+// Order matches Drishti.dc.html's sidebar exactly (Ask Drishti first) —
+// Watchlist/Health have no counterpart in the reference (they predate this
+// design pass) so they're slotted after Agent Logs, before Ask Drishti.
 const NAV_ITEMS: NavItem[] = [
+  { path: "/ask", label: "Ask Drishti", icon: MessageSquare },
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/holdings", label: "Holdings", icon: Table2 },
   { path: "/instructions", label: "Instructions", icon: Send, pendingBadge: true },
@@ -28,9 +35,40 @@ const NAV_ITEMS: NavItem[] = [
   { path: "/logs", label: "Agent Logs", icon: History },
   { path: "/watchlist", label: "Watchlist", icon: Eye },
   { path: "/health", label: "Health", icon: Activity },
-  { path: "/ask", label: "Ask Drishti", icon: MessageSquare },
-  { path: "/settings", label: "Settings", icon: SettingsIcon },
 ];
+
+const SETTINGS_ITEM: NavItem = { path: "/settings", label: "Settings", icon: SettingsIcon };
+
+type NavLinkProperties = {
+  item: NavItem;
+  isActive: boolean;
+  collapsed: boolean;
+  hasBadge: boolean;
+};
+
+function NavLink({ item, isActive, collapsed, hasBadge }: NavLinkProperties): React.ReactElement {
+  const Icon = item.icon;
+  return (
+    <Link
+      to={item.path}
+      title={collapsed ? item.label : undefined}
+      aria-current={isActive ? "page" : undefined}
+      className={`relative flex h-9 items-center gap-3 rounded-lg px-2.5 text-body-sm transition-colors ${collapsed ? "justify-center" : ""} ${isActive ? "bg-gold/[0.13] text-fg" : "text-fg-muted hover:bg-surface-hover hover:text-fg"}`}
+    >
+      <Icon aria-hidden="true" className="h-5 w-5 flex-none" />
+      <span className={collapsed ? "sr-only" : "flex-1 truncate"}>{item.label}</span>
+      {hasBadge && (
+        <>
+          <span
+            aria-hidden="true"
+            className={`absolute h-1.5 w-1.5 rounded-full bg-info ${collapsed ? "right-1.5 top-1.5" : "right-2.5 top-1/2 -translate-y-1/2"}`}
+          />
+          <span className="sr-only"> (pending approvals)</span>
+        </>
+      )}
+    </Link>
+  );
+}
 
 type SidebarProperties = {
   pendingApprovals: number;
@@ -56,6 +94,12 @@ export function Sidebar({
 }: SidebarProperties): React.ReactElement {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
+  const navigate = useNavigate();
+
+  const handleLogout = (): void => {
+    clearKey();
+    void navigate({ to: "/login" });
+  };
 
   return (
     <aside
@@ -100,35 +144,34 @@ export function Sidebar({
         aria-label="Primary"
         className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 py-2"
       >
-        {NAV_ITEMS.map((item) => {
-          const isActive =
-            item.path === "/" ? currentPath === "/" : currentPath.startsWith(item.path);
-          const Icon = item.icon;
-          const hasBadge = item.pendingBadge === true && pendingApprovals > 0;
-
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              title={collapsed ? item.label : undefined}
-              aria-current={isActive ? "page" : undefined}
-              className={`relative flex h-9 items-center gap-3 rounded-lg px-2.5 text-body-sm transition-colors ${collapsed ? "justify-center" : ""} ${isActive ? "bg-gold-tint text-fg" : "text-fg-muted hover:bg-surface-hover hover:text-fg"}`}
-            >
-              <Icon aria-hidden="true" className="h-5 w-5 flex-none" />
-              <span className={collapsed ? "sr-only" : "flex-1 truncate"}>{item.label}</span>
-              {hasBadge && (
-                <>
-                  <span
-                    aria-hidden="true"
-                    className={`absolute h-1.5 w-1.5 rounded-full bg-info ${collapsed ? "right-1.5 top-1.5" : "right-2.5 top-1/2 -translate-y-1/2"}`}
-                  />
-                  <span className="sr-only"> (pending approvals)</span>
-                </>
-              )}
-            </Link>
-          );
-        })}
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.path}
+            item={item}
+            collapsed={collapsed}
+            isActive={item.path === "/" ? currentPath === "/" : currentPath.startsWith(item.path)}
+            hasBadge={item.pendingBadge === true && pendingApprovals > 0}
+          />
+        ))}
       </nav>
+
+      <div className="flex flex-none flex-col gap-0.5 border-t border-border px-2.5 py-2">
+        <NavLink
+          item={SETTINGS_ITEM}
+          collapsed={collapsed}
+          isActive={currentPath.startsWith(SETTINGS_ITEM.path)}
+          hasBadge={false}
+        />
+        <button
+          type="button"
+          onClick={handleLogout}
+          title={collapsed ? "Log out" : undefined}
+          className={`flex h-9 items-center gap-3 rounded-lg px-2.5 text-body-sm text-neg transition-colors hover:bg-neg-tint hover:text-neg-soft ${collapsed ? "justify-center" : ""}`}
+        >
+          <LogOut aria-hidden="true" className="h-5 w-5 flex-none" />
+          <span className={collapsed ? "sr-only" : "flex-1 truncate text-left"}>Log out</span>
+        </button>
+      </div>
     </aside>
   );
 }
