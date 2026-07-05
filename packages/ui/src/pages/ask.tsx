@@ -144,10 +144,21 @@ export function Ask(): React.ReactElement {
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <Breadcrumb
-          items={[{ label: "Ask Drishti", onClick: handleReturnToHero }, { label: "Conversation" }]}
-        />
-        <Button variant="ghost" onClick={handleNewChat}>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-[image:var(--gradient-gold)] font-mono text-micro font-bold text-bg-base"
+          >
+            दृ
+          </span>
+          <Breadcrumb
+            items={[
+              { label: "Ask Drishti", onClick: handleReturnToHero },
+              { label: "Conversation" },
+            ]}
+          />
+        </div>
+        <Button variant="secondary" onClick={handleNewChat}>
           <Plus aria-hidden="true" className="h-4 w-4" />
           New chat
         </Button>
