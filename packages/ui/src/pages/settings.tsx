@@ -5,7 +5,9 @@ import type React from "react";
 import { useEffect, useState } from "react";
 
 import { AgentControls } from "../components/settings/agentControls";
+import { BrokerCard } from "../components/settings/brokerCard";
 import { DangerZone } from "../components/settings/dangerZone";
+import { ModelRuntimeCard } from "../components/settings/modelRuntimeCard";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Spinner } from "../components/ui/spinner";
@@ -13,10 +15,11 @@ import { Tabs } from "../components/ui/tabs";
 import { type Settings as SettingsType, fetchSettings, updateSettings } from "../lib/api";
 import { clearKey } from "../lib/auth";
 
-type SettingsTab = "agent" | "danger";
+type SettingsTab = "brokers" | "agent" | "runtime" | "danger";
+const SETTINGS_TABS: SettingsTab[] = ["brokers", "agent", "runtime", "danger"];
 
 function isSettingsTab(value: string): value is SettingsTab {
-  return value === "agent" || value === "danger";
+  return SETTINGS_TABS.some((tab) => tab === value);
 }
 
 type FormState = {
@@ -34,20 +37,18 @@ function formFromSettings(settings: SettingsType): FormState {
 }
 
 /**
- * Settings page (Design.md/handoff.md §3) — tabbed Agent controls / Danger
- * zone, matching the reference's desktop tab bar (which isolates the danger
- * zone behind its own tab rather than showing it always-visible). The
- * design spec's "Model & API access" (bring-your-own-key multi-provider
- * form) and Brokers section/tabs are intentionally omitted: this project is
- * hardcoded to a single local LM Studio provider (see repo CLAUDE.md), and
- * the real backend has no broker/provider data model to back a form like
- * that.
+ * Settings page (Design.md/handoff.md §3) — tabbed Brokers / Agent controls /
+ * Model & runtime / Danger zone, matching the reference's desktop tab bar
+ * (which isolates the danger zone behind its own tab rather than showing it
+ * always-visible). Brokers and Model & runtime are scoped to what's
+ * actually true rather than the reference's multi-broker/BYO-provider forms
+ * — see BrokerCard/ModelRuntimeCard for why.
  * @returns Settings page element
  */
 export function Settings(): React.ReactElement {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<SettingsTab>("agent");
+  const [tab, setTab] = useState<SettingsTab>("brokers");
 
   const {
     data: settings,
@@ -120,12 +121,16 @@ export function Settings(): React.ReactElement {
         }}
       >
         <Tabs.List>
+          <Tabs.Trigger value="brokers">Brokers</Tabs.Trigger>
           <Tabs.Trigger value="agent">Agent controls</Tabs.Trigger>
+          <Tabs.Trigger value="runtime">Model & runtime</Tabs.Trigger>
           <Tabs.Trigger value="danger">Danger zone</Tabs.Trigger>
         </Tabs.List>
       </Tabs>
 
-      {tab === "agent" ? (
+      {tab === "brokers" && <BrokerCard />}
+
+      {tab === "agent" && (
         <div className="grid grid-cols-1 items-start gap-3.5 nav:grid-cols-2">
           <AgentControls
             settings={settings}
@@ -158,9 +163,11 @@ export function Settings(): React.ReactElement {
             </Button>
           </Card>
         </div>
-      ) : (
-        <DangerZone />
       )}
+
+      {tab === "runtime" && <ModelRuntimeCard />}
+
+      {tab === "danger" && <DangerZone />}
     </div>
   );
 }
