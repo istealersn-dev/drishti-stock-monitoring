@@ -9,7 +9,8 @@ export type HoldingStatus = {
 
 /**
  * Resolves a holding's SL proximity status against its GTT stop-loss trigger
- * (Drishti.dc.html's `statusOf()`, ported onto real GTT/holding data).
+ * — a direct port of Drishti.dc.html's `statusOf()` (same 5% band, same
+ * Safe/Watch/Breach labels) onto real GTT/holding data.
  * @param holding - the holding to evaluate
  * @param slMap - trading symbol → active SL trigger price, from {@link buildSlMap}
  * @returns the holding's status variant + label
@@ -19,15 +20,15 @@ export function resolveHoldingStatus(holding: Holding, slMap: Map<string, number
   // A closed-out (zero-quantity) holding has no real exposure to alert on,
   // even if a stale SL/last_price pair would otherwise read as a breach.
   if (holding.quantity <= 0) {
-    return { variant: "pos", label: "ACTIVE" };
+    return { variant: "pos", label: "Safe" };
   }
   if (sl !== undefined && holding.last_price <= sl) {
-    return { variant: "neg", label: "AT SL" };
+    return { variant: "neg", label: "Breach" };
   }
   if (sl !== undefined && holding.last_price <= sl * NEAR_SL_BAND) {
-    return { variant: "warn", label: "NEAR SL" };
+    return { variant: "warn", label: "Watch" };
   }
-  return { variant: "pos", label: "ACTIVE" };
+  return { variant: "pos", label: "Safe" };
 }
 
 /**

@@ -8,7 +8,7 @@ import { Spinner } from "../components/ui/spinner";
 import { StatusDot } from "../components/ui/statusDot";
 import { Table } from "../components/ui/table";
 import { fetchGttOrders, fetchHoldings } from "../lib/api";
-import { formatInr } from "../lib/format";
+import { formatInr, isToday } from "../lib/format";
 import { formatPrice, ltpDirectionArrow } from "../lib/holdingFormat";
 import { type HoldingStatus, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
@@ -44,10 +44,19 @@ export function Dashboard(): React.ReactElement {
     queryKey: ["gtt", "active"],
     queryFn: () => fetchGttOrders("active"),
   });
+  // Shares the ["gtt"] cache with the GTT Orders page — needed here only to
+  // count today's triggers, since the active-only query above excludes them.
+  const { data: allGttOrders = [] } = useQuery({
+    queryKey: ["gtt"],
+    queryFn: () => fetchGttOrders(),
+  });
 
   const holdings = holdingData?.holdings ?? [];
   const isLoading = holdingsLoading || gttLoading;
   const isError = holdingsError || gttError;
+  const triggeredToday = allGttOrders.filter(
+    (order) => order.status === "triggered" && isToday(order.updatedAt),
+  ).length;
 
   const totalValue = holdings.reduce((sum, h) => sum + h.quantity * h.last_price, 0);
   const totalCost = holdings.reduce((sum, h) => sum + h.quantity * h.average_price, 0);
@@ -139,7 +148,7 @@ export function Dashboard(): React.ReactElement {
           label="Active GTTs"
           accent="pos"
           value={<span className="text-pos">{gttOrders.length}</span>}
-          sub="SL orders live"
+          sub={`${triggeredToday} triggered today`}
         />
       </div>
 
