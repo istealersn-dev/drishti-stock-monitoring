@@ -67,17 +67,17 @@ export function AppFooter({
       </div>
 
       <div className="flex flex-none items-center gap-3">
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-baseline gap-1.5">
           <span className="text-micro uppercase tracking-wide text-fg-faint">User</span>
           <span className="font-mono text-micro font-bold text-fg-soft">admin</span>
         </span>
         <span aria-hidden="true" className="h-3.5 w-px bg-border-strong" />
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-baseline gap-1.5">
           <span className="text-micro uppercase tracking-wide text-fg-faint">Portfolio</span>
           <span className="font-mono text-micro font-bold text-fg-soft">{portfolioValueLabel}</span>
         </span>
         <span aria-hidden="true" className="h-3.5 w-px bg-border-strong" />
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-baseline gap-1.5">
           <span className="text-micro uppercase tracking-wide text-fg-faint">Last poll</span>
           <span className="font-mono text-micro font-bold text-fg-muted">{lastPollLabel}</span>
         </span>
