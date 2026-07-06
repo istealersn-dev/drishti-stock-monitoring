@@ -60,7 +60,7 @@ export function AppFooter({
         <span aria-hidden="true" className="h-3.5 w-px bg-border-strong" />
         <span className="inline-flex items-center gap-1.5">
           <StatusDot variant={health.variant} label={`Agent status: ${health.label}`} />
-          <span className="text-body-sm font-medium text-fg-soft">{health.label}</span>
+          <span className="text-caption font-medium text-fg-soft">{health.label}</span>
         </span>
         <Badge variant={statusPill.variant}>{statusPill.label}</Badge>
         {pendingCount > 0 && <Badge variant="info">{pendingCount} pending</Badge>}
