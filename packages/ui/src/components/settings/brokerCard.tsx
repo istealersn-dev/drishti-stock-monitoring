@@ -9,57 +9,52 @@ import { fetchHealth } from "../../lib/api";
 import { Badge, type BadgeVariant } from "../ui/badge";
 import { Card } from "../ui/card";
 
+// Logo-mode vs letter-fallback-mode are mutually exclusive, so this is a
+// discriminated union rather than one shape with both fields always present
+// — that would leave callers with a real logo carrying a meaningless empty
+// `iconClassName`, and no fallback color at all if a logo import ever failed
+// to resolve.
+type BrokerIconProperties =
+  { logo: string; name: string } | { initial: string; iconClassName: string; name: string };
+
+function BrokerIcon(props: BrokerIconProperties): React.ReactElement {
+  if ("logo" in props) {
+    return (
+      <img
+        src={props.logo}
+        alt={`${props.name} logo`}
+        className="h-9 w-9 flex-none rounded-lg object-cover"
+      />
+    );
+  }
+  return (
+    <span
+      className={`flex h-9 w-9 flex-none items-center justify-center rounded-lg ${props.iconClassName} font-mono text-body-sm font-bold text-white`}
+    >
+      {props.initial}
+    </span>
+  );
+}
+
 // The backend only integrates with Upstox today (CLAUDE.md). Angel One/Groww/
 // HDFC Sky are shown per the design reference's 4-broker layout, but with an
 // honest "Not integrated yet" status rather than the reference's fake
 // connected/toggle state — real support for them is a future phase, not
 // wired up here yet. HDFC Sky has no `logo` — no official asset was found —
-// so it falls back to an initial-letter icon like the other three used to.
-// Full literal class names for that fallback, not built from string
-// interpolation — Tailwind's static scanner only generates CSS for
-// arbitrary-value classes it can see verbatim in the source, so
-// `bg-[var(${colorVar})]` would silently produce no styles at all.
-const PLANNED_BROKERS = [
-  { id: "angelone", name: "Angel One", logo: angeloneLogo, initial: "A", iconClassName: "" },
-  { id: "groww", name: "Groww", logo: growwLogo, initial: "G", iconClassName: "" },
+// so it falls back to an initial-letter icon; its brand color is the only
+// remaining --color-broker-* token (Angel One/Groww now use real logos).
+const PLANNED_BROKERS: { id: string; name: string; icon: BrokerIconProperties }[] = [
+  { id: "angelone", name: "Angel One", icon: { logo: angeloneLogo, name: "Angel One" } },
+  { id: "groww", name: "Groww", icon: { logo: growwLogo, name: "Groww" } },
   {
     id: "hdfcsky",
     name: "HDFC Sky",
-    logo: null,
-    initial: "H",
-    iconClassName: "bg-[var(--color-broker-hdfcsky)]",
+    icon: { initial: "H", iconClassName: "bg-[var(--color-broker-hdfcsky)]", name: "HDFC Sky" },
   },
-] as const;
-
-type BrokerIconProperties = {
-  logo: string | null;
-  initial: string;
-  iconClassName: string;
-  name: string;
-};
-
-function BrokerIcon({
-  logo,
-  initial,
-  iconClassName,
-  name,
-}: BrokerIconProperties): React.ReactElement {
-  if (logo !== null) {
-    return (
-      <img src={logo} alt={`${name} logo`} className="h-9 w-9 flex-none rounded-lg object-cover" />
-    );
-  }
-  return (
-    <span
-      className={`flex h-9 w-9 flex-none items-center justify-center rounded-lg ${iconClassName} font-mono text-body-sm font-bold text-white`}
-    >
-      {initial}
-    </span>
-  );
-}
+];
 
 type BrokerRowProperties = {
-  icon: React.ReactNode;
+  icon: BrokerIconProperties;
   name: string;
   statusVariant: BadgeVariant;
   statusLabel: string;
@@ -77,7 +72,7 @@ function BrokerRow({
     <div
       className={`flex items-center gap-3 rounded-xl border border-border-strong bg-surface-2 p-3 ${dimmed ? "opacity-60" : ""}`}
     >
-      {icon}
+      <BrokerIcon {...icon} />
       <div>
         <div className="text-body-sm font-medium text-fg">{name}</div>
         <Badge variant={statusVariant} dot className="mt-1">
@@ -120,32 +115,36 @@ export function BrokerCard(): React.ReactElement {
       ? { variant: "neg" as const, label: "Connection issue — check agent logs" }
       : { variant: "pos" as const, label: "Connected" };
 
+  const brokers = [
+    {
+      id: "upstox",
+      name: "Upstox",
+      icon: { logo: upstoxLogo, name: "Upstox" } satisfies BrokerIconProperties,
+      statusVariant: upstoxStatus.variant,
+      statusLabel: upstoxStatus.label,
+      dimmed: false,
+    },
+    ...PLANNED_BROKERS.map((broker) => ({
+      ...broker,
+      statusVariant: "neutral" as const,
+      statusLabel: "Not integrated yet",
+      dimmed: true,
+    })),
+  ];
+
   return (
     <Card className="flex flex-col gap-3.5">
       <h2 className="text-body-sm font-semibold text-fg">Connected brokers</h2>
 
       <div className="grid grid-cols-1 gap-3 nav:grid-cols-2">
-        <BrokerRow
-          icon={<BrokerIcon logo={upstoxLogo} initial="U" iconClassName="" name="Upstox" />}
-          name="Upstox"
-          statusVariant={upstoxStatus.variant}
-          statusLabel={upstoxStatus.label}
-        />
-        {PLANNED_BROKERS.map((broker) => (
+        {brokers.map((broker) => (
           <BrokerRow
             key={broker.id}
-            icon={
-              <BrokerIcon
-                logo={broker.logo}
-                initial={broker.initial}
-                iconClassName={broker.iconClassName}
-                name={broker.name}
-              />
-            }
+            icon={broker.icon}
             name={broker.name}
-            statusVariant="neutral"
-            statusLabel="Not integrated yet"
-            dimmed
+            statusVariant={broker.statusVariant}
+            statusLabel={broker.statusLabel}
+            dimmed={broker.dimmed}
           />
         ))}
       </div>
