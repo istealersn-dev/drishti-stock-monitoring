@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 
+import angeloneLogo from "../../assets/broker-logos/angelone.png";
+import growwLogo from "../../assets/broker-logos/groww.png";
+import upstoxLogo from "../../assets/broker-logos/upstox.png";
 import { HEALTH_CHECK_INTERVAL_MS } from "../../lib/agentStatus";
 import { fetchHealth } from "../../lib/api";
 import { Badge, type BadgeVariant } from "../ui/badge";
@@ -10,26 +13,50 @@ import { Card } from "../ui/card";
 // HDFC Sky are shown per the design reference's 4-broker layout, but with an
 // honest "Not integrated yet" status rather than the reference's fake
 // connected/toggle state — real support for them is a future phase, not
-// wired up here yet.
-// Full literal class names, not built from string interpolation — Tailwind's
-// static scanner only generates CSS for arbitrary-value classes it can see
-// verbatim in the source, so `bg-[var(${colorVar})]` would silently produce
-// no styles at all.
+// wired up here yet. HDFC Sky has no `logo` — no official asset was found —
+// so it falls back to an initial-letter icon like the other three used to.
+// Full literal class names for that fallback, not built from string
+// interpolation — Tailwind's static scanner only generates CSS for
+// arbitrary-value classes it can see verbatim in the source, so
+// `bg-[var(${colorVar})]` would silently produce no styles at all.
 const PLANNED_BROKERS = [
-  {
-    id: "angelone",
-    name: "Angel One",
-    initial: "A",
-    iconClassName: "bg-[var(--color-broker-angelone)]",
-  },
-  { id: "groww", name: "Groww", initial: "G", iconClassName: "bg-[var(--color-broker-groww)]" },
+  { id: "angelone", name: "Angel One", logo: angeloneLogo, initial: "A", iconClassName: "" },
+  { id: "groww", name: "Groww", logo: growwLogo, initial: "G", iconClassName: "" },
   {
     id: "hdfcsky",
     name: "HDFC Sky",
+    logo: null,
     initial: "H",
     iconClassName: "bg-[var(--color-broker-hdfcsky)]",
   },
 ] as const;
+
+type BrokerIconProperties = {
+  logo: string | null;
+  initial: string;
+  iconClassName: string;
+  name: string;
+};
+
+function BrokerIcon({
+  logo,
+  initial,
+  iconClassName,
+  name,
+}: BrokerIconProperties): React.ReactElement {
+  if (logo !== null) {
+    return (
+      <img src={logo} alt={`${name} logo`} className="h-9 w-9 flex-none rounded-lg object-cover" />
+    );
+  }
+  return (
+    <span
+      className={`flex h-9 w-9 flex-none items-center justify-center rounded-lg ${iconClassName} font-mono text-body-sm font-bold text-white`}
+    >
+      {initial}
+    </span>
+  );
+}
 
 type BrokerRowProperties = {
   icon: React.ReactNode;
@@ -99,11 +126,7 @@ export function BrokerCard(): React.ReactElement {
 
       <div className="grid grid-cols-1 gap-3 nav:grid-cols-2">
         <BrokerRow
-          icon={
-            <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-[image:var(--gradient-gold)] font-mono text-body-sm font-bold text-bg-base">
-              U
-            </span>
-          }
+          icon={<BrokerIcon logo={upstoxLogo} initial="U" iconClassName="" name="Upstox" />}
           name="Upstox"
           statusVariant={upstoxStatus.variant}
           statusLabel={upstoxStatus.label}
@@ -112,11 +135,12 @@ export function BrokerCard(): React.ReactElement {
           <BrokerRow
             key={broker.id}
             icon={
-              <span
-                className={`flex h-9 w-9 flex-none items-center justify-center rounded-lg ${broker.iconClassName} font-mono text-body-sm font-bold text-white`}
-              >
-                {broker.initial}
-              </span>
+              <BrokerIcon
+                logo={broker.logo}
+                initial={broker.initial}
+                iconClassName={broker.iconClassName}
+                name={broker.name}
+              />
             }
             name={broker.name}
             statusVariant="neutral"
