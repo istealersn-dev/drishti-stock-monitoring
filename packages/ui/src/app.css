@@ -96,6 +96,12 @@ body {
   --color-warn: #f59e0b;
   --color-info: #93b0f7;
 
+  /* broker brand mark (Settings > Brokers) — not part of the app's own
+     palette, so kept separate from the semantic/gold tokens above. Only
+     HDFC Sky needs this: it has no logo asset, so it falls back to an
+     initial-letter icon; Upstox/Angel One/Groww use real logo images. */
+  --color-broker-hdfcsky: #0a5ac2;
+
   /* tinted fills — Design.md §2: color-mix 10-14% fill / 35-42% ring border */
   --color-pos-tint: color-mix(in srgb, var(--color-pos) 12%, transparent);
   --color-pos-ring: color-mix(in srgb, var(--color-pos) 38%, transparent);
