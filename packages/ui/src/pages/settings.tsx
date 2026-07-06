@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LogOut } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
 
@@ -7,12 +6,9 @@ import { AgentControls } from "../components/settings/agentControls";
 import { BrokerCard } from "../components/settings/brokerCard";
 import { DangerZone } from "../components/settings/dangerZone";
 import { ModelRuntimeCard } from "../components/settings/modelRuntimeCard";
-import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
 import { Spinner } from "../components/ui/spinner";
 import { Tabs } from "../components/ui/tabs";
 import { type Settings as SettingsType, fetchSettings, updateSettings } from "../lib/api";
-import { useLogout } from "../lib/auth";
 
 type SettingsTab = "brokers" | "agent" | "runtime" | "danger";
 const SETTINGS_TABS: SettingsTab[] = ["brokers", "agent", "runtime", "danger"];
@@ -45,7 +41,6 @@ function formFromSettings(settings: SettingsType): FormState {
  * @returns Settings page element
  */
 export function Settings(): React.ReactElement {
-  const handleSignOut = useLogout();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<SettingsTab>("brokers");
 
@@ -126,38 +121,25 @@ export function Settings(): React.ReactElement {
         </Tabs.Content>
 
         <Tabs.Content value="agent" className="mt-4">
-          <div className="grid grid-cols-1 items-start gap-3.5 nav:grid-cols-2">
-            <AgentControls
-              settings={settings}
-              dryRun={form.dryRun}
-              pauseAgent={form.pauseAgent}
-              pollIntervalMinutes={form.pollIntervalMinutes}
-              onDryRunChange={(value) => {
-                setForm((previous) => ({ ...previous, dryRun: value }));
-              }}
-              onPauseAgentChange={(value) => {
-                setForm((previous) => ({ ...previous, pauseAgent: value }));
-              }}
-              onPollIntervalChange={(value) => {
-                setForm((previous) => ({ ...previous, pollIntervalMinutes: value }));
-              }}
-              onSave={handleSave}
-              isPending={mutation.isPending}
-              isError={mutation.isError}
-              isSuccess={mutation.isSuccess}
-            />
-
-            <Card className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-body-sm text-fg">Signed in via access key</div>
-                <p className="mt-0.5 text-caption text-fg-faint">This device</p>
-              </div>
-              <Button variant="secondary" onClick={handleSignOut}>
-                <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
-                Sign out
-              </Button>
-            </Card>
-          </div>
+          <AgentControls
+            settings={settings}
+            dryRun={form.dryRun}
+            pauseAgent={form.pauseAgent}
+            pollIntervalMinutes={form.pollIntervalMinutes}
+            onDryRunChange={(value) => {
+              setForm((previous) => ({ ...previous, dryRun: value }));
+            }}
+            onPauseAgentChange={(value) => {
+              setForm((previous) => ({ ...previous, pauseAgent: value }));
+            }}
+            onPollIntervalChange={(value) => {
+              setForm((previous) => ({ ...previous, pollIntervalMinutes: value }));
+            }}
+            onSave={handleSave}
+            isPending={mutation.isPending}
+            isError={mutation.isError}
+            isSuccess={mutation.isSuccess}
+          />
         </Tabs.Content>
 
         <Tabs.Content value="runtime" className="mt-4">
