@@ -52,7 +52,11 @@ describe("validateRiskReward", () => {
     );
     expect(result).toEqual({
       pass: false,
-      reason: "R:R is 1:1.0 — minimum required is 1:2. Raise T1 to at least ₹670 or tighten SL.",
+      reason:
+        "R:R is 1:1.0 (minimum 1:2)\n" +
+        "• Entry ₹570  •  SL ₹520 (risk ₹50)\n" +
+        "• T1 ₹620  •  Reward ₹50\n" +
+        "Raise T1 to ₹670+ or tighten SL to clear 1:2.",
     });
   });
 

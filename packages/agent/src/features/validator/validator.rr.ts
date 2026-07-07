@@ -38,9 +38,14 @@ export function validateRiskReward(instruction: ParsedInstruction): ValidationRe
   const reward = t1.price - entry;
   const ratio = reward / risk;
   if (ratio < MIN_RISK_REWARD_RATIO) {
+    const minT1 = (entry + risk * 2).toFixed(0);
     return {
       pass: false,
-      reason: `R:R is 1:${ratio.toFixed(1)} — minimum required is 1:2. Raise T1 to at least ₹${(entry + risk * 2).toFixed(0)} or tighten SL.`,
+      reason:
+        `R:R is 1:${ratio.toFixed(1)} (minimum 1:2)\n` +
+        `• Entry ₹${entry.toFixed(0)}  •  SL ₹${stopLoss.toFixed(0)} (risk ₹${risk.toFixed(0)})\n` +
+        `• T1 ₹${t1.price.toFixed(0)}  •  Reward ₹${reward.toFixed(0)}\n` +
+        `Raise T1 to ₹${minT1}+ or tighten SL to clear 1:2.`,
     };
   }
 
