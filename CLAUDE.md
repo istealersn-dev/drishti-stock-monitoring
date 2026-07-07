@@ -111,6 +111,7 @@ so a classifier outage doesn't leave you without an order-routing signal.
 - **Run the `commit-gate` agent (Haiku) before any in-session `git commit`.** It runs lint + typecheck + tests and returns GO / NO-GO with failure triage, so you catch breakage before the husky pre-commit hook does. Only commit on GO. (The hook still enforces the same gate deterministically for every commit.)
 - **Implementation loop (mandatory for every feature slice):** Once implementation is complete and the PR is open, run `/review <PR#>` → fix all confirmed/plausible findings → re-review until zero findings → merge. No PR lands without passing this gate. The user owns task selection (which ticket to build next); Claude owns execution end-to-end once the task is identified.
 - **Keep this file alive (Boris Cherny's rule):** when Claude does something wrong, add a line here so it doesn't repeat. Ruthlessly edit over time.
+- All branches must go through rigorous review process, loop /code-review and /security-review & fix findings until ZERO findings followed by post-PR /review & fix until ZERO findings -> merge the PR
 
 ## How to work
 
