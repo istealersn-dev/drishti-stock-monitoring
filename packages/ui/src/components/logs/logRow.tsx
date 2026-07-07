@@ -48,7 +48,7 @@ export function LogRow({ log }: LogRowProperties): React.ReactElement {
             <span className="font-mono text-caption uppercase text-fg-muted">{log.symbol}</span>
           )}
           <Badge variant={logActionBadgeVariant(log.action)}>{log.action}</Badge>
-          {log.dryRun === 1 && <Badge variant="warn">dry-run</Badge>}
+          {log.dryRun && <Badge variant="warn">dry-run</Badge>}
           {log.error !== null && <Badge variant="neg">error</Badge>}
           {preview.length > 0 && (
             <span className="max-w-[26rem] overflow-hidden text-ellipsis whitespace-nowrap text-caption text-fg-muted">
@@ -75,7 +75,7 @@ export function LogRow({ log }: LogRowProperties): React.ReactElement {
               </div>
             </div>
           )}
-          {log.dryRun === 1 && (
+          {log.dryRun && (
             <p className="flex items-center gap-1.5 text-caption font-medium text-warn">
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-warn" />
               Dry run — no real order placed

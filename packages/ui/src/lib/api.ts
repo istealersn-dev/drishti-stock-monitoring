@@ -105,7 +105,7 @@ export const AgentLogSchema = z.object({
   symbol: z.string().nullable(),
   action: z.string(),
   reasoning: z.string().nullable(),
-  dryRun: z.number(),
+  dryRun: z.boolean(),
   error: z.string().nullable(),
   createdAt: z.string(),
 });
