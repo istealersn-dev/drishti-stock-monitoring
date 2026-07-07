@@ -1,40 +1,25 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  Activity,
-  Eye,
-  History,
-  LayoutDashboard,
-  Layers,
-  MessageSquare,
-  MoreHorizontal,
-  Send,
-  Settings as SettingsIcon,
-  Table2,
-} from "lucide-react";
+import { LayoutDashboard, MessageSquare, MoreHorizontal } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 
-type NavItem = {
-  path: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-  pendingBadge?: boolean;
-};
+import { DIALOG_OVERLAY_CLASS_NAME } from "../ui/dialog";
+
+import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isNavItemActive } from "./navItems";
+import { NavLink } from "./navLink";
 
 // Everything that isn't Dashboard/Ask lives behind "Others" now — 7 flat tabs
 // left every label truncated ("Instr.") and every icon cramped at this width.
-// Watchlist/Health are included here (they were previously mobile-unreachable
-// entirely, desktop-sidebar-only) since a real overflow sheet removes the
+// Derived from the same MAIN_NAV_ITEMS/SETTINGS_NAV_ITEM the desktop Sidebar
+// uses, rather than a second hand-maintained route list, so a route can't go
+// missing from one surface while staying reachable on the other. Watchlist/
+// Health are included here — they were previously mobile-unreachable
+// entirely, desktop-sidebar-only — since a real overflow sheet removes the
 // space constraint that excluded them before.
-const OTHER_ITEMS: NavItem[] = [
-  { path: "/holdings", label: "Holdings", icon: Table2 },
-  { path: "/instructions", label: "Instructions", icon: Send, pendingBadge: true },
-  { path: "/gtt", label: "GTT Orders", icon: Layers },
-  { path: "/logs", label: "Agent Logs", icon: History },
-  { path: "/watchlist", label: "Watchlist", icon: Eye },
-  { path: "/health", label: "Health", icon: Activity },
-  { path: "/settings", label: "Settings", icon: SettingsIcon },
+const OTHER_ITEMS = [
+  ...MAIN_NAV_ITEMS.filter((item) => item.path !== "/ask" && item.path !== "/"),
+  SETTINGS_NAV_ITEM,
 ];
 
 type MoreSheetProperties = {
@@ -53,43 +38,27 @@ function MoreSheet({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
-          aria-hidden="true"
-          className="fixed inset-0 z-40 bg-[color:rgb(10_10_10_/_0.7)] data-[state=open]:animate-fade"
-        />
+        <DialogPrimitive.Overlay aria-hidden="true" className={DIALOG_OVERLAY_CLASS_NAME} />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-border-strong bg-surface p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] outline-none data-[state=open]:animate-fade"
+          className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-border-strong bg-surface p-4 pb-[calc(env(safe-area-inset-bottom)_+_1rem)] outline-none data-[state=open]:animate-fade"
         >
           <DialogPrimitive.Title className="mb-3 text-body-sm font-semibold text-fg">
             More
           </DialogPrimitive.Title>
           <div className="flex flex-col gap-1">
-            {OTHER_ITEMS.map((item) => {
-              const isActive = currentPath.startsWith(item.path);
-              const Icon = item.icon;
-              const hasBadge = item.pendingBadge === true && pendingApprovals > 0;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => {
-                    onOpenChange(false);
-                  }}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-body-sm transition-colors ${isActive ? "bg-gold/[0.13] text-fg" : "text-fg-muted hover:bg-surface-hover hover:text-fg"}`}
-                >
-                  <Icon aria-hidden="true" className="h-5 w-5 flex-none" />
-                  <span className="flex-1">{item.label}</span>
-                  {hasBadge && (
-                    <>
-                      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-info" />
-                      <span className="sr-only">(pending approvals)</span>
-                    </>
-                  )}
-                </Link>
-              );
-            })}
+            {OTHER_ITEMS.map((item) => (
+              <NavLink
+                key={item.path}
+                item={item}
+                variant="sheet"
+                isActive={isNavItemActive(item, currentPath)}
+                hasBadge={item.pendingBadge === true && pendingApprovals > 0}
+                onClick={() => {
+                  onOpenChange(false);
+                }}
+              />
+            ))}
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -119,7 +88,7 @@ export function MobileTabBar({ pendingApprovals }: MobileTabBarProperties): Reac
 
   const isDashboardActive = currentPath === "/";
   const isAskActive = currentPath.startsWith("/ask");
-  const isOthersActive = OTHER_ITEMS.some((item) => currentPath.startsWith(item.path));
+  const isOthersActive = !isDashboardActive && !isAskActive;
   const othersHasBadge = pendingApprovals > 0;
 
   return (
