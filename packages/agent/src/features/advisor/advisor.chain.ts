@@ -188,6 +188,7 @@ export async function askAdvisor(
         maxTokens: ADVISOR_MAX_TOKENS,
         timeoutMs: ADVISOR_LLM_TIMEOUT_MS,
         temperature: ADVISOR_TEMPERATURE,
+        reasoningEffort: "none",
       },
     );
     recordConversationTurn(request.sessionId, request.channel, request.question, answer);
