@@ -2,6 +2,12 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type React from "react";
 
+// Shared with MobileTabBar's bottom sheet (a second, differently-shaped
+// Radix Dialog consumer) so the two surfaces can't drift on the overlay's
+// scrim color/fade treatment.
+export const DIALOG_OVERLAY_CLASS_NAME =
+  "fixed inset-0 z-40 bg-[color:rgb(10_10_10_/_0.7)] data-[state=open]:animate-fade";
+
 type DialogRootProperties = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,10 +47,7 @@ function DialogContent({
 }: DialogContentProperties): React.ReactElement {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay
-        aria-hidden="true"
-        className="fixed inset-0 z-40 bg-[color:rgb(10_10_10_/_0.7)] data-[state=open]:animate-fade"
-      />
+      <DialogPrimitive.Overlay aria-hidden="true" className={DIALOG_OVERLAY_CLASS_NAME} />
       <DialogPrimitive.Content
         {...(description === undefined ? { "aria-describedby": undefined } : {})}
         className={`fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border p-5 shadow-card outline-none data-[state=open]:animate-fade ${tone === "destructive" ? "border-neg-ring bg-neg-tint" : "border-border-strong bg-surface"} ${className}`}

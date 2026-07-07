@@ -183,6 +183,7 @@ body {
   --animate-pulse: pulse 2.4s ease-in-out infinite;
   --animate-spin: spin 0.65s linear infinite;
   --animate-fade: fade 0.2s ease-out;
+  --animate-heartbeat: heartbeat 1.8s ease-in-out infinite;
 }
 
 /* Login left-panel halftone dots — Design.md gold-only recolor of
@@ -258,12 +259,33 @@ body {
   }
 }
 
+@keyframes heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(1.18);
+  }
+  28% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.18);
+  }
+  70% {
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Design.md §4/§7: freeze ambient wave/breathe, keep instant state changes (pulse/spin/fade
-     are status/loading feedback, not ambient decoration, so they're left running). */
+     are status/loading feedback, not ambient decoration, so they're left running). The mobile
+     nav's heartbeat is ambient branding, not state feedback, so it freezes here too. */
   .animate-wave-x,
   .animate-wave-y,
-  .animate-breathe {
+  .animate-breathe,
+  .animate-heartbeat {
     animation: none !important;
   }
 }
