@@ -42,9 +42,7 @@ export function Instructions(): React.ReactElement {
   const submitMutation = useMutation({
     mutationFn: submitInstruction,
     onSuccess: (result) => {
-      setSubmitSuccess(
-        `Approval card created for ${result.symbol} (#${result.approvalId.slice(0, 8)})`,
-      );
+      setSubmitSuccess(`${result.symbol} validated — preparing approval card, check back shortly.`);
       setSubmitError(null);
       setInstructionText("");
       void queryClient.invalidateQueries({ queryKey: ["approvals"] });
