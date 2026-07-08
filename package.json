@@ -13,17 +13,21 @@
     "db:migrate": "pnpm --filter agent db:migrate",
     "agent:dry": "DRISHTI_DRY_RUN=true pnpm --filter agent dev",
     "start": "pnpm --filter agent start",
-    "start:dry": "pnpm --filter agent start:dry"
+    "start:dry": "pnpm --filter agent start:dry",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.0",
+    "@commitlint/config-conventional": "^21.2.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
-    "jiti": "^2.0.0",
+    "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-import-x": "^4.0.0",
     "eslint-plugin-prettier": "^5.0.0",
     "eslint-plugin-unicorn": "^55.0.0",
-    "eslint-config-prettier": "^10.0.0",
+    "husky": "^9.1.7",
+    "jiti": "^2.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.8.0"
   }
