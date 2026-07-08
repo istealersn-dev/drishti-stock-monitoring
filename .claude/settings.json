@@ -19,7 +19,15 @@
       "Bash(find * -type f *)",
       "Bash(grep *)",
       "Bash(mkdir *)",
-      "Bash(node -e *)"
+      "Bash(node -e *)",
+      "Bash(pm2 list*)",
+      "Bash(pm2 status*)",
+      "Bash(pm2 describe *)",
+      "Bash(pm2 env *)",
+      "Bash(pm2 restart *)",
+      "Bash(launchctl list*)",
+      "Bash(launchctl print *)",
+      "Bash(tail *)"
     ],
     "deny": [
       "Bash(curl -X POST *)",
