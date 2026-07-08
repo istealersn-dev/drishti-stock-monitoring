@@ -1,5 +1,6 @@
 import { writeToken } from "./envWriter.js";
 import { LoginFlowError, runLoginFlow } from "./loginFlow.js";
+import { restartAgent } from "./pm2Restart.js";
 import { pushTokenRefreshAlert } from "./slackNotify.js";
 import { exchangeCodeForToken, safeLengthOnly } from "./tokenExchange.js";
 
@@ -57,8 +58,23 @@ async function refreshToken(): Promise<void> {
   }
   console.log(`wrote access_token (${safeLengthOnly(exchangeResult.accessToken)}) to .env.local`);
 
+  // env.ts parses .env.local once at process startup, so the freshly-written token
+  // sits unused until the agent restarts. A restart failure here must not mark the
+  // whole refresh as failed — the token itself was written successfully, which is
+  // the higher-value fact — but it must still reach Slack so a stale-running agent
+  // doesn't go unnoticed.
+  let restartNote = "";
+  try {
+    await restartAgent();
+    console.log("restarted drishti-agent");
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error(`pm2 restart drishti-agent failed: ${message}`);
+    restartNote = `\n:warning: Token written, but \`pm2 restart drishti-agent\` failed (${message}) — restart it manually.`;
+  }
+
   await pushTokenRefreshAlert(
-    `:white_check_mark: Drishti Upstox token refresh succeeded at ${refreshedAt.toISOString()}`,
+    `:white_check_mark: Drishti Upstox token refresh succeeded at ${refreshedAt.toISOString()}${restartNote}`,
   );
 }
 
