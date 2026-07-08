@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { type LogFilter, LogFilters, matchesLogFilter } from "../components/logs/logFilters";
 import { LogRow } from "../components/logs/logRow";
+import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
 import { type AgentLog, fetchLogs } from "../lib/api";
 
@@ -28,6 +29,7 @@ export function Logs(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-3.5">
+      <PageHeader title="Agent Logs" subtitle="Full audit trail of agent actions and decisions." />
       <LogFilters filter={filter} onFilterChange={setFilter} />
 
       <div className="overflow-hidden rounded-2xl border border-border-strong bg-surface">

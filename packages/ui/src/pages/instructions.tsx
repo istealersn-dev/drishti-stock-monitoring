@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { ApprovalCard } from "../components/instructions/approvalCard";
 import { InstructionComposer } from "../components/instructions/instructionComposer";
+import { PageHeader } from "../components/shell/pageHeader";
 import { Badge } from "../components/ui/badge";
 import { Spinner } from "../components/ui/spinner";
 import {
@@ -125,6 +126,10 @@ export function Instructions(): React.ReactElement {
 
   return (
     <div className="flex max-w-3xl flex-col gap-4">
+      <PageHeader
+        title="Instructions"
+        subtitle="Send buy instructions and review pending approvals."
+      />
       <InstructionComposer
         value={instructionText}
         onChange={(value) => {

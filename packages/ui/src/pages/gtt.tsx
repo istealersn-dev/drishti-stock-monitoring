@@ -3,6 +3,7 @@ import type React from "react";
 
 import { GttCard } from "../components/gtt/gttCard";
 import { GttTable } from "../components/gtt/gttTable";
+import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { fetchGttOrders } from "../lib/api";
@@ -47,22 +48,30 @@ export function Gtt(): React.ReactElement {
 
   if (sorted.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
-        <p className="text-body-sm font-medium text-fg-muted">No active GTTs</p>
-        <p className="max-w-sm text-center text-caption text-fg-faint">
-          The agent will create them automatically when SL or target conditions are met.
-        </p>
+      <div className="flex flex-col gap-4">
+        <PageHeader title="GTT Orders" subtitle="Stop-loss and target orders placed on Upstox." />
+        <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
+          <p className="text-body-sm font-medium text-fg-muted">No active GTTs</p>
+          <p className="max-w-sm text-center text-caption text-fg-faint">
+            The agent will create them automatically when SL or target conditions are met.
+          </p>
+        </div>
       </div>
     );
   }
 
-  return isDesktop ? (
-    <GttTable orders={sorted} />
-  ) : (
-    <div className="flex flex-col gap-2.5">
-      {sorted.map((order) => (
-        <GttCard key={order.id} order={order} />
-      ))}
+  return (
+    <div className="flex flex-col gap-4">
+      <PageHeader title="GTT Orders" subtitle="Stop-loss and target orders placed on Upstox." />
+      {isDesktop ? (
+        <GttTable orders={sorted} />
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {sorted.map((order) => (
+            <GttCard key={order.id} order={order} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

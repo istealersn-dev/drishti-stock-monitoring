@@ -3,6 +3,7 @@ import type React from "react";
 
 import { NeedsAttentionCard } from "../components/dashboard/needsAttentionCard";
 import { StatCard } from "../components/dashboard/statCard";
+import { PageHeader } from "../components/shell/pageHeader";
 import { Badge } from "../components/ui/badge";
 import { Spinner } from "../components/ui/spinner";
 import { StatusDot } from "../components/ui/statusDot";
@@ -94,6 +95,10 @@ export function Dashboard(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Dashboard"
+        subtitle="Portfolio value, risk status, and holdings overview."
+      />
       <div className="grid grid-cols-2 gap-3.5 nav:grid-cols-4">
         <StatCard
           label="Total portfolio value"

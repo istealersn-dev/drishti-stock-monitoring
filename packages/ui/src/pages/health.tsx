@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 
 import { StatCard } from "../components/dashboard/statCard";
+import { PageHeader } from "../components/shell/pageHeader";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { Spinner } from "../components/ui/spinner";
@@ -63,6 +64,10 @@ export function Health(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-3.5">
+      <PageHeader
+        title="Health"
+        subtitle="Portfolio risk, underperformers, and review-overdue positions."
+      />
       <div className="grid grid-cols-2 gap-3.5 nav:grid-cols-4">
         <StatCard
           label="Portfolio value"
