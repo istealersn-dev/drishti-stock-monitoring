@@ -31,6 +31,15 @@ import type { AdvisoryRequest, AdvisoryResponse, TradeSetup } from "./advisor.sc
 
 const MAX_HISTORY_TURNS = 8;
 const MAX_HISTORY_CHARS = 6000; // caps resent token volume regardless of turn count
+// How long a session can go quiet before its holdings snapshot is considered stale
+// enough to warrant re-injecting fresh prices, even mid-thread.
+const SNAPSHOT_REFRESH_MS = 15 * 60 * 1000;
+
+type SessionHistory = {
+  messages: ChatCompletionMessageParam[];
+  /** ISO timestamp of the most recent stored turn, or null if the session has no history yet. */
+  lastMessageAt: string | null;
+};
 
 /**
  * Load recent conversation turns for a session as chat messages.
@@ -42,9 +51,9 @@ const MAX_HISTORY_CHARS = 6000; // caps resent token volume regardless of turn c
  * budget if needed; only drops the assistant turn outright if there's truly no row
  * to pair it with.
  * @param sessionId - The session to load history for
- * @returns Chat messages in chronological order
+ * @returns Chat messages in chronological order, plus the most recent turn's timestamp
  */
-function loadHistory(sessionId: string): ChatCompletionMessageParam[] {
+function loadHistory(sessionId: string): SessionHistory {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const rows = db
     .select()
@@ -59,6 +68,7 @@ function loadHistory(sessionId: string): ChatCompletionMessageParam[] {
     .limit(MAX_HISTORY_TURNS)
     .all();
 
+  const lastMessageAt = rows[0]?.createdAt ?? null;
   const chronological = rows.reverse();
 
   // Walk backward from the newest turn, keeping whole turns within the char budget.
@@ -83,10 +93,13 @@ function loadHistory(sessionId: string): ChatCompletionMessageParam[] {
     startIndex = startIndex > 0 ? startIndex - 1 : startIndex + 1;
   }
 
-  return chronological.slice(startIndex).map((row) => ({
-    role: row.role === "assistant" ? "assistant" : "user",
-    content: row.content,
-  }));
+  return {
+    messages: chronological.slice(startIndex).map((row) => ({
+      role: row.role === "assistant" ? "assistant" : "user",
+      content: row.content,
+    })),
+    lastMessageAt,
+  };
 }
 
 /**
@@ -150,6 +163,10 @@ export function recordConversationTurn(
 /**
  * Answer a portfolio advisory question using the Drishti persona.
  * Loads the last 24h of conversation history for the session to maintain multi-turn context.
+ * The full portfolio snapshot is only sent on a session's first turn (or after a
+ * SNAPSHOT_REFRESH_MS quiet gap) — every other follow-up sends just the question,
+ * since re-injecting the whole holdings JSON every turn was overriding the model's
+ * own prior answer instead of staying anchored to the thread.
  * The question and answer are persisted as two rows (role "user" and "assistant")
  * under the same session id.
  * @param request - The advisory request (question, session id, channel)
@@ -167,14 +184,21 @@ export async function askAdvisor(
     }
     const holdings = holdingsResult.ok ? holdingsResult.value : [];
 
-    const history = loadHistory(request.sessionId);
-    // Only the first turn of a session gets the full portfolio snapshot — re-injecting
-    // it on every follow-up drowned out the model's own prior answer (a fresh,
-    // large structured data dump outweighs an instruction sitting back in the system
-    // prompt), so a thread about a few named stocks would drift into re-analysing the
-    // whole book each turn. Follow-ups rely on loadHistory's already-correct context.
-    const userContext =
-      history.length === 0 ? buildAdvisoryContext(holdings, request.question) : request.question;
+    const { messages: history, lastMessageAt } = loadHistory(request.sessionId);
+    // Re-injecting the full portfolio snapshot on every follow-up drowned out the
+    // model's own prior answer (a fresh, large structured data dump outweighs an
+    // instruction sitting back in the system prompt), so a thread about a few named
+    // stocks would drift into re-analysing the whole book each turn. Follow-ups send
+    // just the question and rely on loadHistory's already-correct context instead —
+    // except when the session has gone quiet long enough that the last snapshot's
+    // prices could plausibly be stale, in which case a refresh is worth the dilution
+    // risk again.
+    const sessionIsStale =
+      lastMessageAt === null ||
+      Date.now() - new Date(lastMessageAt).getTime() > SNAPSHOT_REFRESH_MS;
+    const userContext = sessionIsStale
+      ? buildAdvisoryContext(holdings, request.question)
+      : request.question;
     const runId = randomUUID();
 
     const answer = await runToolLoop(
