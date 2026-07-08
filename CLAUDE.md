@@ -134,7 +134,7 @@ Work in small logical units. After each unit, run:
 ```bash
 pnpm typecheck
 pnpm lint
-pnpm test --run
+pnpm test
 ```
 
 All three must pass before proceeding. Never skip these checks.
@@ -143,6 +143,19 @@ All three must pass before proceeding. Never skip these checks.
 
 The Upstox v3 API docs are the source of truth. If a response shape is
 unclear, print the raw response and inspect it before writing types.
+
+### Session efficiency
+
+- **JS-rendered sites need the browser, not WebFetch.** Marketing pages, SPAs,
+  and anything client-side rendered return header-only fragments to WebFetch
+  (confirmed on algoip.in — six wasted fetches). Use the Chrome MCP tools
+  directly for those; reserve WebFetch for docs, forums, blogs, and other
+  static pages.
+- **Use an Explore subagent for "find/locate X" tasks.** Don't read a trail of
+  files into the main context to answer "where is X defined / which code builds
+  message Y" — dispatch Explore and get a summarized answer back.
+- **Never run vitest in watch mode.** Package `test` scripts use `vitest run`;
+  a bare `vitest` in an agent session never exits and hangs the task.
 
 ---
 
@@ -154,7 +167,7 @@ pnpm dev:ui       # start React dashboard (Vite)
 pnpm build        # build both packages
 pnpm typecheck    # tsc --noEmit across all packages
 pnpm lint         # eslint across all packages
-pnpm test         # vitest across all packages
+pnpm test         # vitest run (single pass, no watch) across all packages
 pnpm db:migrate   # run pending SQLite migrations
 pnpm agent:dry    # start agent with DRISHTI_DRY_RUN=true
 ```
