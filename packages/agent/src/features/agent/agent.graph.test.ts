@@ -53,6 +53,7 @@ vi.mock("../../db/schema.js", () => ({
 }));
 
 import { agentSettings, gttOrders } from "../../db/schema.js";
+import { UpstoxError } from "../../shared/errors.js";
 import { __resetAnalysisSnapshotForTests } from "../insights/insights.cache.js";
 
 import { buildAgentGraph } from "./agent.graph.js";
@@ -127,6 +128,67 @@ describe("buildAgentGraph", () => {
     expect(final.errors).toHaveLength(1);
     expect(final.errors[0]).toContain("fetch_holdings");
     expect(mockAnalysePortfolio).not.toHaveBeenCalled();
+  });
+
+  describe("upstox auth-failure alert", () => {
+    it("pushes a token alert and writes a dedup row when holdings fetch 401s", async () => {
+      mockFetchHoldings.mockResolvedValue({
+        ok: false,
+        error: new UpstoxError("Holdings request failed: Unauthorized", 401),
+      });
+      const graph = buildAgentGraph();
+      await graph.run(makeInitialState());
+
+      expect(mockPushAlert).toHaveBeenCalledWith(expect.stringContaining("Upstox token rejected"));
+      expect(mockDatabaseInsertValues).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "upstox_auth_failure", symbol: "__portfolio__" }),
+      );
+    });
+
+    it("does not alert on a non-401 holdings failure", async () => {
+      mockFetchHoldings.mockResolvedValue({
+        ok: false,
+        error: new UpstoxError("Holdings request failed: Bad Gateway", 502),
+      });
+      const graph = buildAgentGraph();
+      await graph.run(makeInitialState());
+
+      expect(mockPushAlert).not.toHaveBeenCalled();
+    });
+
+    it("suppresses the alert within the cooldown window", async () => {
+      mockDbSelect.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            all: vi.fn().mockReturnValue([]),
+            get: vi.fn().mockReturnValue({ id: 1 }), // wasRecentlyAlerted: prior row exists
+          }),
+        }),
+      });
+      mockFetchHoldings.mockResolvedValue({
+        ok: false,
+        error: new UpstoxError("Holdings request failed: Unauthorized", 401),
+      });
+      const graph = buildAgentGraph();
+      await graph.run(makeInitialState());
+
+      expect(mockPushAlert).not.toHaveBeenCalled();
+    });
+
+    it("does not write the dedup row when the Slack push fails, so the next tick retries", async () => {
+      mockPushAlert.mockResolvedValue({ ok: false, error: new Error("slack down") });
+      mockFetchHoldings.mockResolvedValue({
+        ok: false,
+        error: new UpstoxError("Holdings request failed: Unauthorized", 401),
+      });
+      const graph = buildAgentGraph();
+      await graph.run(makeInitialState());
+
+      expect(mockPushAlert).toHaveBeenCalledOnce();
+      expect(mockDatabaseInsertValues).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: "upstox_auth_failure" }),
+      );
+    });
   });
 
   it("runs full pipeline and returns LLM output on success", async () => {

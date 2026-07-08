@@ -29,6 +29,50 @@ const ALERT_ONLY_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour between repeated alert_
 const PORTFOLIO_SENTINEL = "__portfolio__"; // symbol key for portfolio-level agent_logs rows
 const LLM_ANALYSE_GATE_ACTION = "llm_analyse_gate"; // marks an attempted (not necessarily successful) LLM analysis, for fallback cadence
 
+const AUTH_FAILURE_ACTION = "upstox_auth_failure";
+const HTTP_UNAUTHORIZED = 401;
+// A dead token stays dead until someone refreshes it, so re-alert on a slow cadence
+// rather than once — a single missed Slack message shouldn't leave SL monitoring
+// blind for the rest of the day.
+const AUTH_FAILURE_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+
+/**
+ * Dead-man switch for a stale or revoked Upstox token. A 401 on the holdings fetch
+ * never self-heals — unlike a transient network failure — so alert on the first
+ * occurrence (with a cooldown) instead of letting every tick fail silently until
+ * someone reads the logs. The dedup row is only written after confirmed delivery,
+ * matching the target-hit alert pattern.
+ */
+async function alertUpstoxAuthFailure(runId: string, errorMessage: string): Promise<void> {
+  if (wasRecentlyAlerted(AUTH_FAILURE_ACTION, PORTFOLIO_SENTINEL, AUTH_FAILURE_COOLDOWN_MS)) {
+    return;
+  }
+
+  const alertResult = await pushAlert(
+    `🔑 *Upstox token rejected (401)* — portfolio polling and SL monitoring are blind until it's refreshed.\n` +
+      `Check the token-refresh launchd job, or refresh manually and restart:\n` +
+      "`cd packages/token-refresh && node --import tsx src/runDailyRefresh.ts && pm2 restart drishti-agent`",
+  );
+  if (!alertResult.ok) {
+    logger.warn("authFailure: alert failed — skipping dedup log to allow retry", {
+      error: alertResult.error.message,
+    });
+    return;
+  }
+
+  db.insert(agentLogs)
+    .values({
+      runId,
+      symbol: PORTFOLIO_SENTINEL,
+      action: AUTH_FAILURE_ACTION,
+      reasoning: `Upstox auth failure on holdings fetch: ${errorMessage}`,
+      dryRun: isDryRunActive(),
+      error: errorMessage,
+      createdAt: new Date().toISOString(),
+    })
+    .run();
+}
+
 /** Fetch holdings and LTP; populate state or append to errors on failure. */
 async function fetchPortfolioNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {
   const holdingsResult = await fetchHoldings();
@@ -36,6 +80,9 @@ async function fetchPortfolioNode(state: Readonly<AgentState>): Promise<Partial<
     logger.error("fetchPortfolio: holdings fetch failed", {
       error: holdingsResult.error.message,
     });
+    if (holdingsResult.error.statusCode === HTTP_UNAUTHORIZED) {
+      await alertUpstoxAuthFailure(state.runId, holdingsResult.error.message);
+    }
     return {
       errors: [...state.errors, `fetch_holdings: ${holdingsResult.error.message}`],
     };
