@@ -27,7 +27,7 @@ export type SubmitResult =
 export function formatSubmitResultMessage(result: SubmitResult): string {
   return result.ok
     ? `✅ Approval card sent for *${result.symbol}* — check <#${env.SLACK_ALERT_CHANNEL_ID}> to approve.`
-    : `⚠️ Could not process instruction: ${result.error}`;
+    : `⚠️ Could not process instruction\n${result.error}`;
 }
 
 /**
@@ -72,7 +72,7 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
       reason: rrResult.reason,
     });
     await pushAlert(
-      `❌ *Trade Rejected — R:R check failed*\n\nStock: *${resolved.tradingSymbol}*\nReason: ${rrResult.reason}`,
+      `❌ *Trade Rejected — R:R check failed*\nStock: *${resolved.tradingSymbol}*\n\n${rrResult.reason}`,
     );
     return { ok: false, error: rrResult.reason };
   }
