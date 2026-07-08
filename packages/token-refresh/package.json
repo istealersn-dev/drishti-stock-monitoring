@@ -6,7 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vitest"
+    "test": "vitest run"
   },
   "dependencies": {
     "@slack/web-api": "^7.9.0",
