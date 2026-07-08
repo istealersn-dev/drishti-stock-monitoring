@@ -135,6 +135,45 @@ describe("askAdvisor", () => {
     expect(messages.at(-1)?.content).toContain(request.question);
   });
 
+  it("wraps the question in the full portfolio snapshot on the first turn of a session", async () => {
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
+    await askAdvisor(request);
+    const messages = mockRunToolLoop.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(messages.at(-1)?.content).toContain("Portfolio snapshot:");
+  });
+
+  it("sends only the plain question on a follow-up turn, relying on history for context — re-injecting the full snapshot every turn drowned out the thread (e.g. a follow-up about 'these' three stocks drifted into re-analysing the whole book)", async () => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              all: vi.fn().mockReturnValue([
+                {
+                  role: "user",
+                  content: "Estimate my STCG vs LTCG for my three largest positions.",
+                  createdAt: "2026-07-08T18:24:27.495Z",
+                },
+                {
+                  role: "assistant",
+                  content: "Your three largest positions are IRCTC, TATACHEM, and TMPV.",
+                  createdAt: "2026-07-08T18:24:27.496Z",
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+    });
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
+
+    await askAdvisor({ ...request, question: "Should I hold these or exit?" });
+
+    const messages = mockRunToolLoop.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(messages.at(-1)?.content).toBe("Should I hold these or exit?");
+    expect(messages.at(-1)?.content).not.toContain("Portfolio snapshot:");
+  });
+
   it("passes the web_search tool definition and executor to the tool loop", async () => {
     mockRunToolLoop.mockResolvedValue("Hold for now.");
     await askAdvisor(request);

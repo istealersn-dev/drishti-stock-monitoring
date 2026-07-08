@@ -168,7 +168,13 @@ export async function askAdvisor(
     const holdings = holdingsResult.ok ? holdingsResult.value : [];
 
     const history = loadHistory(request.sessionId);
-    const userContext = buildAdvisoryContext(holdings, request.question);
+    // Only the first turn of a session gets the full portfolio snapshot — re-injecting
+    // it on every follow-up drowned out the model's own prior answer (a fresh,
+    // large structured data dump outweighs an instruction sitting back in the system
+    // prompt), so a thread about a few named stocks would drift into re-analysing the
+    // whole book each turn. Follow-ups rely on loadHistory's already-correct context.
+    const userContext =
+      history.length === 0 ? buildAdvisoryContext(holdings, request.question) : request.question;
     const runId = randomUUID();
 
     const answer = await runToolLoop(
