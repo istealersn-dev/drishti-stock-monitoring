@@ -140,12 +140,23 @@ export async function processValidatedInstruction(
 
   const approvalId = crypto.randomUUID();
 
-  createApproval({
-    id: approvalId,
-    symbol: resolved.tradingSymbol,
-    parsedJson: JSON.stringify({ ...instruction, _instrumentToken: resolved.instrumentToken }),
-    suggestedQty,
-  });
+  try {
+    createApproval({
+      id: approvalId,
+      symbol: resolved.tradingSymbol,
+      parsedJson: JSON.stringify({ ...instruction, _instrumentToken: resolved.instrumentToken }),
+      suggestedQty,
+    });
+  } catch (e) {
+    // createApproval is a plain synchronous DB call, not Result-wrapped — a throw here
+    // (disk full, DB locked) would otherwise be a completely silent failure for the UI
+    // caller, which fires this whole function without awaiting it and has no other way
+    // to observe an exception.
+    const message = e instanceof Error ? e.message : String(e);
+    logger.error("Failed to create approval row", { approvalId, error: message });
+    await pushAlert(`⚠️ Failed to create approval for *${resolved.tradingSymbol}*: ${message}`);
+    return { ok: false, error: message };
+  }
 
   const cardResult = await sendApprovalCard(
     approvalId,
@@ -164,7 +175,20 @@ export async function processValidatedInstruction(
     return { ok: false, error: cardResult.error.message };
   }
 
-  setApprovalSlackTs(approvalId, cardResult.value);
+  try {
+    setApprovalSlackTs(approvalId, cardResult.value);
+  } catch (e) {
+    // Same rationale as the createApproval guard above. The card already reached
+    // Slack and the approval row exists, so this doesn't fail the whole submission —
+    // it only means the approve/reject flow may not be able to edit the original
+    // Slack message in place, which is worth a heads-up but not a hard failure.
+    const message = e instanceof Error ? e.message : String(e);
+    logger.error("Failed to record Slack ts for approval", { approvalId, error: message });
+    await pushAlert(
+      `⚠️ Approval card sent for *${resolved.tradingSymbol}* but failed to record its Slack reference: ${message}`,
+    );
+  }
+
   logger.info("Approval card sent", {
     approvalId,
     symbol: resolved.tradingSymbol,

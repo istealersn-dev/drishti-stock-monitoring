@@ -175,6 +175,33 @@ describe("processValidatedInstruction", () => {
     expect(result.ok).toBe(true);
     expect(mockCalculateSuggestedQty).toHaveBeenCalledWith(0, 580, 560);
   });
+
+  it("returns an error and alerts, without sending the card, when createApproval throws", async () => {
+    mockCreateApproval.mockImplementation(() => {
+      throw new Error("database is locked");
+    });
+
+    const result = await processValidatedInstruction(validated);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe("database is locked");
+    expect(mockSendApprovalCard).not.toHaveBeenCalled();
+    expect(mockPushAlert).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to create approval"),
+    );
+  });
+
+  it("still returns ok and alerts, without failing the submission, when setApprovalSlackTs throws", async () => {
+    mockSetApprovalSlackTs.mockImplementation(() => {
+      throw new Error("database is locked");
+    });
+
+    const result = await processValidatedInstruction(validated);
+    expect(result.ok).toBe(true);
+    expect(mockPushAlert).toHaveBeenCalledWith(
+      expect.stringContaining("failed to record its Slack reference"),
+    );
+  });
 });
 
 describe("submitBuyInstruction", () => {
