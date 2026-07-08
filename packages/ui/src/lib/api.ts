@@ -236,14 +236,15 @@ export async function updateSettings(
 }
 
 /**
- * Submit a buy instruction from the UI.
+ * Submit a buy instruction from the UI. The server only validates synchronously
+ * (parse/resolve/R:R) and responds immediately — the slow analysis and approval-card
+ * send happen in the background, surfaced via the existing approvals poll rather than
+ * this call, so this never blocks on the LLM/margin-fetch latency.
  * @param text - Canonical instruction text
- * @returns Approval ID and resolved symbol on success
+ * @returns The resolved symbol once validation passes
  */
-export async function submitInstruction(
-  text: string,
-): Promise<{ approvalId: string; symbol: string }> {
-  const schema = z.object({ ok: z.boolean(), approvalId: z.string(), symbol: z.string() });
+export async function submitInstruction(text: string): Promise<{ symbol: string }> {
+  const schema = z.object({ ok: z.boolean(), status: z.string(), symbol: z.string() });
   return apiFetch("/api/instructions", schema, { method: "POST", body: JSON.stringify({ text }) });
 }
 

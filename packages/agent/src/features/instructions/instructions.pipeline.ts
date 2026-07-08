@@ -13,9 +13,20 @@ import { sendApprovalCard } from "./instructions.approval.js";
 import { calculateSuggestedQty } from "./instructions.executor.js";
 import { parseInstruction } from "./instructions.parser.js";
 import { resolveSymbol } from "./instructions.resolver.js";
+import type { ParsedInstruction, ResolvedStock } from "./instructions.schema.js";
 
 export type SubmitResult =
   { ok: true; approvalId: string; symbol: string } | { ok: false; error: string };
+
+/** A buy instruction that has cleared parsing, symbol resolution, and the R:R gate. */
+export type ValidatedInstruction = {
+  instruction: ParsedInstruction;
+  actionDisagreement: string | null;
+  resolved: ResolvedStock;
+};
+
+export type ValidateResult =
+  { ok: true; value: ValidatedInstruction } | { ok: false; error: string };
 
 /**
  * Format a submitBuyInstruction result as the Slack reply text shown at both entry
@@ -31,13 +42,21 @@ export function formatSubmitResultMessage(result: SubmitResult): string {
 }
 
 /**
- * Parse, resolve, and enqueue a buy instruction from any channel (Slack or UI).
- * Sends a Slack approval card. Does NOT execute until the user approves.
+ * Fast, deterministic-latency validation of a buy instruction: parse, resolve the
+ * stock name to a tradable symbol, and check the R:R gate. Deliberately excludes the
+ * slow, variable-latency work (LLM analysis, margin fetch, approval-card send) — this
+ * is the part safe to await synchronously in an HTTP request handler, since none of
+ * its steps carry the multi-round LLM tool-loop latency that made a public-tunnel
+ * request hang for the UI (see processValidatedInstruction).
  * @param text - Raw instruction text in canonical format
  * @param channelId - Originating channel identifier for logging
- * @returns SubmitResult with approvalId on success
+ * @returns A ValidateResult with the validated instruction, or an error already
+ *   pushed to Slack
  */
-export async function submitBuyInstruction(text: string, channelId: string): Promise<SubmitResult> {
+export async function validateBuyInstruction(
+  text: string,
+  channelId: string,
+): Promise<ValidateResult> {
   logger.info("Buy instruction received", { channelId, text: text.slice(0, 100) });
 
   const parseResult = await parseInstruction(text);
@@ -76,6 +95,23 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     );
     return { ok: false, error: rrResult.reason };
   }
+
+  return { ok: true, value: { instruction, actionDisagreement, resolved } };
+}
+
+/**
+ * Runs the slow, variable-latency remainder of the buy-instruction pipeline (LLM
+ * analysis, margin fetch, concentration check, approval creation, Slack card send)
+ * against an already-validated instruction. Every failure path pushes to Slack
+ * itself — this is designed to be safe to call fire-and-forget (not awaited) from an
+ * HTTP handler, since a caller not awaiting it has no other way to observe a failure.
+ * @param validated - The result of a successful validateBuyInstruction call
+ * @returns SubmitResult with approvalId on success
+ */
+export async function processValidatedInstruction(
+  validated: ValidatedInstruction,
+): Promise<SubmitResult> {
+  const { instruction, actionDisagreement, resolved } = validated;
 
   const analysisResult = await analyzeBuyInstruction(instruction, resolved.tradingSymbol);
   const analysis = analysisResult.ok ? analysisResult.value : null;
@@ -136,4 +172,24 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
   });
 
   return { ok: true, approvalId, symbol: resolved.tradingSymbol };
+}
+
+/**
+ * Parse, resolve, and enqueue a buy instruction from any channel (Slack or UI).
+ * Sends a Slack approval card. Does NOT execute until the user approves. Synchronous
+ * convenience wrapper over validateBuyInstruction + processValidatedInstruction for
+ * callers (Slack's @mention classifier and /drishti slash command) that want a single
+ * awaited result — the UI's HTTP endpoint uses the two steps separately instead, since
+ * awaiting the full pipeline over a public tunnel is what caused a stuck "sending..."
+ * state (the slow half can run 44s-180s).
+ * @param text - Raw instruction text in canonical format
+ * @param channelId - Originating channel identifier for logging
+ * @returns SubmitResult with approvalId on success
+ */
+export async function submitBuyInstruction(text: string, channelId: string): Promise<SubmitResult> {
+  const validated = await validateBuyInstruction(text, channelId);
+  if (!validated.ok) {
+    return validated;
+  }
+  return processValidatedInstruction(validated.value);
 }

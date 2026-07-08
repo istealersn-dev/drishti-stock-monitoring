@@ -21,7 +21,10 @@ import { getLastHealthReport, setLastHealthReport } from "../features/health/hea
 import { computeHealthReport } from "../features/health/health.engine.js";
 import { updateApprovalCard } from "../features/instructions/instructions.approval.js";
 import { executeApprovedInstruction } from "../features/instructions/instructions.executor.js";
-import { submitBuyInstruction } from "../features/instructions/instructions.pipeline.js";
+import {
+  processValidatedInstruction,
+  validateBuyInstruction,
+} from "../features/instructions/instructions.pipeline.js";
 import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { ParsedInstructionSchema } from "../features/instructions/instructions.schema.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
@@ -258,11 +261,28 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
       return reply.status(400).send({ ok: false, error: "text is required" });
     }
 
-    const result = await submitBuyInstruction(text, "ui");
-    if (result.ok) {
-      return reply.send({ ok: true, approvalId: result.approvalId, symbol: result.symbol });
+    // Only the fast, deterministic-latency half (parse/resolve/R:R) is awaited here.
+    // The slow half (LLM analysis, margin fetch, approval-card send — 44s to 180s)
+    // runs fire-and-forget: awaiting it over the public tunnel is what left the UI
+    // stuck on "sending..." on a dropped connection. The approvals list (already
+    // polled every 30s) is how the UI observes the eventual approval card.
+    const validated = await validateBuyInstruction(text, "ui");
+    if (!validated.ok) {
+      return reply.status(422).send({ ok: false, error: validated.error });
     }
-    return reply.status(422).send({ ok: false, error: result.error });
+
+    processValidatedInstruction(validated.value).catch((e: unknown) => {
+      logger.error("processValidatedInstruction: unhandled failure in background processing", {
+        symbol: validated.value.resolved.tradingSymbol,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    });
+
+    return reply.send({
+      ok: true,
+      status: "processing",
+      symbol: validated.value.resolved.tradingSymbol,
+    });
   });
 
   app.post<{ Params: { id: string } }>("/api/approvals/:id/approve", async (request, reply) => {
