@@ -5,6 +5,7 @@ import { useState } from "react";
 import { HoldingCard } from "../components/holdings/holdingCard";
 import { type ProductFilter, HoldingFilters } from "../components/holdings/holdingFilters";
 import { HoldingsTable } from "../components/holdings/holdingsTable";
+import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
@@ -77,6 +78,10 @@ export function Holdings(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-3.5">
+      <PageHeader
+        title="Holdings"
+        subtitle="All positions, with inline stop-loss and target editing."
+      />
       <HoldingFilters
         search={search}
         onSearchChange={setSearch}

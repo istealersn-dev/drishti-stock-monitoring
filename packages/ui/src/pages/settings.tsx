@@ -6,6 +6,7 @@ import { AgentControls } from "../components/settings/agentControls";
 import { BrokerCard } from "../components/settings/brokerCard";
 import { DangerZone } from "../components/settings/dangerZone";
 import { ModelRuntimeCard } from "../components/settings/modelRuntimeCard";
+import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
 import { Tabs } from "../components/ui/tabs";
 import { type Settings as SettingsType, fetchSettings, updateSettings } from "../lib/api";
@@ -96,12 +97,10 @@ export function Settings(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-title font-semibold text-fg">Settings</h1>
-        <p className="mt-1 text-body-sm text-fg-muted">
-          Manage agent behaviour and runtime for your Drishti deployment.
-        </p>
-      </div>
+      <PageHeader
+        title="Settings"
+        subtitle="Manage agent behaviour and runtime for your Drishti deployment."
+      />
 
       <Tabs
         value={tab}

@@ -3,6 +3,7 @@ import type React from "react";
 import { useState } from "react";
 
 import { StatCard } from "../components/dashboard/statCard";
+import { PageHeader } from "../components/shell/pageHeader";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -139,6 +140,10 @@ export function Watchlist(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Watchlist"
+        subtitle="Track stocks approaching a good entry near their 200-DMA."
+      />
       <Card className="flex flex-col gap-3">
         <h2 className="text-body-sm font-semibold text-fg">Add to watchlist</h2>
         <form
