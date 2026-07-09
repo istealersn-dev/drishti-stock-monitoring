@@ -3,6 +3,7 @@ import { AlertCircle, Lock } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 
+import { Logo } from "../components/shell/logo";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Switch } from "../components/ui/switch";
@@ -77,9 +78,7 @@ export function Login(): React.ReactElement {
         />
 
         <div className="relative z-10 flex items-center gap-3">
-          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-[image:var(--gradient-gold)] font-mono text-body font-bold text-bg-base">
-            दृ
-          </span>
+          <Logo className="h-8 w-8 rounded-lg text-body" />
           <div className="flex items-baseline gap-2">
             <span className="text-title font-bold tracking-tight text-fg">Drishti</span>
             <span className="text-body-sm font-medium text-fg-faint">दृष्टि</span>

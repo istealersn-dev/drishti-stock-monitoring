@@ -1,6 +1,8 @@
 import { forwardRef } from "react";
 import type React from "react";
 
+import { Logo } from "../shell/logo";
+
 type MessageBubbleProperties = {
   role: "user" | "assistant";
   children: React.ReactNode;
@@ -12,7 +14,7 @@ type MessageBubbleProperties = {
  * gold wash (12% fill / 24% border, bright `fg` text — matching
  * Drishti.dc.html's `rgba(200,162,74,.12)` bubble, not a solid tint),
  * right-aligned. Assistant messages are NOT a bubble at all in the
- * reference — just the gold दृ avatar beside plain, unstyled text, so this
+ * reference — just the gold Logo avatar beside plain, unstyled text, so this
  * renders that instead of a symmetric bordered/surfaced counterpart.
  * Forwards its ref to the node `className` applies to (the bubble for
  * "user", the text block for "assistant") rather than the outer alignment
@@ -42,12 +44,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProperties>
 
     return (
       <div className="flex items-start gap-3">
-        <span
-          aria-hidden="true"
-          className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-[image:var(--gradient-gold)] font-mono text-caption font-bold text-bg-base"
-        >
-          दृ
-        </span>
+        <Logo className="h-7 w-7 rounded-lg text-caption" />
         <div
           ref={ref}
           className={`min-w-0 flex-1 whitespace-pre-wrap pt-0.5 text-body text-fg-soft ${className}`}
