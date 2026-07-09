@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/noto-sans-tamil": "^5.2.7",
     "@radix-ui/react-dialog": "^1.1.18",
     "@radix-ui/react-scroll-area": "^1.2.13",
     "@radix-ui/react-select": "^2.3.2",

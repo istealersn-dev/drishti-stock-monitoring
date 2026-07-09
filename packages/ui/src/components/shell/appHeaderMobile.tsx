@@ -7,6 +7,8 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { StatusDot } from "../ui/statusDot";
 
+import { Logo } from "./logo";
+
 type AppHeaderMobileProperties = {
   dryRun: boolean;
   paused: boolean;
@@ -46,9 +48,7 @@ export function AppHeaderMobile({
   return (
     <header className="sticky top-0 z-30 flex h-mobile-header flex-none items-center justify-between gap-2 border-b border-border bg-bg-chrome/85 px-3 backdrop-blur-md">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-[image:var(--gradient-gold)] font-mono text-micro font-bold text-bg-base">
-          दृ
-        </span>
+        <Logo className="h-6 w-6 rounded-md text-micro" />
         <span className="truncate text-body-sm font-semibold tracking-tight text-fg">Drishti</span>
       </div>
 

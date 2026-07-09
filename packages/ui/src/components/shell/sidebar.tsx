@@ -4,6 +4,7 @@ import type React from "react";
 
 import { useLogout } from "../../lib/auth";
 
+import { Logo } from "./logo";
 import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isNavItemActive } from "./navItems";
 import { NavLink } from "./navLink";
 
@@ -43,17 +44,12 @@ export function Sidebar({
             type="button"
             onClick={onToggle}
             aria-label="Expand sidebar"
-            className="mx-auto flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-lg bg-[image:var(--gradient-gold)] font-mono text-body-sm font-bold text-bg-base"
+            className="mx-auto cursor-pointer rounded-lg"
           >
-            दृ
+            <Logo />
           </button>
         ) : (
-          <span
-            aria-hidden="true"
-            className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-[image:var(--gradient-gold)] font-mono text-body-sm font-bold text-bg-base"
-          >
-            दृ
-          </span>
+          <Logo />
         )}
         {!collapsed && (
           <>

@@ -7,6 +7,7 @@ import { AmbientWave } from "../components/ask/ambientWave";
 import { Composer } from "../components/ask/composer";
 import { MessageList } from "../components/ask/messageList";
 import { SuggestionGrid } from "../components/ask/suggestionGrid";
+import { Logo } from "../components/shell/logo";
 import { Breadcrumb } from "../components/ui/breadcrumb";
 import { Button } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
@@ -145,12 +146,7 @@ export function Ask(): React.ReactElement {
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 px-6">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span
-            aria-hidden="true"
-            className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-[image:var(--gradient-gold)] font-mono text-micro font-bold text-bg-base"
-          >
-            दृ
-          </span>
+          <Logo className="h-6 w-6 rounded-md text-micro" />
           <Breadcrumb
             items={[
               { label: "Ask Drishti", onClick: handleReturnToHero },

@@ -75,6 +75,19 @@ body {
   --color-gold-tint: #ecd5a0;
   --color-gold-line: #cbb460;
   --gradient-gold: linear-gradient(135deg, #c8a24a, #9a7a2e);
+  /* Logo component only — the landing page's brand-mark badge and animated glyph sheen. */
+  --gradient-logo-badge: radial-gradient(circle at 32% 26%, #221d14, #0c0a07);
+  --gradient-gold-sheen: linear-gradient(
+    100deg,
+    #8a6a24 8%,
+    #e2c584 34%,
+    #fff6d8 48%,
+    #e2c584 62%,
+    #8a6a24 92%
+  );
+  --shadow-ring-glow-gold:
+    0 0 0 1px rgb(200 162 74 / 0.45),
+    0 4px 16px rgb(200 162 74 / 0.28);
   --pattern-dot-gold-strong: radial-gradient(
     circle,
     color-mix(in srgb, var(--color-gold) 78%, transparent) 1.9px,
@@ -158,6 +171,8 @@ body {
   /* fonts (self-hosted — see main.tsx @fontsource imports) */
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* brand mark glyph only (Logo component) — not a general-purpose UI font */
+  --font-tamil: "Noto Sans Tamil", sans-serif;
 
   /* the single shell breakpoint, plus login's secondary split (Design.md §5) */
   --breakpoint-nav: 760px;
@@ -184,6 +199,8 @@ body {
   --animate-spin: spin 0.65s linear infinite;
   --animate-fade: fade 0.2s ease-out;
   --animate-heartbeat: heartbeat 1.8s ease-in-out infinite;
+  /* brand mark's gold sheen (Drishti Landing.dc.html's logo shimmer) */
+  --animate-sheen: sheen 4.6s linear infinite;
 }
 
 /* Login left-panel halftone dots — Design.md gold-only recolor of
@@ -259,6 +276,15 @@ body {
   }
 }
 
+@keyframes sheen {
+  0% {
+    background-position: 220% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
 @keyframes heartbeat {
   0%,
   100% {
@@ -285,7 +311,8 @@ body {
   .animate-wave-x,
   .animate-wave-y,
   .animate-breathe,
-  .animate-heartbeat {
+  .animate-heartbeat,
+  .animate-sheen {
     animation: none !important;
   }
 }
