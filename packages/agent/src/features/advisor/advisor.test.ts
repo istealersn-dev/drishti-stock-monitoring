@@ -135,6 +135,76 @@ describe("askAdvisor", () => {
     expect(messages.at(-1)?.content).toContain(request.question);
   });
 
+  it("wraps the question in the full portfolio snapshot on the first turn of a session", async () => {
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
+    await askAdvisor(request);
+    const messages = mockRunToolLoop.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(messages.at(-1)?.content).toContain("Portfolio snapshot:");
+  });
+
+  it("sends only the plain question on a follow-up turn, relying on history for context — re-injecting the full snapshot every turn drowned out the thread (e.g. a follow-up about 'these' three stocks drifted into re-analysing the whole book)", async () => {
+    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+    const twoMinutesAgo = new Date(Date.now() - 120_000).toISOString();
+    // Real query orders newest-first (desc) — mock must match, since lastMessageAt
+    // now reads rows[0].
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              all: vi.fn().mockReturnValue([
+                {
+                  role: "assistant",
+                  content: "Your three largest positions are IRCTC, TATACHEM, and TMPV.",
+                  createdAt: oneMinuteAgo,
+                },
+                {
+                  role: "user",
+                  content: "Estimate my STCG vs LTCG for my three largest positions.",
+                  createdAt: twoMinutesAgo,
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+    });
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
+
+    await askAdvisor({ ...request, question: "Should I hold these or exit?" });
+
+    const messages = mockRunToolLoop.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(messages.at(-1)?.content).toBe("Should I hold these or exit?");
+    expect(messages.at(-1)?.content).not.toContain("Portfolio snapshot:");
+  });
+
+  it("re-sends the full portfolio snapshot mid-thread once the session has gone quiet for 15+ minutes, since prices may have moved", async () => {
+    const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              all: vi.fn().mockReturnValue([
+                {
+                  role: "assistant",
+                  content: "Your three largest positions are IRCTC, TATACHEM, and TMPV.",
+                  createdAt: twentyMinutesAgo,
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+    });
+    mockRunToolLoop.mockResolvedValue("Hold for now.");
+
+    await askAdvisor({ ...request, question: "What about now?" });
+
+    const messages = mockRunToolLoop.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(messages.at(-1)?.content).toContain("Portfolio snapshot:");
+  });
+
   it("passes the web_search tool definition and executor to the tool loop", async () => {
     mockRunToolLoop.mockResolvedValue("Hold for now.");
     await askAdvisor(request);
