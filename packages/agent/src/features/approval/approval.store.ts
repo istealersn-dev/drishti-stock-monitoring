@@ -11,6 +11,8 @@ export type ApprovalRow = {
   parsedJson: string;
   suggestedQty: number;
   overrideQty: number | null;
+  actionDisagreement: string | null;
+  availableMargin: number | null;
   status: ApprovalStatus;
   slackTs: string | null;
   createdAt: string;
@@ -18,7 +20,10 @@ export type ApprovalRow = {
 };
 
 /**
- * Insert a new pending approval record into the database.
+ * Insert a new pending approval record into the database. actionDisagreement
+ * and availableMargin are persisted (not just passed to the initial Slack
+ * card) so a later card refresh — e.g. after an amount edit — can restore
+ * them instead of dropping them or re-fetching live margin.
  * @param data - The approval data to insert
  */
 export function createApproval(data: {
@@ -26,6 +31,8 @@ export function createApproval(data: {
   symbol: string;
   parsedJson: string;
   suggestedQty: number;
+  actionDisagreement?: string | null;
+  availableMargin?: number | null;
   slackTs?: string;
 }): void {
   db.insert(pendingApprovals)
@@ -34,6 +41,8 @@ export function createApproval(data: {
       symbol: data.symbol,
       parsedJson: data.parsedJson,
       suggestedQty: data.suggestedQty,
+      actionDisagreement: data.actionDisagreement ?? null,
+      availableMargin: data.availableMargin ?? null,
       status: "pending",
       slackTs: data.slackTs ?? null,
       createdAt: new Date().toISOString(),

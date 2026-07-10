@@ -49,6 +49,8 @@ const makeApproval = (overrides: Partial<ApprovalRow> = {}): ApprovalRow => ({
   }),
   suggestedQty: 10,
   overrideQty: null,
+  actionDisagreement: null,
+  availableMargin: null,
   status: "pending",
   slackTs: null,
   createdAt: new Date().toISOString(),

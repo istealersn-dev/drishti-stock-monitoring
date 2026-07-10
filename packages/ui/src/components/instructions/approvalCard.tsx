@@ -232,7 +232,7 @@ export function ApprovalCard({
       <div className="flex gap-2.5">
         <Button
           variant="primary"
-          disabled={approvePending || rejectPending}
+          disabled={approvePending || rejectPending || amountPending}
           onClick={() => {
             onApprove(approval.id);
           }}
@@ -241,7 +241,10 @@ export function ApprovalCard({
         </Button>
         <Dialog open={rejectConfirmOpen} onOpenChange={setRejectConfirmOpen}>
           <Dialog.Trigger>
-            <Button variant="destructive" disabled={approvePending || rejectPending}>
+            <Button
+              variant="destructive"
+              disabled={approvePending || rejectPending || amountPending}
+            >
               {rejectPending ? "Rejecting…" : "Reject"}
             </Button>
           </Dialog.Trigger>

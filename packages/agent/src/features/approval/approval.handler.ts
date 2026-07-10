@@ -13,10 +13,12 @@ import {
   refreshApprovalCard,
   updateApprovalCard,
 } from "../instructions/instructions.approval.js";
-import { executeApprovedInstruction } from "../instructions/instructions.executor.js";
+import {
+  executeApprovedInstruction,
+  midpointEntryPrice,
+  parseStoredInstruction,
+} from "../instructions/instructions.executor.js";
 import { applyAmountOverride } from "../instructions/instructions.pipeline.js";
-import { ParsedInstructionSchema } from "../instructions/instructions.schema.js";
-import { fetchMargins } from "../portfolio/portfolio.tools.js";
 
 import { getApproval, resolveApproval } from "./approval.store.js";
 
@@ -131,22 +133,21 @@ export function registerApprovalHandlers(app: App): void {
       return;
     }
 
-    let raw: unknown;
-    try {
-      raw = JSON.parse(approval.parsedJson);
-    } catch {
-      logger.error("edit_amount: failed to parse stored instruction", { approvalId });
+    const storedResult = parseStoredInstruction(approval.parsedJson);
+    if (!storedResult.ok) {
+      logger.error("edit_amount: failed to parse stored instruction", {
+        approvalId,
+        error: storedResult.error,
+      });
       return;
     }
-    const parsedResult = ParsedInstructionSchema.safeParse(raw);
-    if (!parsedResult.success || !parsedResult.data.entryHigh) {
+    const { entryHigh, entryLow } = storedResult.instruction;
+    if (!entryHigh) {
       logger.error("edit_amount: instruction missing entry price", { approvalId });
       return;
     }
-    const { entryHigh, entryLow } = parsedResult.data;
-    const midpoint = ((entryLow ?? entryHigh) + entryHigh) / 2;
     const currentQty = approval.overrideQty ?? approval.suggestedQty;
-    const currentAmountInr = midpoint * currentQty;
+    const currentAmountInr = midpointEntryPrice(entryHigh, entryLow ?? entryHigh) * currentQty;
 
     const triggerId = "trigger_id" in body ? body.trigger_id : undefined;
     if (!triggerId) {
@@ -172,7 +173,7 @@ export function registerApprovalHandlers(app: App): void {
     await ack();
 
     const { approvalId, amountInr } = submission;
-    const overrideResult = applyAmountOverride(approvalId, amountInr);
+    const overrideResult = await applyAmountOverride(approvalId, amountInr);
     if (!overrideResult.ok) {
       logger.warn("Failed to apply amount override from Slack modal", {
         approvalId,
@@ -187,28 +188,30 @@ export function registerApprovalHandlers(app: App): void {
       qty: overrideResult.qty,
     });
 
+    // Re-fetch rather than reuse the pre-override approval: applyAmountOverride
+    // awaited a concentration check above, leaving a window for a concurrent
+    // approve/reject tap. Refreshing the card only while still pending avoids
+    // overwriting an already-resolved card back to a live-looking one.
     const approval = getApproval(approvalId);
-    if (!approval?.slackTs) return;
+    if (!approval?.slackTs || approval.status !== "pending") return;
 
-    let raw: unknown;
-    try {
-      raw = JSON.parse(approval.parsedJson);
-    } catch {
+    const storedResult = parseStoredInstruction(approval.parsedJson);
+    if (!storedResult.ok) {
+      logger.error("edit_amount_modal: failed to parse stored instruction for card refresh", {
+        approvalId,
+        error: storedResult.error,
+      });
       return;
     }
-    const parsedResult = ParsedInstructionSchema.safeParse(raw);
-    if (!parsedResult.success) return;
-
-    const marginResult = await fetchMargins();
-    const availableMargin = marginResult.ok ? marginResult.value.available_margin : 0;
 
     const refreshResult = await refreshApprovalCard(
       approval.slackTs,
       approvalId,
-      parsedResult.data,
+      storedResult.instruction,
       approval.symbol,
       overrideResult.qty,
-      availableMargin,
+      approval.availableMargin ?? 0,
+      approval.actionDisagreement,
     );
     if (!refreshResult.ok) {
       logger.warn("Failed to refresh approval card after amount edit", {

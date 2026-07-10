@@ -23,7 +23,12 @@ vi.mock("../../db/db.js", () => ({
 
 vi.mock("../../db/schema.js", () => ({ pendingApprovals: {} }));
 
-import { createApproval, getApproval, resolveApproval } from "./approval.store.js";
+import {
+  createApproval,
+  getApproval,
+  resolveApproval,
+  setApprovalOverrideQty,
+} from "./approval.store.js";
 
 describe("approval.store", () => {
   beforeEach(() => {
@@ -69,5 +74,15 @@ describe("approval.store", () => {
   it("resolveApproval calls db.update with new status", () => {
     resolveApproval("uuid-001", "approved");
     expect(mockDbUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("setApprovalOverrideQty calls db.update with the override quantity", () => {
+    const setSpy = vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ run: mockRun }) });
+    mockDbUpdate.mockReturnValue({ set: setSpy });
+
+    setApprovalOverrideQty("uuid-001", 42);
+
+    expect(mockDbUpdate).toHaveBeenCalledOnce();
+    expect(setSpy).toHaveBeenCalledWith({ overrideQty: 42 });
   });
 });

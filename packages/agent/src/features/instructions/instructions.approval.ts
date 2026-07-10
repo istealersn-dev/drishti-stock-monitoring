@@ -235,13 +235,18 @@ export async function sendApprovalCard(
 /**
  * Re-render a still-pending approval card in place after the approver edits
  * the amount — same layout as sendApprovalCard, minus the AI analysis (see
- * buildApprovalCardBlocks), via chat.update instead of a new post.
+ * buildApprovalCardBlocks — analysis is never persisted so it can't be
+ * restored here), via chat.update instead of a new post. actionDisagreement
+ * IS persisted on the approval row and must be passed through rather than
+ * hardcoded to null, since it's a safety signal the approver still needs to
+ * see after editing the amount.
  * @param slackTs - The original message timestamp to update
  * @param approvalId - UUID used as the action value so Bolt can correlate taps
  * @param instruction - The parsed buy instruction
  * @param resolvedSymbol - The Upstox trading symbol
  * @param qty - The new quantity to display
- * @param availableMargin - Freshly-fetched available margin in rupees
+ * @param availableMargin - Available margin in rupees, as recorded at approval creation
+ * @param actionDisagreement - The approval's stored disagreement flag, or null
  * @returns A Result indicating success, or a SlackError if the update call fails
  */
 export async function refreshApprovalCard(
@@ -251,6 +256,7 @@ export async function refreshApprovalCard(
   resolvedSymbol: string,
   qty: number,
   availableMargin: number,
+  actionDisagreement: string | null,
 ): Promise<Result<void, SlackError>> {
   const blocks = buildApprovalCardBlocks(
     approvalId,
@@ -259,7 +265,7 @@ export async function refreshApprovalCard(
     qty,
     availableMargin,
     null,
-    null,
+    actionDisagreement,
   );
 
   try {

@@ -37,10 +37,14 @@ const instruction: ParsedInstruction = {
   ],
 };
 
-function blocksFromCall(): { type: string; text?: { text: string } }[] {
-  const call = mockPostMessage.mock.calls[0]?.[0] as {
-    blocks: { type: string; text?: { text: string } }[];
-  };
+type MockBlock = {
+  type: string;
+  text?: { text: string };
+  elements?: { action_id?: string }[];
+};
+
+function blocksFromCall(): MockBlock[] {
+  const call = mockPostMessage.mock.calls[0]?.[0] as { blocks: MockBlock[] };
   return call.blocks;
 }
 
@@ -107,7 +111,7 @@ describe("sendApprovalCard", () => {
   it("includes an Edit Amount button alongside Approve/Reject", async () => {
     await sendApprovalCard("approval-6", instruction, "RAMCOSYS-EQ", 100, 50_000, null);
 
-    const blocks = blocksFromCall() as { type: string; elements?: { action_id?: string }[] }[];
+    const blocks = blocksFromCall();
     const actionsBlock = blocks.find((block) => block.type === "actions");
     const actionIds = actionsBlock?.elements?.map((element) => element.action_id);
     expect(actionIds).toEqual(["approve_buy", "edit_amount", "reject_buy"]);
@@ -128,6 +132,7 @@ describe("refreshApprovalCard", () => {
       "RAMCOSYS-EQ",
       42,
       50_000,
+      null,
     );
 
     expect(result.ok).toBe(true);
@@ -141,6 +146,26 @@ describe("refreshApprovalCard", () => {
     expect(fieldsBlock?.fields?.some((field) => field.text.includes("42 shares"))).toBe(true);
   });
 
+  it("preserves the actionDisagreement warning block when passed through", async () => {
+    const result = await refreshApprovalCard(
+      "1111111111.000001",
+      "approval-1",
+      instruction,
+      "RAMCOSYS-EQ",
+      42,
+      50_000,
+      "SELL",
+    );
+
+    expect(result.ok).toBe(true);
+    const call = mockChatUpdate.mock.calls[0]?.[0] as {
+      blocks: { type: string; text?: { text: string } }[];
+    };
+    const flagBlock = call.blocks.find((block) => block.text?.text.includes("Flagged"));
+    expect(flagBlock).toBeDefined();
+    expect(flagBlock?.text?.text).toContain("SELL");
+  });
+
   it("returns a SlackError when chat.update rejects", async () => {
     mockChatUpdate.mockRejectedValue(new Error("channel_not_found"));
 
@@ -151,6 +176,7 @@ describe("refreshApprovalCard", () => {
       "RAMCOSYS-EQ",
       42,
       50_000,
+      null,
     );
 
     expect(result.ok).toBe(false);

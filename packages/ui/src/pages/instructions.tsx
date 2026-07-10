@@ -138,7 +138,7 @@ export function Instructions(): React.ReactElement {
   };
 
   const handleApprove = (id: string): void => {
-    if (pendingApproveIds.has(id) || pendingRejectIds.has(id)) return;
+    if (pendingApproveIds.has(id) || pendingRejectIds.has(id) || pendingAmountIds.has(id)) return;
     setActionErrors((previous) => {
       const next = { ...previous };
       delete next[id];
@@ -149,7 +149,7 @@ export function Instructions(): React.ReactElement {
   };
 
   const handleReject = (id: string): void => {
-    if (pendingApproveIds.has(id) || pendingRejectIds.has(id)) return;
+    if (pendingApproveIds.has(id) || pendingRejectIds.has(id) || pendingAmountIds.has(id)) return;
     setActionErrors((previous) => {
       const next = { ...previous };
       delete next[id];

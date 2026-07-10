@@ -15,10 +15,9 @@ import { validateRiskReward } from "../validator/validator.rr.js";
 
 import { analyzeBuyInstruction } from "./instructions.analysis.js";
 import { sendApprovalCard } from "./instructions.approval.js";
-import { calculateSuggestedQty } from "./instructions.executor.js";
+import { calculateSuggestedQty, parseStoredInstruction } from "./instructions.executor.js";
 import { parseInstruction } from "./instructions.parser.js";
 import { resolveSymbol } from "./instructions.resolver.js";
-import { ParsedInstructionSchema } from "./instructions.schema.js";
 import type { ParsedInstruction, ResolvedStock } from "./instructions.schema.js";
 
 export type SubmitResult =
@@ -152,6 +151,8 @@ export async function processValidatedInstruction(
       symbol: resolved.tradingSymbol,
       parsedJson: JSON.stringify({ ...instruction, _instrumentToken: resolved.instrumentToken }),
       suggestedQty,
+      actionDisagreement,
+      availableMargin,
     });
   } catch (e) {
     // createApproval is a plain synchronous DB call, not Result-wrapped — a throw here
@@ -232,14 +233,17 @@ export type ApplyAmountOverrideResult = { ok: true; qty: number } | { ok: false;
  * the approval's override, taking priority over the auto-computed qty at
  * execution time. Shared by the dashboard's PATCH route and the Slack
  * "Edit Amount" modal so the two channels can't drift on the conversion math.
+ * Re-runs the same concentration check the original suggestedQty went
+ * through, since an override can push the position size well past what was
+ * originally reviewed.
  * @param approvalId - The pending approval's UUID
  * @param amountInr - The approver-chosen order amount in rupees
  * @returns The resulting quantity, or an error if the approval can't be edited
  */
-export function applyAmountOverride(
+export async function applyAmountOverride(
   approvalId: string,
   amountInr: number,
-): ApplyAmountOverrideResult {
+): Promise<ApplyAmountOverrideResult> {
   const approval = getApproval(approvalId);
   if (!approval) {
     return { ok: false, error: "Approval not found" };
@@ -248,20 +252,30 @@ export function applyAmountOverride(
     return { ok: false, error: `Already ${approval.status}` };
   }
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(approval.parsedJson);
-  } catch {
-    return { ok: false, error: "Failed to parse stored instruction" };
+  const storedResult = parseStoredInstruction(approval.parsedJson);
+  if (!storedResult.ok) {
+    return { ok: false, error: storedResult.error };
   }
-
-  const parsedResult = ParsedInstructionSchema.safeParse(raw);
-  if (!parsedResult.success || !parsedResult.data.entryHigh) {
+  const { instruction } = storedResult;
+  if (!instruction.entryHigh) {
     return { ok: false, error: "Instruction is missing an entry price" };
   }
 
-  const { entryHigh, entryLow } = parsedResult.data;
+  const { entryHigh, entryLow } = instruction;
   const qty = calculateSuggestedQty(amountInr, entryHigh, entryLow ?? entryHigh);
+
+  const concentrationResult = await validateConcentration(qty, entryHigh);
+  if (!concentrationResult.pass) {
+    logger.warn("Concentration warning on amount override — proceeding", {
+      approvalId,
+      symbol: approval.symbol,
+      reason: concentrationResult.reason,
+    });
+    await pushAlert(
+      `⚠️ *Concentration Warning*\n\nStock: *${approval.symbol}*\n${concentrationResult.reason}\n\nAmount override applied — review carefully.`,
+    );
+  }
+
   setApprovalOverrideQty(approvalId, qty);
   return { ok: true, qty };
 }

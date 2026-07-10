@@ -213,6 +213,7 @@ export default [
       "docs/**",
       "**/*.js",
       "packages/ui/vite.config.ts",
+      ".claude/worktrees/**",
     ],
   },
 ];

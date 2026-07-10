@@ -265,7 +265,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
         return reply.status(400).send({ ok: false, error: parsed.error.issues[0]?.message });
       }
 
-      const result = applyAmountOverride(request.params.id, parsed.data.amountInr);
+      const result = await applyAmountOverride(request.params.id, parsed.data.amountInr);
       if (!result.ok) {
         if (result.error === "Approval not found") {
           return reply.status(404).send({ ok: false, error: result.error });
