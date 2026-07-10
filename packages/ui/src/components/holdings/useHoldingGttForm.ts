@@ -56,7 +56,7 @@ export function useHoldingGttForm(symbol: string): HoldingGttForm {
   const handleSaveThreshold = (): void => {
     const slNumber = parsePriceInput(sl);
     if (slNumber === null || slNumber <= 0) {
-      setSaveError("Enter a valid SL before setting GTT");
+      setSaveError("Enter a valid SL before saving");
       return;
     }
 
