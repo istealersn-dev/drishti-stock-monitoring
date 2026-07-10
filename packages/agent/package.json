@@ -26,6 +26,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@slack/types": "^2.21.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "@types/node-cron": "^3.0.11",

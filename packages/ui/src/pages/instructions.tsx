@@ -13,6 +13,7 @@ import {
   fetchApprovals,
   rejectInstruction,
   submitInstruction,
+  updateApprovalAmount,
 } from "../lib/api";
 
 /**
@@ -28,6 +29,7 @@ export function Instructions(): React.ReactElement {
   const [actionErrors, setActionErrors] = useState<Partial<Record<string, string>>>({});
   const [pendingApproveIds, setPendingApproveIds] = useState<ReadonlySet<string>>(new Set());
   const [pendingRejectIds, setPendingRejectIds] = useState<ReadonlySet<string>>(new Set());
+  const [pendingAmountIds, setPendingAmountIds] = useState<ReadonlySet<string>>(new Set());
   const queryClient = useQueryClient();
 
   const {
@@ -94,6 +96,41 @@ export function Instructions(): React.ReactElement {
       setActionErrors((previous) => ({ ...previous, [id]: `Reject failed: ${error.message}` }));
     },
   });
+
+  const amountMutation = useMutation({
+    mutationFn: ({ id, amountInr }: { id: string; amountInr: number }) =>
+      updateApprovalAmount(id, amountInr),
+    onSuccess: (_data, { id }) => {
+      setPendingAmountIds((previous) => {
+        const next = new Set(previous);
+        next.delete(id);
+        return next;
+      });
+      void queryClient.invalidateQueries({ queryKey: ["approvals"] });
+    },
+    onError: (error: Error, { id }) => {
+      setPendingAmountIds((previous) => {
+        const next = new Set(previous);
+        next.delete(id);
+        return next;
+      });
+      setActionErrors((previous) => ({
+        ...previous,
+        [id]: `Update amount failed: ${error.message}`,
+      }));
+    },
+  });
+
+  const handleUpdateAmount = (id: string, amountInr: number): void => {
+    if (pendingApproveIds.has(id) || pendingRejectIds.has(id) || pendingAmountIds.has(id)) return;
+    setActionErrors((previous) => {
+      const next = { ...previous };
+      delete next[id];
+      return next;
+    });
+    setPendingAmountIds((previous) => new Set(previous).add(id));
+    amountMutation.mutate({ id, amountInr });
+  };
 
   const handleSubmit = (): void => {
     if (!instructionText.trim()) return;
@@ -169,8 +206,10 @@ export function Instructions(): React.ReactElement {
               approval={approval}
               onApprove={handleApprove}
               onReject={handleReject}
+              onUpdateAmount={handleUpdateAmount}
               approvePending={pendingApproveIds.has(approval.id)}
               rejectPending={pendingRejectIds.has(approval.id)}
+              amountPending={pendingAmountIds.has(approval.id)}
               actionError={actionErrors[approval.id] ?? null}
             />
           ))}

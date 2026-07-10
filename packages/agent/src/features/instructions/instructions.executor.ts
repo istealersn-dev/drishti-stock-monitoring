@@ -89,15 +89,22 @@ export async function executeApprovedInstruction(
   const entryHigh = instruction.entryHigh;
   const entryLow = instruction.entryLow ?? entryHigh;
 
-  const marginResult = await fetchMargins();
-  let qty = approval.suggestedQty;
-  if (marginResult.ok) {
-    qty = calculateSuggestedQty(marginResult.value.available_margin, entryHigh, entryLow);
+  // An approver-chosen override always wins — it must not be silently replaced
+  // by a fresh margin-based recompute, which would defeat the point of editing it.
+  let qty: number;
+  if (approval.overrideQty !== null) {
+    qty = approval.overrideQty;
   } else {
-    logger.warn("Failed to fetch margins for qty calculation; using stored qty", {
-      approvalId,
-      error: marginResult.error.message,
-    });
+    qty = approval.suggestedQty;
+    const marginResult = await fetchMargins();
+    if (marginResult.ok) {
+      qty = calculateSuggestedQty(marginResult.value.available_margin, entryHigh, entryLow);
+    } else {
+      logger.warn("Failed to fetch margins for qty calculation; using stored qty", {
+        approvalId,
+        error: marginResult.error.message,
+      });
+    }
   }
 
   const limitPrice = Number((entryHigh * BUY_LIMIT_BUFFER).toFixed(2));

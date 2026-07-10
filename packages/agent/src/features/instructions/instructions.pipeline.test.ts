@@ -10,6 +10,8 @@ const {
   mockCalculateSuggestedQty,
   mockCreateApproval,
   mockSetApprovalSlackTs,
+  mockGetApproval,
+  mockSetApprovalOverrideQty,
   mockSendApprovalCard,
   mockPushAlert,
 } = vi.hoisted(() => ({
@@ -22,6 +24,8 @@ const {
   mockCalculateSuggestedQty: vi.fn(),
   mockCreateApproval: vi.fn(),
   mockSetApprovalSlackTs: vi.fn(),
+  mockGetApproval: vi.fn(),
+  mockSetApprovalOverrideQty: vi.fn(),
   mockSendApprovalCard: vi.fn(),
   mockPushAlert: vi.fn(),
 }));
@@ -40,6 +44,8 @@ vi.mock("./instructions.executor.js", () => ({
 vi.mock("../approval/approval.store.js", () => ({
   createApproval: mockCreateApproval,
   setApprovalSlackTs: mockSetApprovalSlackTs,
+  getApproval: mockGetApproval,
+  setApprovalOverrideQty: mockSetApprovalOverrideQty,
 }));
 vi.mock("./instructions.approval.js", () => ({ sendApprovalCard: mockSendApprovalCard }));
 vi.mock("../alerts/alerts.slack.js", () => ({ pushAlert: mockPushAlert }));
@@ -48,6 +54,7 @@ vi.mock("../../shared/env.js", () => ({ env: { SLACK_ALERT_CHANNEL_ID: "C_ALERTS
 import { err, ok } from "../../shared/errors.js";
 
 import {
+  applyAmountOverride,
   processValidatedInstruction,
   submitBuyInstruction,
   validateBuyInstruction,
@@ -219,5 +226,60 @@ describe("submitBuyInstruction", () => {
     if (!result.ok) return;
     expect(result.symbol).toBe("RAMCOSYS-EQ");
     expect(mockAnalyzeBuyInstruction).toHaveBeenCalled();
+  });
+});
+
+describe("applyAmountOverride", () => {
+  const approvalRow = {
+    id: "approval-1",
+    symbol: "RAMCOSYS-EQ",
+    parsedJson: JSON.stringify(instruction),
+    suggestedQty: 10,
+    overrideQty: null,
+    status: "pending" as const,
+    slackTs: "slack-ts-001",
+    createdAt: new Date().toISOString(),
+    resolvedAt: null,
+  };
+
+  it("computes qty from the amount and persists it as the override", () => {
+    mockGetApproval.mockReturnValue(approvalRow);
+    mockCalculateSuggestedQty.mockReturnValue(86);
+
+    const result = applyAmountOverride("approval-1", 50_000);
+
+    expect(result).toEqual({ ok: true, qty: 86 });
+    expect(mockCalculateSuggestedQty).toHaveBeenCalledWith(50_000, 580, 560);
+    expect(mockSetApprovalOverrideQty).toHaveBeenCalledWith("approval-1", 86);
+  });
+
+  it("returns an error when the approval doesn't exist", () => {
+    mockGetApproval.mockReturnValue(null);
+
+    const result = applyAmountOverride("missing-id", 50_000);
+
+    expect(result).toEqual({ ok: false, error: "Approval not found" });
+    expect(mockSetApprovalOverrideQty).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when the approval is already resolved", () => {
+    mockGetApproval.mockReturnValue({ ...approvalRow, status: "approved" });
+
+    const result = applyAmountOverride("approval-1", 50_000);
+
+    expect(result).toEqual({ ok: false, error: "Already approved" });
+    expect(mockSetApprovalOverrideQty).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when the stored instruction has no entry price", () => {
+    mockGetApproval.mockReturnValue({
+      ...approvalRow,
+      parsedJson: JSON.stringify({ ...instruction, entryLow: null, entryHigh: null }),
+    });
+
+    const result = applyAmountOverride("approval-1", 50_000);
+
+    expect(result).toEqual({ ok: false, error: "Instruction is missing an entry price" });
+    expect(mockSetApprovalOverrideQty).not.toHaveBeenCalled();
   });
 });

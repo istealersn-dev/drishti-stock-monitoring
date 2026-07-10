@@ -10,6 +10,7 @@ export type ApprovalRow = {
   symbol: string;
   parsedJson: string;
   suggestedQty: number;
+  overrideQty: number | null;
   status: ApprovalStatus;
   slackTs: string | null;
   createdAt: string;
@@ -77,6 +78,16 @@ export function resolveApproval(id: string, status: Exclude<ApprovalStatus, "pen
  */
 export function setApprovalSlackTs(id: string, slackTs: string): void {
   db.update(pendingApprovals).set({ slackTs }).where(eq(pendingApprovals.id, id)).run();
+}
+
+/**
+ * Record an approver-chosen quantity override, taking priority over suggestedQty
+ * at execution time (see executeApprovedInstruction).
+ * @param id - The approval UUID
+ * @param qty - The overridden quantity
+ */
+export function setApprovalOverrideQty(id: string, qty: number): void {
+  db.update(pendingApprovals).set({ overrideQty: qty }).where(eq(pendingApprovals.id, id)).run();
 }
 
 /**

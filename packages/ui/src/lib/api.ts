@@ -142,6 +142,7 @@ export const ApprovalSchema = z.object({
   symbol: z.string(),
   parsedJson: z.string(),
   suggestedQty: z.number(),
+  overrideQty: z.number().nullable(),
   status: z.string(),
   slackTs: z.string().nullable(),
   createdAt: z.string(),
@@ -270,6 +271,22 @@ export async function rejectInstruction(id: string): Promise<void> {
   await apiFetch(`/api/approvals/${encodeURIComponent(id)}/reject`, z.object({ ok: z.boolean() }), {
     method: "POST",
   });
+}
+
+/**
+ * Override a pending approval's order amount; the server converts it to a
+ * share quantity using the instruction's entry price.
+ * @param id - Approval ID
+ * @param amountInr - The approver-chosen order amount in rupees
+ * @returns The resulting quantity
+ */
+export async function updateApprovalAmount(id: string, amountInr: number): Promise<number> {
+  const response = await apiFetch(
+    `/api/approvals/${encodeURIComponent(id)}/amount`,
+    z.object({ ok: z.boolean(), qty: z.number() }),
+    { method: "PATCH", body: JSON.stringify({ amountInr }) },
+  );
+  return response.qty;
 }
 
 /**

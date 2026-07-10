@@ -18,6 +18,7 @@ export const pendingApprovals = sqliteTable("pending_approvals", {
   symbol: text("symbol").notNull(),
   parsedJson: text("parsed_json").notNull(),
   suggestedQty: integer("suggested_qty").notNull(),
+  overrideQty: integer("override_qty"),
   status: text("status").notNull(),
   slackTs: text("slack_ts"),
   createdAt: text("created_at").notNull(),

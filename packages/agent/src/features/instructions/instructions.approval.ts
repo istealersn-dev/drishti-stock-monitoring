@@ -1,4 +1,7 @@
+import type { ViewOutput } from "@slack/bolt";
+import type { KnownBlock } from "@slack/types";
 import { WebClient } from "@slack/web-api";
+import type { ViewsOpenArguments } from "@slack/web-api";
 
 import { env } from "../../shared/env.js";
 import { SlackError, err, ok } from "../../shared/errors.js";
@@ -74,30 +77,33 @@ export function formatStopLoss(instruction: ParsedInstruction): string {
 }
 
 /**
- * Build and post a Slack Block Kit approval card for a buy instruction.
- * @param approvalId - UUID used as the action value so Bolt can correlate the tap
+ * Build the Block Kit blocks for a pending approval card. Shared by the initial
+ * post (sendApprovalCard) and an in-place refresh after the approver edits the
+ * amount (refreshApprovalCard) so the two can't drift in layout.
+ * @param approvalId - UUID used as the action value so Bolt can correlate taps
  * @param instruction - The parsed buy instruction
  * @param resolvedSymbol - The Upstox trading symbol (e.g. "RAMCOSYS-EQ")
- * @param suggestedQty - Agent-calculated suggested quantity
+ * @param qty - Quantity to display (suggested, or approver-overridden)
  * @param availableMargin - Current available margin in rupees
- * @param analysis - AI sanity-check text for the setup, or null if analysis was unavailable
+ * @param analysis - AI sanity-check text for the setup, or null if unavailable.
+ *   Dropped on a post-edit refresh rather than re-run, since re-invoking the LLM
+ *   on every amount edit would make editing feel slow for no material benefit.
  * @param actionDisagreement - Non-null when the parser's model disagreed with the
- *   forced BUY action (e.g. extracted "SELL"/"EXIT"), surfaced as a warning block
- *   so the approver sees the anomaly before deciding
- * @returns A Result containing the Slack message timestamp or a SlackError
+ *   forced BUY action, surfaced as a warning block
+ * @returns The card's Block Kit blocks array
  */
-export async function sendApprovalCard(
+function buildApprovalCardBlocks(
   approvalId: string,
   instruction: ParsedInstruction,
   resolvedSymbol: string,
-  suggestedQty: number,
+  qty: number,
   availableMargin: number,
   analysis: string | null,
-  actionDisagreement: string | null = null,
-): Promise<Result<string, SlackError>> {
+  actionDisagreement: string | null,
+): KnownBlock[] {
   const timeoutMinutes = env.DRISHTI_APPROVAL_TIMEOUT_MINUTES;
 
-  const analysisBlock = analysis
+  const analysisBlock: KnownBlock[] = analysis
     ? [
         {
           type: "section",
@@ -106,7 +112,7 @@ export async function sendApprovalCard(
       ]
     : [];
 
-  const disagreementBlock = actionDisagreement
+  const disagreementBlock: KnownBlock[] = actionDisagreement
     ? [
         {
           type: "section",
@@ -118,7 +124,7 @@ export async function sendApprovalCard(
       ]
     : [];
 
-  const blocks = [
+  return [
     {
       type: "header",
       text: { type: "plain_text", text: "🟡 Buy Instruction — Awaiting Approval", emoji: true },
@@ -132,7 +138,7 @@ export async function sendApprovalCard(
         { type: "mrkdwn", text: `*Entry:*\n${formatEntry(instruction)}` },
         { type: "mrkdwn", text: `*Stop Loss:*\n${formatStopLoss(instruction)}` },
         { type: "mrkdwn", text: `*Targets:*\n${formatTargets(instruction)}` },
-        { type: "mrkdwn", text: `*Suggested Qty:*\n${suggestedQty} shares` },
+        { type: "mrkdwn", text: `*Qty:*\n${qty} shares` },
         {
           type: "mrkdwn",
           text: `*Available Margin:*\n₹${availableMargin.toLocaleString("en-IN")}`,
@@ -148,6 +154,12 @@ export async function sendApprovalCard(
           text: { type: "plain_text", text: "✅ Approve", emoji: true },
           style: "primary",
           action_id: "approve_buy",
+          value: approvalId,
+        },
+        {
+          type: "button",
+          text: { type: "plain_text", text: "✏️ Edit Amount", emoji: true },
+          action_id: "edit_amount",
           value: approvalId,
         },
         {
@@ -169,6 +181,39 @@ export async function sendApprovalCard(
       ],
     },
   ];
+}
+
+/**
+ * Build and post a Slack Block Kit approval card for a buy instruction.
+ * @param approvalId - UUID used as the action value so Bolt can correlate the tap
+ * @param instruction - The parsed buy instruction
+ * @param resolvedSymbol - The Upstox trading symbol (e.g. "RAMCOSYS-EQ")
+ * @param suggestedQty - Agent-calculated suggested quantity
+ * @param availableMargin - Current available margin in rupees
+ * @param analysis - AI sanity-check text for the setup, or null if analysis was unavailable
+ * @param actionDisagreement - Non-null when the parser's model disagreed with the
+ *   forced BUY action (e.g. extracted "SELL"/"EXIT"), surfaced as a warning block
+ *   so the approver sees the anomaly before deciding
+ * @returns A Result containing the Slack message timestamp or a SlackError
+ */
+export async function sendApprovalCard(
+  approvalId: string,
+  instruction: ParsedInstruction,
+  resolvedSymbol: string,
+  suggestedQty: number,
+  availableMargin: number,
+  analysis: string | null,
+  actionDisagreement: string | null = null,
+): Promise<Result<string, SlackError>> {
+  const blocks = buildApprovalCardBlocks(
+    approvalId,
+    instruction,
+    resolvedSymbol,
+    suggestedQty,
+    availableMargin,
+    analysis,
+    actionDisagreement,
+  );
 
   try {
     const response = await getClient().chat.postMessage({
@@ -185,6 +230,112 @@ export async function sendApprovalCard(
     const message = error instanceof Error ? error.message : String(error);
     return err(new SlackError(`Failed to post approval card: ${message}`));
   }
+}
+
+/**
+ * Re-render a still-pending approval card in place after the approver edits
+ * the amount — same layout as sendApprovalCard, minus the AI analysis (see
+ * buildApprovalCardBlocks), via chat.update instead of a new post.
+ * @param slackTs - The original message timestamp to update
+ * @param approvalId - UUID used as the action value so Bolt can correlate taps
+ * @param instruction - The parsed buy instruction
+ * @param resolvedSymbol - The Upstox trading symbol
+ * @param qty - The new quantity to display
+ * @param availableMargin - Freshly-fetched available margin in rupees
+ * @returns A Result indicating success, or a SlackError if the update call fails
+ */
+export async function refreshApprovalCard(
+  slackTs: string,
+  approvalId: string,
+  instruction: ParsedInstruction,
+  resolvedSymbol: string,
+  qty: number,
+  availableMargin: number,
+): Promise<Result<void, SlackError>> {
+  const blocks = buildApprovalCardBlocks(
+    approvalId,
+    instruction,
+    resolvedSymbol,
+    qty,
+    availableMargin,
+    null,
+    null,
+  );
+
+  try {
+    await getClient().chat.update({
+      channel: env.SLACK_ALERT_CHANNEL_ID,
+      ts: slackTs,
+      text: `🟡 Buy Instruction for ${resolvedSymbol} — awaiting approval`,
+      blocks,
+    });
+    return ok(undefined);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return err(new SlackError(`Failed to refresh approval card: ${message}`));
+  }
+}
+
+const EDIT_AMOUNT_MODAL_CALLBACK_ID = "edit_amount_modal";
+const EDIT_AMOUNT_BLOCK_ID = "amount_block";
+const EDIT_AMOUNT_ACTION_ID = "amount_input";
+
+/**
+ * Build the "Edit Amount" modal view, pre-filled with the current estimated
+ * order amount. Slack Block Kit only allows plain_text_input inside a modal
+ * (not a regular posted message), so editing the qty inline on the card
+ * itself isn't possible — this modal is the closest equivalent.
+ * @param approvalId - Carried in private_metadata so the view-submission
+ *   handler knows which approval to update
+ * @param currentAmountInr - The current estimated amount, used as the
+ *   pre-filled default
+ * @returns A Slack modal view object suitable for views.open
+ */
+export function buildEditAmountModal(
+  approvalId: string,
+  currentAmountInr: number,
+): NonNullable<ViewsOpenArguments["view"]> {
+  return {
+    type: "modal",
+    callback_id: EDIT_AMOUNT_MODAL_CALLBACK_ID,
+    private_metadata: approvalId,
+    title: { type: "plain_text", text: "Edit Order Amount" },
+    submit: { type: "plain_text", text: "Update" },
+    close: { type: "plain_text", text: "Cancel" },
+    blocks: [
+      {
+        type: "input",
+        block_id: EDIT_AMOUNT_BLOCK_ID,
+        label: { type: "plain_text", text: "Amount (₹)" },
+        element: {
+          type: "plain_text_input",
+          action_id: EDIT_AMOUNT_ACTION_ID,
+          initial_value: String(Math.round(currentAmountInr)),
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Extract and validate the amount entered in the "Edit Amount" modal.
+ * @param view - The Bolt view_submission payload's view object
+ * @returns The approval ID and parsed amount, or an error message
+ */
+export function parseEditAmountSubmission(
+  view: ViewOutput,
+): { ok: true; approvalId: string; amountInr: number } | { ok: false; error: string } {
+  const approvalId = view.private_metadata ?? "";
+  const raw = view.state?.values[EDIT_AMOUNT_BLOCK_ID]?.[EDIT_AMOUNT_ACTION_ID]?.value ?? "";
+  const amountInr = Number(raw);
+
+  if (!approvalId) {
+    return { ok: false, error: "Missing approval reference" };
+  }
+  if (!raw || !Number.isFinite(amountInr) || amountInr <= 0) {
+    return { ok: false, error: "Enter a valid positive amount" };
+  }
+  return { ok: true, approvalId, amountInr };
 }
 
 /**

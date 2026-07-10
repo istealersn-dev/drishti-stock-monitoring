@@ -3,7 +3,12 @@ import crypto from "node:crypto";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
-import { createApproval, setApprovalSlackTs } from "../approval/approval.store.js";
+import {
+  createApproval,
+  getApproval,
+  setApprovalOverrideQty,
+  setApprovalSlackTs,
+} from "../approval/approval.store.js";
 import { fetchMargins } from "../portfolio/portfolio.tools.js";
 import { validateConcentration } from "../validator/validator.concentration.js";
 import { validateRiskReward } from "../validator/validator.rr.js";
@@ -13,6 +18,7 @@ import { sendApprovalCard } from "./instructions.approval.js";
 import { calculateSuggestedQty } from "./instructions.executor.js";
 import { parseInstruction } from "./instructions.parser.js";
 import { resolveSymbol } from "./instructions.resolver.js";
+import { ParsedInstructionSchema } from "./instructions.schema.js";
 import type { ParsedInstruction, ResolvedStock } from "./instructions.schema.js";
 
 export type SubmitResult =
@@ -216,4 +222,46 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     return validated;
   }
   return processValidatedInstruction(validated.value);
+}
+
+export type ApplyAmountOverrideResult = { ok: true; qty: number } | { ok: false; error: string };
+
+/**
+ * Convert an approver-chosen ₹ amount into a share quantity (using the same
+ * midpoint-entry-price formula as the initial suggestion) and persist it as
+ * the approval's override, taking priority over the auto-computed qty at
+ * execution time. Shared by the dashboard's PATCH route and the Slack
+ * "Edit Amount" modal so the two channels can't drift on the conversion math.
+ * @param approvalId - The pending approval's UUID
+ * @param amountInr - The approver-chosen order amount in rupees
+ * @returns The resulting quantity, or an error if the approval can't be edited
+ */
+export function applyAmountOverride(
+  approvalId: string,
+  amountInr: number,
+): ApplyAmountOverrideResult {
+  const approval = getApproval(approvalId);
+  if (!approval) {
+    return { ok: false, error: "Approval not found" };
+  }
+  if (approval.status !== "pending") {
+    return { ok: false, error: `Already ${approval.status}` };
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(approval.parsedJson);
+  } catch {
+    return { ok: false, error: "Failed to parse stored instruction" };
+  }
+
+  const parsedResult = ParsedInstructionSchema.safeParse(raw);
+  if (!parsedResult.success || !parsedResult.data.entryHigh) {
+    return { ok: false, error: "Instruction is missing an entry price" };
+  }
+
+  const { entryHigh, entryLow } = parsedResult.data;
+  const qty = calculateSuggestedQty(amountInr, entryHigh, entryLow ?? entryHigh);
+  setApprovalOverrideQty(approvalId, qty);
+  return { ok: true, qty };
 }

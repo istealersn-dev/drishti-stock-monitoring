@@ -7,8 +7,16 @@ import { eq } from "drizzle-orm";
 import { db } from "../../db/db.js";
 import { agentRuns } from "../../db/schema.js";
 import { logger } from "../../shared/logger.js";
-import { updateApprovalCard } from "../instructions/instructions.approval.js";
+import {
+  buildEditAmountModal,
+  parseEditAmountSubmission,
+  refreshApprovalCard,
+  updateApprovalCard,
+} from "../instructions/instructions.approval.js";
 import { executeApprovedInstruction } from "../instructions/instructions.executor.js";
+import { applyAmountOverride } from "../instructions/instructions.pipeline.js";
+import { ParsedInstructionSchema } from "../instructions/instructions.schema.js";
+import { fetchMargins } from "../portfolio/portfolio.tools.js";
 
 import { getApproval, resolveApproval } from "./approval.store.js";
 
@@ -103,6 +111,110 @@ export function registerApprovalHandlers(app: App): void {
           error: updateResult.error.message,
         });
       }
+    }
+  });
+
+  app.action("edit_amount", async ({ action, ack, body, client }) => {
+    await ack();
+
+    const buttonAction = action as ButtonAction;
+    const approvalId = buttonAction.value ?? "";
+
+    if (!approvalId) {
+      logger.error("edit_amount action missing value (approvalId)");
+      return;
+    }
+
+    const approval = getApproval(approvalId);
+    if (!approval || approval.status !== "pending") {
+      logger.warn("Edit-amount tap on missing/resolved approval", { approvalId });
+      return;
+    }
+
+    let raw: unknown;
+    try {
+      raw = JSON.parse(approval.parsedJson);
+    } catch {
+      logger.error("edit_amount: failed to parse stored instruction", { approvalId });
+      return;
+    }
+    const parsedResult = ParsedInstructionSchema.safeParse(raw);
+    if (!parsedResult.success || !parsedResult.data.entryHigh) {
+      logger.error("edit_amount: instruction missing entry price", { approvalId });
+      return;
+    }
+    const { entryHigh, entryLow } = parsedResult.data;
+    const midpoint = ((entryLow ?? entryHigh) + entryHigh) / 2;
+    const currentQty = approval.overrideQty ?? approval.suggestedQty;
+    const currentAmountInr = midpoint * currentQty;
+
+    const triggerId = "trigger_id" in body ? body.trigger_id : undefined;
+    if (!triggerId) {
+      logger.error("edit_amount: missing trigger_id", { approvalId });
+      return;
+    }
+
+    await client.views.open({
+      trigger_id: triggerId,
+      view: buildEditAmountModal(approvalId, currentAmountInr),
+    });
+  });
+
+  app.view("edit_amount_modal", async ({ ack, view }) => {
+    const submission = parseEditAmountSubmission(view);
+    if (!submission.ok) {
+      await ack({
+        response_action: "errors",
+        errors: { amount_block: submission.error },
+      });
+      return;
+    }
+    await ack();
+
+    const { approvalId, amountInr } = submission;
+    const overrideResult = applyAmountOverride(approvalId, amountInr);
+    if (!overrideResult.ok) {
+      logger.warn("Failed to apply amount override from Slack modal", {
+        approvalId,
+        error: overrideResult.error,
+      });
+      return;
+    }
+
+    logger.info("Approval amount overridden via Slack", {
+      approvalId,
+      amountInr,
+      qty: overrideResult.qty,
+    });
+
+    const approval = getApproval(approvalId);
+    if (!approval?.slackTs) return;
+
+    let raw: unknown;
+    try {
+      raw = JSON.parse(approval.parsedJson);
+    } catch {
+      return;
+    }
+    const parsedResult = ParsedInstructionSchema.safeParse(raw);
+    if (!parsedResult.success) return;
+
+    const marginResult = await fetchMargins();
+    const availableMargin = marginResult.ok ? marginResult.value.available_margin : 0;
+
+    const refreshResult = await refreshApprovalCard(
+      approval.slackTs,
+      approvalId,
+      parsedResult.data,
+      approval.symbol,
+      overrideResult.qty,
+      availableMargin,
+    );
+    if (!refreshResult.ok) {
+      logger.warn("Failed to refresh approval card after amount edit", {
+        approvalId,
+        error: refreshResult.error.message,
+      });
     }
   });
 }
