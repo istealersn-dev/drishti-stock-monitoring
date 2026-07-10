@@ -29,7 +29,7 @@ type NeedsAttentionCardProperties = {
 
 /**
  * Dashboard "Needs attention" card (Drishti.dc.html) — one row per holding
- * whose LTP has breached or is within 5% of its GTT stop-loss. "Set GTT"
+ * whose LTP has breached or is within 5% of its GTT stop-loss. "Review SL"
  * routes to Holdings, where the actual SL/target editing form lives — this
  * card is a triage surface, not a duplicate editing form. (The prototype's
  * per-row "Pause/Resume" action has no backing endpoint — the app only has a
@@ -90,7 +90,7 @@ export function NeedsAttentionCard({
           void navigate({ to: "/holdings" });
         }}
       >
-        Set GTT
+        Review SL
       </Button>
     </article>
   );

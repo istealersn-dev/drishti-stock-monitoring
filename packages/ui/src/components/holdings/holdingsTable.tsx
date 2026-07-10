@@ -18,9 +18,8 @@ type HoldingRowProperties = {
 };
 
 function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
-  const { sl, setSl, target, setTarget, saveError, isPending, handleSetGtt } = useHoldingGttForm(
-    holding.trading_symbol,
-  );
+  const { sl, setSl, target, setTarget, saveError, isPending, handleSaveThreshold } =
+    useHoldingGttForm(holding.trading_symbol);
   const ltpColor = holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
   const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
   const cost = holding.quantity * holding.average_price;
@@ -73,8 +72,13 @@ function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
       </Table.Cell>
       <Table.Cell align="right">
         <div className="flex flex-col items-end gap-1">
-          <Button variant="secondary" onClick={handleSetGtt} disabled={isPending}>
-            {isPending ? "Saving…" : "Set GTT"}
+          <Button
+            variant="secondary"
+            onClick={handleSaveThreshold}
+            disabled={isPending}
+            title="Places an exit GTT automatically if price breaches this SL — no order is placed now."
+          >
+            {isPending ? "Saving…" : "Save SL"}
           </Button>
           {saveError !== null && <span className="text-caption text-neg">{saveError}</span>}
         </div>
@@ -89,7 +93,7 @@ type HoldingsTableProperties = {
 
 /**
  * Desktop holdings table (handoff.md §4 `HoldingsTable.tsx`) — 10 columns
- * with inline SL/target inputs and a per-row "Set GTT" action. Shares
+ * with inline SL/target inputs and a per-row "Save SL" action. Shares
  * `useHoldingGttForm` with `HoldingCard`'s mobile presentation.
  * @param props.holdings - the filtered holdings to render
  * @returns Holdings table element

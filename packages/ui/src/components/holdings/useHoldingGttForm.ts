@@ -17,14 +17,16 @@ type HoldingGttForm = {
   setTarget: (value: string) => void;
   saveError: string | null;
   isPending: boolean;
-  handleSetGtt: () => void;
+  handleSaveThreshold: () => void;
 };
 
 /**
- * Shared SL/target form state + "Set GTT" mutation for one holding — used
- * identically by `HoldingsTable`'s desktop row and `HoldingCard`'s mobile
- * card (handoff.md §4: "share the row view-model") so the two presentations
- * can't drift in behavior.
+ * Shared SL/target form state + threshold-save mutation for one holding —
+ * used identically by `HoldingsTable`'s desktop row and `HoldingCard`'s
+ * mobile card (handoff.md §4: "share the row view-model") so the two
+ * presentations can't drift in behavior. Saving here only writes
+ * `stock_config`; the actual exit GTT is placed later, autonomously, if the
+ * live price breaches `slThreshold` (see `stopLoss.handler.ts`).
  * @param symbol - the holding's trading symbol
  * @returns form state, change handlers, and the submit handler
  */
@@ -51,7 +53,7 @@ export function useHoldingGttForm(symbol: string): HoldingGttForm {
     },
   });
 
-  const handleSetGtt = (): void => {
+  const handleSaveThreshold = (): void => {
     const slNumber = parsePriceInput(sl);
     if (slNumber === null || slNumber <= 0) {
       setSaveError("Enter a valid SL before setting GTT");
@@ -70,5 +72,13 @@ export function useHoldingGttForm(symbol: string): HoldingGttForm {
     mutation.mutate({ slThreshold: slNumber, targetOne: targetNumber, targetTwo: null });
   };
 
-  return { sl, setSl, target, setTarget, saveError, isPending: mutation.isPending, handleSetGtt };
+  return {
+    sl,
+    setSl,
+    target,
+    setTarget,
+    saveError,
+    isPending: mutation.isPending,
+    handleSaveThreshold,
+  };
 }
