@@ -495,6 +495,13 @@ describe("POST /api/brokers/:id/verify", () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it("returns 501 for a known but unimplemented broker (groww) without calling fetchMargins", async () => {
+    const app = await buildApiApp();
+    const response = await inject(app, "groww");
+    expect(response.statusCode).toBe(501);
+    expect(mockFetchMargins).not.toHaveBeenCalled();
+  });
+
   it("records status=connected on a successful live read", async () => {
     mockFetchMargins.mockResolvedValue({ ok: true, value: { available_margin: 50000 } });
     const insertValues = vi.fn().mockReturnValue({
@@ -544,7 +551,7 @@ describe("POST /api/brokers/:id/activate", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("activates a known broker via setActiveBroker's transaction", async () => {
+  it("activates a known, implemented broker via setActiveBroker's transaction", async () => {
     type TxMock = { insert: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
     const tx: TxMock = {
       insert: vi.fn().mockReturnValue({
@@ -559,12 +566,24 @@ describe("POST /api/brokers/:id/activate", () => {
     const app = await buildApiApp();
     const response = await app.inject({
       method: "POST",
-      url: "/api/brokers/groww/activate",
+      url: "/api/brokers/upstox/activate",
       headers: { "x-access-key": "test-key" },
     });
 
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toEqual({ ok: true });
     expect(mockDbTransaction).toHaveBeenCalledOnce();
+  });
+
+  it("returns 501 for a known but unimplemented broker (groww) without touching the DB", async () => {
+    const app = await buildApiApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/brokers/groww/activate",
+      headers: { "x-access-key": "test-key" },
+    });
+
+    expect(response.statusCode).toBe(501);
+    expect(mockDbTransaction).not.toHaveBeenCalled();
   });
 });

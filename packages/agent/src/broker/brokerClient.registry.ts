@@ -6,6 +6,16 @@ import type { BrokerClient } from "./brokerClient.types.js";
 import { createUpstoxClient } from "./upstox/upstox.client.js";
 
 /**
+ * Broker ids with a real adapter behind them. Any other known BrokerId (e.g.
+ * "groww" before its adapter ships) is a valid enum value but has no working
+ * integration yet — callers that expose broker status to a user (verify,
+ * activate) must check this before claiming success, since createBrokerClient
+ * silently falls back to Upstox and would otherwise report an unimplemented
+ * broker as "connected".
+ */
+export const IMPLEMENTED_BROKER_IDS: readonly BrokerId[] = ["upstox"];
+
+/**
  * Build a BrokerClient for a specific broker id, regardless of which broker
  * is currently active. Falls back to Upstox for any broker id without an
  * adapter yet (e.g. "groww" before its adapter ships) rather than throwing,
