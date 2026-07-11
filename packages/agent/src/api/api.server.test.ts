@@ -4,20 +4,29 @@ const {
   mockDbSelect,
   mockDbInsert,
   mockDbUpdate,
+  mockDbTransaction,
   mockIsDryRunActive,
   mockCancelGTT,
   mockGetCachedHoldings,
+  mockFetchMargins,
 } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
   mockDbInsert: vi.fn(),
   mockDbUpdate: vi.fn(),
+  mockDbTransaction: vi.fn(),
   mockIsDryRunActive: vi.fn().mockReturnValue(false),
   mockCancelGTT: vi.fn(),
   mockGetCachedHoldings: vi.fn().mockReturnValue({ holdings: [], cachedAt: null }),
+  mockFetchMargins: vi.fn(),
 }));
 
 vi.mock("../db/db.js", () => ({
-  db: { select: mockDbSelect, insert: mockDbInsert, update: mockDbUpdate },
+  db: {
+    select: mockDbSelect,
+    insert: mockDbInsert,
+    update: mockDbUpdate,
+    transaction: mockDbTransaction,
+  },
 }));
 vi.mock("../shared/dryRun.js", () => ({ isDryRunActive: mockIsDryRunActive }));
 vi.mock("../db/schema.js", () => ({
@@ -26,6 +35,7 @@ vi.mock("../db/schema.js", () => ({
   gttOrders: {},
   pendingApprovals: {},
   agentSettings: {},
+  brokerConnections: { brokerId: "broker_id" },
 }));
 vi.mock("../shared/env.js", () => ({
   env: {
@@ -42,6 +52,7 @@ vi.mock("../features/portfolio/portfolio.cache.js", () => ({
   getCachedHoldings: mockGetCachedHoldings,
 }));
 vi.mock("../features/gtt/gtt.tools.js", () => ({ cancelGTT: mockCancelGTT }));
+vi.mock("../features/portfolio/portfolio.tools.js", () => ({ fetchMargins: mockFetchMargins }));
 vi.mock("../shared/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -403,5 +414,157 @@ describe("GET /api/holdings", () => {
       exchange: "NSE",
       instrument_token: "NSE_EQ|INE002A01018",
     });
+  });
+});
+
+describe("GET /api/brokers", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("fills in a not_configured row for every known broker with no DB row yet", async () => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({ all: vi.fn().mockReturnValue([]) }),
+    });
+
+    const app = await buildApiApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/brokers",
+      headers: { "x-access-key": "test-key" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body) as { data: { brokerId: string; status: string }[] };
+    expect(body.data).toEqual([
+      {
+        brokerId: "upstox",
+        isActive: false,
+        status: "not_configured",
+        lastCheckedAt: null,
+        lastError: null,
+      },
+      {
+        brokerId: "groww",
+        isActive: false,
+        status: "not_configured",
+        lastCheckedAt: null,
+        lastError: null,
+      },
+    ]);
+  });
+
+  it("uses the real row for a broker that has been verified or activated", async () => {
+    const row = {
+      brokerId: "upstox",
+      isActive: true,
+      status: "connected",
+      lastCheckedAt: "2026-01-01T00:00:00.000Z",
+      lastError: null,
+    };
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({ all: vi.fn().mockReturnValue([row]) }),
+    });
+
+    const app = await buildApiApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/brokers",
+      headers: { "x-access-key": "test-key" },
+    });
+
+    const body = JSON.parse(response.body) as { data: unknown[] };
+    expect(body.data).toContainEqual(row);
+  });
+});
+
+describe("POST /api/brokers/:id/verify", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const inject = (
+    app: Awaited<ReturnType<typeof buildApiApp>>,
+    id: string,
+  ): ReturnType<typeof app.inject> =>
+    app.inject({
+      method: "POST",
+      url: `/api/brokers/${id}/verify`,
+      headers: { "x-access-key": "test-key" },
+    });
+
+  it("returns 400 for an unknown broker id", async () => {
+    const app = await buildApiApp();
+    const response = await inject(app, "not-a-broker");
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("records status=connected on a successful live read", async () => {
+    mockFetchMargins.mockResolvedValue({ ok: true, value: { available_margin: 50000 } });
+    const insertValues = vi.fn().mockReturnValue({
+      onConflictDoUpdate: vi.fn().mockReturnValue({ run: vi.fn() }),
+    });
+    mockDbInsert.mockReturnValue({ values: insertValues });
+
+    const app = await buildApiApp();
+    const response = await inject(app, "upstox");
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({ ok: true, data: { status: "connected" } });
+    expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ status: "connected" }));
+  });
+
+  it("records status=error with the failure message on a failed live read", async () => {
+    mockFetchMargins.mockResolvedValue({ ok: false, error: { message: "Upstox token expired" } });
+    const insertValues = vi.fn().mockReturnValue({
+      onConflictDoUpdate: vi.fn().mockReturnValue({ run: vi.fn() }),
+    });
+    mockDbInsert.mockReturnValue({ values: insertValues });
+
+    const app = await buildApiApp();
+    const response = await inject(app, "upstox");
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      ok: true,
+      data: { status: "error", error: "Upstox token expired" },
+    });
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "error", lastError: "Upstox token expired" }),
+    );
+  });
+});
+
+describe("POST /api/brokers/:id/activate", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns 400 for an unknown broker id", async () => {
+    const app = await buildApiApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/brokers/not-a-broker/activate",
+      headers: { "x-access-key": "test-key" },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("activates a known broker via setActiveBroker's transaction", async () => {
+    type TxMock = { insert: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+    const tx: TxMock = {
+      insert: vi.fn().mockReturnValue({
+        values: vi
+          .fn()
+          .mockReturnValue({ onConflictDoUpdate: vi.fn().mockReturnValue({ run: vi.fn() }) }),
+      }),
+      update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ run: vi.fn() }) }),
+    };
+    mockDbTransaction.mockImplementation((fn: (tx: TxMock) => void) => fn(tx));
+
+    const app = await buildApiApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/brokers/groww/activate",
+      headers: { "x-access-key": "test-key" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({ ok: true });
+    expect(mockDbTransaction).toHaveBeenCalledOnce();
   });
 });
