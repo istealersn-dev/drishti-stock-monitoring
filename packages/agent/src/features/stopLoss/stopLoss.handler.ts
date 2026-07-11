@@ -101,6 +101,7 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
         quantity: holding.quantity,
         status: !gttResult.ok ? "failed" : dryRun ? "dry_run" : "active",
         approvalId: null,
+        upstoxOrderId: gttResult.ok && !dryRun ? gttResult.value : null,
         createdAt: now,
         updatedAt: now,
       })

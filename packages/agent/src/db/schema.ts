@@ -36,6 +36,7 @@ export const gttOrders = sqliteTable("gtt_orders", {
   quantity: integer("quantity").notNull(),
   status: text("status").notNull(),
   approvalId: text("approval_id"),
+  upstoxOrderId: text("upstox_order_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

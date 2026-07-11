@@ -190,6 +190,7 @@ export async function executeApprovedInstruction(
       quantity: qty,
       status: dryRun ? "dry_run" : "active",
       approvalId,
+      upstoxOrderId: dryRun ? null : gttResult.value,
       createdAt: now,
       updatedAt: now,
     })

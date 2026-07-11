@@ -490,9 +490,11 @@ describe("buildAgentGraph", () => {
         from: vi.fn((table: unknown) => {
           if (table === gttOrders) {
             return {
-              where: vi
-                .fn()
-                .mockReturnValue({ all: vi.fn().mockReturnValue([{ id: "gtt-existing-id" }]) }),
+              where: vi.fn().mockReturnValue({
+                all: vi
+                  .fn()
+                  .mockReturnValue([{ id: "gtt-existing-id", upstoxOrderId: "gtt-existing-id" }]),
+              }),
             };
           }
           if (table === agentSettings) {
@@ -571,6 +573,58 @@ describe("buildAgentGraph", () => {
       await graph.run(makeInitialState());
 
       expect(mockDbUpdate).toHaveBeenCalledOnce();
+    });
+
+    it("live mode, row has no Upstox order ID: refuses to cancel remotely and logs the failure", async () => {
+      mockFetchHoldings.mockResolvedValue({ ok: true, value: [mockHolding] });
+      mockFetchLTP.mockResolvedValue({
+        ok: true,
+        value: {
+          "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+        },
+      });
+      mockAnalysePortfolio.mockResolvedValue({
+        ok: true,
+        value: {
+          decisions: [
+            { symbol: "AXISBANK-EQ", action: "gtt_cancel", reasoning: "No longer needed." },
+          ],
+          portfolioSummary: "x",
+        },
+      });
+      mockDbSelect.mockImplementation(() => ({
+        from: vi.fn((table: unknown) => {
+          if (table === gttOrders) {
+            return {
+              where: vi.fn().mockReturnValue({
+                all: vi.fn().mockReturnValue([{ id: "gtt-existing-id", upstoxOrderId: null }]),
+              }),
+            };
+          }
+          if (table === agentSettings) {
+            return {
+              where: vi.fn().mockReturnValue({
+                get: vi.fn().mockReturnValue({ key: "dry_run", value: "false" }),
+              }),
+            };
+          }
+          return { where: vi.fn().mockReturnValue({ get: vi.fn().mockReturnValue(undefined) }) };
+        }),
+      }));
+
+      const graph = buildAgentGraph();
+      await graph.run(makeInitialState());
+
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+      const writtenLogs = mockDatabaseInsertValues.mock.calls.map(
+        (call: unknown[]) => call[0] as { action?: string; error?: string },
+      );
+      expect(writtenLogs).toContainEqual(
+        expect.objectContaining({
+          action: "gtt_cancel",
+          error: "Active GTT row has no Upstox order ID — cannot cancel remotely",
+        }),
+      );
     });
   });
 

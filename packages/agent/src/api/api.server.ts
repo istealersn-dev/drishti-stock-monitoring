@@ -17,6 +17,7 @@ import {
 } from "../db/schema.js";
 import { askAdvisor, generateTradeSetup } from "../features/advisor/advisor.chain.js";
 import { getApproval, resolveApproval } from "../features/approval/approval.store.js";
+import { cancelGTT } from "../features/gtt/gtt.tools.js";
 import { getLastHealthReport, setLastHealthReport } from "../features/health/health.cache.js";
 import { computeHealthReport } from "../features/health/health.engine.js";
 import { updateApprovalCard } from "../features/instructions/instructions.approval.js";
@@ -346,13 +347,35 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
       return reply.status(409).send({ ok: false, error: `Order is already ${row.status}` });
     }
 
-    if (isDryRunActive()) {
-      logger.info("[DRY_RUN] would cancel GTT", { id, symbol: row.symbol });
+    const dryRun = isDryRunActive();
+
+    if (!dryRun) {
+      if (!row.upstoxOrderId) {
+        logger.error(
+          "GTT cancel requested but row has no Upstox order ID — refusing to mark cancelled",
+          {
+            id,
+            symbol: row.symbol,
+          },
+        );
+        return reply.status(422).send({
+          ok: false,
+          error:
+            "This GTT row has no Upstox order ID on record, so it can't be cancelled remotely.",
+        });
+      }
+
+      const cancelResult = await cancelGTT(row.upstoxOrderId, dryRun);
+      if (!cancelResult.ok) {
+        logger.error("DELETE /api/gtt/:id — Upstox cancel failed", {
+          id,
+          symbol: row.symbol,
+          error: cancelResult.error.message,
+        });
+        return reply.status(502).send({ ok: false, error: cancelResult.error.message });
+      }
     } else {
-      logger.warn("GTT cancelled in DB; Upstox remote cancel unavailable without upstoxOrderId", {
-        id,
-        symbol: row.symbol,
-      });
+      logger.info("[DRY_RUN] would cancel GTT", { id, symbol: row.symbol });
     }
 
     db.update(gttOrders)
