@@ -1,10 +1,7 @@
 import { z } from "zod";
 
+import type { BrokerId } from "../shared/brokerId.js";
 import type { BrokerError, Result } from "../shared/errors.js";
-
-export const BROKER_IDS = ["upstox", "groww"] as const;
-export const BrokerIdSchema = z.enum(BROKER_IDS);
-export type BrokerId = z.infer<typeof BrokerIdSchema>;
 
 export const HoldingSchema = z.object({
   isin: z.string(),
@@ -20,6 +17,8 @@ export const HoldingSchema = z.object({
   instrumentToken: z.string(),
   exchange: z.string(),
   product: z.string(),
+  t1Quantity: z.number().optional(),
+  collateralQuantity: z.number().optional(),
 });
 export type Holding = z.infer<typeof HoldingSchema>;
 
@@ -68,6 +67,7 @@ export const CandleSchema = z.object({
   low: z.number(),
   close: z.number(),
   volume: z.number(),
+  oi: z.number().optional(),
 });
 export type Candle = z.infer<typeof CandleSchema>;
 
@@ -84,7 +84,7 @@ export type InstrumentMatch = z.infer<typeof InstrumentMatchSchema>;
  * second broker plugs in without touching agent logic, prompts, or the UI.
  */
 export interface BrokerClient {
-  id: BrokerId;
+  readonly id: BrokerId;
   fetchHoldings(): Promise<Result<Holding[], BrokerError>>;
   fetchQuotes(instrumentKeys: string[]): Promise<Result<Record<string, Quote>, BrokerError>>;
   fetchMargins(): Promise<Result<Margin, BrokerError>>;

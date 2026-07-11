@@ -1,3 +1,5 @@
+import type { BrokerId } from "./brokerId.js";
+
 export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 /**
@@ -21,7 +23,7 @@ export function err<E>(error: E): Result<never, E> {
 export class BrokerError extends Error {
   constructor(
     message: string,
-    public readonly brokerId?: string,
+    public readonly brokerId?: BrokerId,
     public readonly statusCode?: number,
   ) {
     super(message);
