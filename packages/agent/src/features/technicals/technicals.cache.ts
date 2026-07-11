@@ -1,12 +1,13 @@
 import { desc, eq } from "drizzle-orm";
 
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
 import { db } from "../../db/db.js";
 import { technicalLevels } from "../../db/schema.js";
 import { logger } from "../../shared/logger.js";
 
 import { TechnicalLevelsSchema } from "./technicals.schema.js";
 import type { TechnicalLevels } from "./technicals.schema.js";
-import { computeLevels, fetchOHLCV } from "./technicals.service.js";
+import { computeLevels } from "./technicals.service.js";
 
 const STALE_AFTER_HOURS = 26;
 const MILLIS_PER_HOUR = 60 * 60 * 1000;
@@ -79,7 +80,7 @@ export async function refreshLevels(
       continue;
     }
 
-    const result = await fetchOHLCV(instrumentKey, REFRESH_HISTORY_DAYS);
+    const result = await getActiveBrokerClient().fetchOHLCV(instrumentKey, REFRESH_HISTORY_DAYS);
     if (!result.ok) {
       logger.error("Failed to refresh technicals", { symbol, error: result.error.message });
       continue;

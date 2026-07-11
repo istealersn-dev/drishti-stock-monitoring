@@ -17,7 +17,6 @@ import { analyzeBuyInstruction } from "./instructions.analysis.js";
 import { sendApprovalCard } from "./instructions.approval.js";
 import { calculateSuggestedQty, parseStoredInstruction } from "./instructions.executor.js";
 import { parseInstruction } from "./instructions.parser.js";
-import { resolveSymbol } from "./instructions.resolver.js";
 import type { ParsedInstruction, ResolvedStock } from "./instructions.schema.js";
 
 export type SubmitResult =
@@ -75,7 +74,7 @@ export async function validateBuyInstruction(
 
   const { instruction, actionDisagreement } = parseResult.value;
 
-  const resolveResult = await resolveSymbol(instruction.stockName);
+  const resolveResult = await getActiveBrokerClient().searchInstrument(instruction.stockName);
   if (!resolveResult.ok) {
     logger.error("Failed to resolve symbol", {
       stockName: instruction.stockName,

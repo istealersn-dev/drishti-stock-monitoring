@@ -1,10 +1,10 @@
 import cron from "node-cron";
 
+import { getActiveBrokerClient } from "../broker/brokerClient.registry.js";
 import { pushAlert } from "../features/alerts/alerts.slack.js";
 import { setLastHealthReport } from "../features/health/health.cache.js";
 import { computeHealthReport } from "../features/health/health.engine.js";
 import { formatHealthReport } from "../features/health/health.formatter.js";
-import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
 import { isAgentPaused } from "../features/settings/settings.service.js";
 import { getCachedLevels, refreshLevels } from "../features/technicals/technicals.cache.js";
@@ -120,7 +120,7 @@ export function startAdvisorCrons(): void {
           .filter((s) => !(s in instrumentKeyMap));
         await Promise.allSettled(
           watchlistOnly.map(async (symbol) => {
-            const result = await resolveSymbol(symbol);
+            const result = await getActiveBrokerClient().searchInstrument(symbol);
             if (result.ok) {
               instrumentKeyMap[symbol] = result.value.instrumentToken;
             } else {
@@ -187,7 +187,7 @@ export async function getWatchlistProximityAlerts(): Promise<string[]> {
     const unresolved = entries.filter((entry) => !instrumentKeyMap[entry.symbol]);
     await Promise.allSettled(
       unresolved.map(async (entry) => {
-        const resolved = await resolveSymbol(entry.symbol);
+        const resolved = await getActiveBrokerClient().searchInstrument(entry.symbol);
         if (resolved.ok) instrumentKeyMap[entry.symbol] = resolved.value.instrumentToken;
       }),
     );
