@@ -1,3 +1,5 @@
+import type { BrokerId } from "./brokerId.js";
+
 export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 /**
@@ -18,12 +20,20 @@ export function err<E>(error: E): Result<never, E> {
   return { ok: false, error };
 }
 
-export class UpstoxError extends Error {
+export class BrokerError extends Error {
   constructor(
     message: string,
+    public readonly brokerId?: BrokerId,
     public readonly statusCode?: number,
   ) {
     super(message);
+    this.name = "BrokerError";
+  }
+}
+
+export class UpstoxError extends BrokerError {
+  constructor(message: string, statusCode?: number) {
+    super(message, "upstox", statusCode);
     this.name = "UpstoxError";
   }
 }
