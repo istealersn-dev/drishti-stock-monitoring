@@ -6,7 +6,12 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
   const key = getStoredKey();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  // Only set Content-Type when there's actually a body — Fastify's default JSON body
+  // parser rejects an empty body under this header (FST_ERR_CTP_EMPTY_JSON_BODY),
+  // which every body-less POST (verify/activate a broker, approve/reject an
+  // instruction, run a health check, ...) would otherwise trip.
+  const headers: Record<string, string> = {};
+  if (init?.body !== undefined) headers["Content-Type"] = "application/json";
   if (key) headers["X-Access-Key"] = key;
 
   const response = await fetch(`${API_BASE}${path}`, { headers, ...init });
