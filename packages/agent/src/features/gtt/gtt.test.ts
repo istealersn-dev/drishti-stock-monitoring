@@ -6,7 +6,7 @@ vi.mock("../../shared/env.js", () => ({
   },
 }));
 
-import type { Holding } from "../portfolio/portfolio.schema.js";
+import type { Holding } from "../../broker/brokerClient.types.js";
 
 import type { GttCreateRequest } from "./gtt.schema.js";
 import { buildSlExitRequest } from "./gtt.service.js";
@@ -14,16 +14,16 @@ import { createGTT, cancelGTT } from "./gtt.tools.js";
 
 const makeHolding = (overrides: Partial<Holding> = {}): Holding => ({
   isin: "INE238A01034",
-  trading_symbol: "AXISBANK-EQ",
-  company_name: "Axis Bank Ltd",
+  tradingSymbol: "AXISBANK-EQ",
+  companyName: "Axis Bank Ltd",
   quantity: 50,
-  average_price: 1000,
-  last_price: 950,
-  close_price: 960,
+  averagePrice: 1000,
+  lastPrice: 950,
+  closePrice: 960,
   pnl: -2500,
-  day_change: -10,
-  day_change_percentage: -1.04,
-  instrument_token: "NSE_EQ|INE238A01034",
+  dayChange: -10,
+  dayChangePercentage: -1.04,
+  instrumentToken: "NSE_EQ|INE238A01034",
   exchange: "NSE",
   product: "D",
   ...overrides,

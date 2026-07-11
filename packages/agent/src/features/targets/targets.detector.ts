@@ -1,6 +1,6 @@
+import type { Holding, Quote } from "../../broker/brokerClient.types.js";
 import { db } from "../../db/db.js";
 import { stockConfig } from "../../db/schema.js";
-import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 
 export type TargetHit = {
   symbol: string;
@@ -41,24 +41,24 @@ export function loadTargetConfigs(): StockTargetConfig[] {
  */
 export function detectTargetHits(
   holdings: Holding[],
-  ltpMap: Record<string, LtpData>,
+  ltpMap: Record<string, Quote>,
   configs: StockTargetConfig[],
 ): TargetHit[] {
   const configBySymbol = new Map(configs.map((c) => [c.symbol, c]));
   const hits: TargetHit[] = [];
 
   for (const holding of holdings) {
-    const config = configBySymbol.get(holding.trading_symbol);
+    const config = configBySymbol.get(holding.tradingSymbol);
     if (!config) continue;
 
-    const ltpEntry = ltpMap[holding.instrument_token];
-    const ltp = ltpEntry?.last_price;
+    const ltpEntry = ltpMap[holding.instrumentToken];
+    const ltp = ltpEntry?.lastPrice;
     if (ltp === undefined) continue;
 
     if (config.targetOne !== null && ltp >= config.targetOne) {
       hits.push({
-        symbol: holding.trading_symbol,
-        companyName: holding.company_name,
+        symbol: holding.tradingSymbol,
+        companyName: holding.companyName,
         targetLevel: 1,
         targetPrice: config.targetOne,
         currentPrice: ltp,
@@ -67,8 +67,8 @@ export function detectTargetHits(
 
     if (config.targetTwo !== null && ltp >= config.targetTwo) {
       hits.push({
-        symbol: holding.trading_symbol,
-        companyName: holding.company_name,
+        symbol: holding.tradingSymbol,
+        companyName: holding.companyName,
         targetLevel: 2,
         targetPrice: config.targetTwo,
         currentPrice: ltp,

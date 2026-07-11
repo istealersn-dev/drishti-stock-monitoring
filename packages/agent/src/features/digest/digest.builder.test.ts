@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import type { Holding } from "../portfolio/portfolio.schema.js";
+import type { Holding } from "../../broker/brokerClient.types.js";
 
 import {
   buildMorningDigest,
@@ -12,16 +12,16 @@ import type { DigestInput } from "./digest.builder.js";
 
 const makeHolding = (overrides: Partial<Holding> = {}): Holding => ({
   isin: "INE001",
-  trading_symbol: "AXISBANK-EQ",
-  company_name: "Axis Bank",
+  tradingSymbol: "AXISBANK-EQ",
+  companyName: "Axis Bank",
   quantity: 10,
-  average_price: 1000,
-  last_price: 1100,
-  close_price: 1090,
+  averagePrice: 1000,
+  lastPrice: 1100,
+  closePrice: 1090,
   pnl: 1000,
-  day_change: 10,
-  day_change_percentage: 0.9,
-  instrument_token: "NSE_EQ|INE238A01034",
+  dayChange: 10,
+  dayChangePercentage: 0.9,
+  instrumentToken: "NSE_EQ|INE238A01034",
   exchange: "NSE",
   product: "D",
   ...overrides,
@@ -44,19 +44,19 @@ describe("calculateMtfBurnRate", () => {
   });
 
   it("calculates daily burn for MTF holdings", () => {
-    const holdings = [makeHolding({ product: "MTF", quantity: 10, average_price: 1000 })];
+    const holdings = [makeHolding({ product: "MTF", quantity: 10, averagePrice: 1000 })];
     const expected = Number(((10_000 * 0.18) / 365).toFixed(2));
     expect(calculateMtfBurnRate(holdings)).toBe(expected);
   });
 
   it("sums burn across multiple MTF holdings", () => {
     const holdings = [
-      makeHolding({ product: "MTF", quantity: 10, average_price: 1000 }),
+      makeHolding({ product: "MTF", quantity: 10, averagePrice: 1000 }),
       makeHolding({
         product: "MTF",
         quantity: 5,
-        average_price: 2000,
-        trading_symbol: "HDFCBANK-EQ",
+        averagePrice: 2000,
+        tradingSymbol: "HDFCBANK-EQ",
       }),
     ];
     const expected = Number((((10_000 + 10_000) * 0.18) / 365).toFixed(2));
@@ -95,7 +95,7 @@ describe("buildMorningDigest", () => {
   it("shows MTF burn rate when MTF holdings present", () => {
     const input = {
       ...baseInput(),
-      holdings: [makeHolding({ product: "MTF", quantity: 100, average_price: 500 })],
+      holdings: [makeHolding({ product: "MTF", quantity: 100, averagePrice: 500 })],
     };
     const result = buildMorningDigest(input);
     expect(result).toContain("burn rate");

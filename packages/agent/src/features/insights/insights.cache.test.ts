@@ -17,7 +17,7 @@ vi.mock("../../shared/logger.js", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
+import type { Holding, Quote } from "../../broker/brokerClient.types.js";
 
 import {
   __resetAnalysisSnapshotForTests,
@@ -27,25 +27,25 @@ import {
 
 const mockHolding: Holding = {
   isin: "INE001",
-  trading_symbol: "AXISBANK-EQ",
-  company_name: "Axis Bank",
+  tradingSymbol: "AXISBANK-EQ",
+  companyName: "Axis Bank",
   quantity: 10,
-  average_price: 1000,
-  last_price: 1000,
-  close_price: 1000,
+  averagePrice: 1000,
+  lastPrice: 1000,
+  closePrice: 1000,
   pnl: 0,
-  day_change: 0,
-  day_change_percentage: 0,
-  instrument_token: "NSE_EQ|INE238A01034",
+  dayChange: 0,
+  dayChangePercentage: 0,
+  instrumentToken: "NSE_EQ|INE238A01034",
   exchange: "NSE",
   product: "D",
 };
 
-function ltpMapFor(price: number): Record<string, LtpData> {
+function ltpMapFor(price: number): Record<string, Quote> {
   return {
-    [mockHolding.instrument_token]: {
-      last_price: price,
-      instrument_token: mockHolding.instrument_token,
+    [mockHolding.instrumentToken]: {
+      lastPrice: price,
+      instrumentToken: mockHolding.instrumentToken,
     },
   };
 }

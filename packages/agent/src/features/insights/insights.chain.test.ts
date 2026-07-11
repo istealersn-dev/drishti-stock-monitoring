@@ -8,30 +8,30 @@ vi.mock("../../llm/llmClient.js", () => ({
   PORTFOLIO_LLM_TIMEOUT_MS: 300_000,
 }));
 
-import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
+import type { Holding, Quote } from "../../broker/brokerClient.types.js";
 
 import { analysePortfolio } from "./insights.chain.js";
 
 const makeHolding = (overrides: Partial<Holding> = {}): Holding => ({
   isin: "INE001",
-  trading_symbol: "AXISBANK-EQ",
-  company_name: "Axis Bank",
+  tradingSymbol: "AXISBANK-EQ",
+  companyName: "Axis Bank",
   quantity: 10,
-  average_price: 1000,
-  last_price: 1100,
-  close_price: 1090,
+  averagePrice: 1000,
+  lastPrice: 1100,
+  closePrice: 1090,
   pnl: 1000,
-  day_change: 10,
-  day_change_percentage: 0.9,
-  instrument_token: "NSE_EQ|INE238A01034",
+  dayChange: 10,
+  dayChangePercentage: 0.9,
+  instrumentToken: "NSE_EQ|INE238A01034",
   exchange: "NSE",
   product: "D",
   ...overrides,
 });
 
-const emptyLtpMap: Record<string, LtpData> = {};
-const ltpMap: Record<string, LtpData> = {
-  "NSE_EQ|INE238A01034": { last_price: 1100, instrument_token: "NSE_EQ|INE238A01034" },
+const emptyLtpMap: Record<string, Quote> = {};
+const ltpMap: Record<string, Quote> = {
+  "NSE_EQ|INE238A01034": { lastPrice: 1100, instrumentToken: "NSE_EQ|INE238A01034" },
 };
 
 const validOutput = JSON.stringify({

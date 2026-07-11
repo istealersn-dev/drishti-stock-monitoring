@@ -1,4 +1,4 @@
-import type { Holding } from "../portfolio/portfolio.schema.js";
+import type { Holding } from "../../broker/brokerClient.types.js";
 
 const MTF_ANNUAL_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
@@ -22,7 +22,7 @@ export type DigestInput = {
  */
 export function calculateMtfBurnRate(holdings: Holding[]): number {
   const mtfHoldings = holdings.filter((h) => h.product === MTF_PRODUCT);
-  const totalValue = mtfHoldings.reduce((sum, h) => sum + h.quantity * h.average_price, 0);
+  const totalValue = mtfHoldings.reduce((sum, h) => sum + h.quantity * h.averagePrice, 0);
   return Number(((totalValue * MTF_ANNUAL_RATE) / DAYS_IN_YEAR).toFixed(2));
 }
 
@@ -58,7 +58,7 @@ function formatDate(): string {
  * @returns Formatted Slack message string
  */
 export function buildMorningDigest(input: DigestInput): string {
-  const totalValue = input.holdings.reduce((sum, h) => sum + h.quantity * h.last_price, 0);
+  const totalValue = input.holdings.reduce((sum, h) => sum + h.quantity * h.lastPrice, 0);
   const totalPnl = input.holdings.reduce((sum, h) => sum + h.pnl, 0);
   const mtfBurn = calculateMtfBurnRate(input.holdings);
   const uncovered = estimateUncoveredCount(input.holdings, input.activeGttCount);
@@ -105,7 +105,7 @@ export function buildMorningDigest(input: DigestInput): string {
  */
 export function buildClosingDigest(input: DigestInput): string {
   const totalPnl = input.holdings.reduce((sum, h) => sum + h.pnl, 0);
-  const dayPnl = input.holdings.reduce((sum, h) => sum + h.day_change * h.quantity, 0);
+  const dayPnl = input.holdings.reduce((sum, h) => sum + h.dayChange * h.quantity, 0);
 
   const lines: string[] = [
     `📊 *Drishti Closing Summary* — ${formatDate()}`,

@@ -38,22 +38,22 @@ vi.mock("../../shared/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
-import type { Holding } from "../portfolio/portfolio.schema.js";
+import type { Holding } from "../../broker/brokerClient.types.js";
 
 import { handleSlBreach } from "./stopLoss.handler.js";
 
 const makeHolding = (overrides: Partial<Holding> = {}): Holding => ({
   isin: "INE238A01034",
-  trading_symbol: "AXISBANK-EQ",
-  company_name: "Axis Bank Ltd",
+  tradingSymbol: "AXISBANK-EQ",
+  companyName: "Axis Bank Ltd",
   quantity: 50,
-  average_price: 1000,
-  last_price: 880,
-  close_price: 900,
+  averagePrice: 1000,
+  lastPrice: 880,
+  closePrice: 900,
   pnl: -6000,
-  day_change: -20,
-  day_change_percentage: -2.22,
-  instrument_token: "NSE_EQ|INE238A01034",
+  dayChange: -20,
+  dayChangePercentage: -2.22,
+  instrumentToken: "NSE_EQ|INE238A01034",
   exchange: "NSE",
   product: "D",
   ...overrides,

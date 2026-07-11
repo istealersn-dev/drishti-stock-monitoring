@@ -1,30 +1,30 @@
 import { describe, it, expect } from "vitest";
 
-import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
+import type { Holding, Quote } from "../../broker/brokerClient.types.js";
 
 import { detectTargetHits } from "./targets.detector.js";
 
 const makeHolding = (overrides: Partial<Holding> = {}): Holding => ({
   isin: "INE001",
-  trading_symbol: "AXISBANK-EQ",
-  company_name: "Axis Bank",
+  tradingSymbol: "AXISBANK-EQ",
+  companyName: "Axis Bank",
   quantity: 10,
-  average_price: 1000,
-  last_price: 1100,
-  close_price: 1090,
+  averagePrice: 1000,
+  lastPrice: 1100,
+  closePrice: 1090,
   pnl: 1000,
-  day_change: 10,
-  day_change_percentage: 0.9,
-  instrument_token: "NSE_EQ|INE238A01034",
+  dayChange: 10,
+  dayChangePercentage: 0.9,
+  instrumentToken: "NSE_EQ|INE238A01034",
   exchange: "NSE",
   product: "D",
   ...overrides,
 });
 
 describe("detectTargetHits", () => {
-  const ltp = (price: number): LtpData => ({
-    last_price: price,
-    instrument_token: "NSE_EQ|INE238A01034",
+  const ltp = (price: number): Quote => ({
+    lastPrice: price,
+    instrumentToken: "NSE_EQ|INE238A01034",
   });
 
   it("returns empty when no configs exist", () => {
@@ -79,7 +79,7 @@ describe("detectTargetHits", () => {
   });
 
   it("returns correct companyName and currentPrice on hit", () => {
-    const holding = makeHolding({ company_name: "Axis Bank Ltd" });
+    const holding = makeHolding({ companyName: "Axis Bank Ltd" });
     const result = detectTargetHits([holding], { "NSE_EQ|INE238A01034": ltp(1050) }, [
       { symbol: "AXISBANK-EQ", targetOne: 1000, targetTwo: null },
     ]);
