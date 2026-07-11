@@ -1,8 +1,8 @@
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { Approval, ParsedInstruction } from "../../lib/api";
-import { formatInr, formatPriceOrDash } from "../../lib/format";
+import { formatPriceOrDash } from "../../lib/format";
 import { Badge, type BadgeVariant } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -84,8 +84,10 @@ type ApprovalCardProperties = {
   approval: Approval;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onUpdateAmount: (id: string, amountInr: number) => void;
   approvePending: boolean;
   rejectPending: boolean;
+  amountPending: boolean;
   actionError: string | null;
 };
 
@@ -110,14 +112,41 @@ export function ApprovalCard({
   approval,
   onApprove,
   onReject,
+  onUpdateAmount,
   approvePending,
   rejectPending,
+  amountPending,
   actionError,
 }: ApprovalCardProperties): React.ReactElement {
   const parsed = approval.parsedInstruction;
   const elapsed = resolveElapsed(approval.createdAt);
-  const estimatedValue = estimateOrderValue(parsed, approval.suggestedQty);
+  const effectiveQty = approval.overrideQty ?? approval.suggestedQty;
+  const estimatedValue = estimateOrderValue(parsed, effectiveQty);
   const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
+  const [isEditingAmount, setIsEditingAmount] = useState(false);
+  const [amountDraft, setAmountDraft] = useState(
+    estimatedValue !== null ? String(Math.round(estimatedValue)) : "",
+  );
+
+  // Keep the draft in sync with the server's estimate (e.g. after a Slack-side
+  // edit) unless the approver is actively typing, so the 30s poll doesn't
+  // stomp on an in-progress edit.
+  useEffect(() => {
+    if (!isEditingAmount) {
+      setAmountDraft(estimatedValue !== null ? String(Math.round(estimatedValue)) : "");
+    }
+  }, [estimatedValue, isEditingAmount]);
+
+  const commitAmountEdit = (): void => {
+    setIsEditingAmount(false);
+    const amountInr = Number(amountDraft);
+    const unchanged = estimatedValue !== null && Math.round(estimatedValue) === amountInr;
+    if (!amountDraft || !Number.isFinite(amountInr) || amountInr <= 0 || unchanged) {
+      setAmountDraft(estimatedValue !== null ? String(Math.round(estimatedValue)) : "");
+      return;
+    }
+    onUpdateAmount(approval.id, amountInr);
+  };
 
   return (
     <Card className="flex flex-col gap-3">
@@ -157,12 +186,34 @@ export function ApprovalCard({
       )}
 
       <div className="flex items-center justify-between font-mono text-caption">
-        <span className="text-fg-muted">
-          Qty <span className="text-fg">{approval.suggestedQty}</span>
+        <span className="flex items-center gap-1.5 text-fg-muted">
+          Qty <span className="text-fg">{effectiveQty}</span>
           {estimatedValue !== null && (
             <>
               {" "}
-              · est <span className="text-fg">{formatInr(estimatedValue)}</span>
+              · ₹
+              <input
+                type="number"
+                min="1"
+                inputMode="decimal"
+                aria-label="Order amount in rupees"
+                className="w-24 rounded border border-border-strong bg-surface-2 px-1.5 py-0.5 font-mono text-caption text-fg disabled:opacity-60"
+                value={amountDraft}
+                disabled={amountPending || approvePending || rejectPending}
+                onFocus={() => {
+                  setIsEditingAmount(true);
+                }}
+                onChange={(event) => {
+                  setAmountDraft(event.target.value);
+                }}
+                onBlur={commitAmountEdit}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+              />
+              {amountPending && <span className="text-fg-faint">updating…</span>}
             </>
           )}
         </span>
@@ -181,7 +232,7 @@ export function ApprovalCard({
       <div className="flex gap-2.5">
         <Button
           variant="primary"
-          disabled={approvePending || rejectPending}
+          disabled={approvePending || rejectPending || amountPending}
           onClick={() => {
             onApprove(approval.id);
           }}
@@ -190,7 +241,10 @@ export function ApprovalCard({
         </Button>
         <Dialog open={rejectConfirmOpen} onOpenChange={setRejectConfirmOpen}>
           <Dialog.Trigger>
-            <Button variant="destructive" disabled={approvePending || rejectPending}>
+            <Button
+              variant="destructive"
+              disabled={approvePending || rejectPending || amountPending}
+            >
               {rejectPending ? "Rejecting…" : "Reject"}
             </Button>
           </Dialog.Trigger>

@@ -10,6 +10,9 @@ export type ApprovalRow = {
   symbol: string;
   parsedJson: string;
   suggestedQty: number;
+  overrideQty: number | null;
+  actionDisagreement: string | null;
+  availableMargin: number | null;
   status: ApprovalStatus;
   slackTs: string | null;
   createdAt: string;
@@ -17,7 +20,10 @@ export type ApprovalRow = {
 };
 
 /**
- * Insert a new pending approval record into the database.
+ * Insert a new pending approval record into the database. actionDisagreement
+ * and availableMargin are persisted (not just passed to the initial Slack
+ * card) so a later card refresh — e.g. after an amount edit — can restore
+ * them instead of dropping them or re-fetching live margin.
  * @param data - The approval data to insert
  */
 export function createApproval(data: {
@@ -25,6 +31,8 @@ export function createApproval(data: {
   symbol: string;
   parsedJson: string;
   suggestedQty: number;
+  actionDisagreement?: string | null;
+  availableMargin?: number | null;
   slackTs?: string;
 }): void {
   db.insert(pendingApprovals)
@@ -33,6 +41,8 @@ export function createApproval(data: {
       symbol: data.symbol,
       parsedJson: data.parsedJson,
       suggestedQty: data.suggestedQty,
+      actionDisagreement: data.actionDisagreement ?? null,
+      availableMargin: data.availableMargin ?? null,
       status: "pending",
       slackTs: data.slackTs ?? null,
       createdAt: new Date().toISOString(),
@@ -77,6 +87,16 @@ export function resolveApproval(id: string, status: Exclude<ApprovalStatus, "pen
  */
 export function setApprovalSlackTs(id: string, slackTs: string): void {
   db.update(pendingApprovals).set({ slackTs }).where(eq(pendingApprovals.id, id)).run();
+}
+
+/**
+ * Record an approver-chosen quantity override, taking priority over suggestedQty
+ * at execution time (see executeApprovedInstruction).
+ * @param id - The approval UUID
+ * @param qty - The overridden quantity
+ */
+export function setApprovalOverrideQty(id: string, qty: number): void {
+  db.update(pendingApprovals).set({ overrideQty: qty }).where(eq(pendingApprovals.id, id)).run();
 }
 
 /**

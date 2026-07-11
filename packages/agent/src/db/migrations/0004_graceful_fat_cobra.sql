@@ -1,0 +1,1 @@
+ALTER TABLE `pending_approvals` ADD `override_qty` integer;

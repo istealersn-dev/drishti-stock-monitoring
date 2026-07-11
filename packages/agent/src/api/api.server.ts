@@ -22,6 +22,7 @@ import { computeHealthReport } from "../features/health/health.engine.js";
 import { updateApprovalCard } from "../features/instructions/instructions.approval.js";
 import { executeApprovedInstruction } from "../features/instructions/instructions.executor.js";
 import {
+  applyAmountOverride,
   processValidatedInstruction,
   validateBuyInstruction,
 } from "../features/instructions/instructions.pipeline.js";
@@ -183,7 +184,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
 
   await app.register(cors, {
     origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "X-Access-Key"],
   });
 
@@ -254,6 +255,29 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   app.get("/api/approvals", async (_request, reply) => {
     return reply.send({ ok: true, data: queryApprovals() });
   });
+
+  app.patch<{ Params: { id: string }; Body: unknown }>(
+    "/api/approvals/:id/amount",
+    async (request, reply) => {
+      const BodySchema = z.object({ amountInr: z.number().positive() });
+      const parsed = BodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ ok: false, error: parsed.error.issues[0]?.message });
+      }
+
+      const result = await applyAmountOverride(request.params.id, parsed.data.amountInr);
+      if (!result.ok) {
+        if (result.error === "Approval not found") {
+          return reply.status(404).send({ ok: false, error: result.error });
+        }
+        if (result.error.startsWith("Already ")) {
+          return reply.status(409).send({ ok: false, error: result.error });
+        }
+        return reply.status(422).send({ ok: false, error: result.error });
+      }
+      return reply.send({ ok: true, qty: result.qty });
+    },
+  );
 
   app.post<{ Body: Record<string, unknown> }>("/api/instructions", async (request, reply) => {
     const text = typeof request.body["text"] === "string" ? request.body["text"].trim() : "";

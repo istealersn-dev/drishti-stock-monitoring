@@ -3,14 +3,19 @@ import crypto from "node:crypto";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
-import { createApproval, setApprovalSlackTs } from "../approval/approval.store.js";
+import {
+  createApproval,
+  getApproval,
+  setApprovalOverrideQty,
+  setApprovalSlackTs,
+} from "../approval/approval.store.js";
 import { fetchMargins } from "../portfolio/portfolio.tools.js";
 import { validateConcentration } from "../validator/validator.concentration.js";
 import { validateRiskReward } from "../validator/validator.rr.js";
 
 import { analyzeBuyInstruction } from "./instructions.analysis.js";
 import { sendApprovalCard } from "./instructions.approval.js";
-import { calculateSuggestedQty } from "./instructions.executor.js";
+import { calculateSuggestedQty, parseStoredInstruction } from "./instructions.executor.js";
 import { parseInstruction } from "./instructions.parser.js";
 import { resolveSymbol } from "./instructions.resolver.js";
 import type { ParsedInstruction, ResolvedStock } from "./instructions.schema.js";
@@ -146,6 +151,8 @@ export async function processValidatedInstruction(
       symbol: resolved.tradingSymbol,
       parsedJson: JSON.stringify({ ...instruction, _instrumentToken: resolved.instrumentToken }),
       suggestedQty,
+      actionDisagreement,
+      availableMargin,
     });
   } catch (e) {
     // createApproval is a plain synchronous DB call, not Result-wrapped — a throw here
@@ -216,4 +223,59 @@ export async function submitBuyInstruction(text: string, channelId: string): Pro
     return validated;
   }
   return processValidatedInstruction(validated.value);
+}
+
+export type ApplyAmountOverrideResult = { ok: true; qty: number } | { ok: false; error: string };
+
+/**
+ * Convert an approver-chosen ₹ amount into a share quantity (using the same
+ * midpoint-entry-price formula as the initial suggestion) and persist it as
+ * the approval's override, taking priority over the auto-computed qty at
+ * execution time. Shared by the dashboard's PATCH route and the Slack
+ * "Edit Amount" modal so the two channels can't drift on the conversion math.
+ * Re-runs the same concentration check the original suggestedQty went
+ * through, since an override can push the position size well past what was
+ * originally reviewed.
+ * @param approvalId - The pending approval's UUID
+ * @param amountInr - The approver-chosen order amount in rupees
+ * @returns The resulting quantity, or an error if the approval can't be edited
+ */
+export async function applyAmountOverride(
+  approvalId: string,
+  amountInr: number,
+): Promise<ApplyAmountOverrideResult> {
+  const approval = getApproval(approvalId);
+  if (!approval) {
+    return { ok: false, error: "Approval not found" };
+  }
+  if (approval.status !== "pending") {
+    return { ok: false, error: `Already ${approval.status}` };
+  }
+
+  const storedResult = parseStoredInstruction(approval.parsedJson);
+  if (!storedResult.ok) {
+    return { ok: false, error: storedResult.error };
+  }
+  const { instruction } = storedResult;
+  if (!instruction.entryHigh) {
+    return { ok: false, error: "Instruction is missing an entry price" };
+  }
+
+  const { entryHigh, entryLow } = instruction;
+  const qty = calculateSuggestedQty(amountInr, entryHigh, entryLow ?? entryHigh);
+
+  const concentrationResult = await validateConcentration(qty, entryHigh);
+  if (!concentrationResult.pass) {
+    logger.warn("Concentration warning on amount override — proceeding", {
+      approvalId,
+      symbol: approval.symbol,
+      reason: concentrationResult.reason,
+    });
+    await pushAlert(
+      `⚠️ *Concentration Warning*\n\nStock: *${approval.symbol}*\n${concentrationResult.reason}\n\nAmount override applied — review carefully.`,
+    );
+  }
+
+  setApprovalOverrideQty(approvalId, qty);
+  return { ok: true, qty };
 }

@@ -48,6 +48,9 @@ const makeApproval = (overrides: Partial<ApprovalRow> = {}): ApprovalRow => ({
     _instrumentToken: "NSE_EQ|INE123",
   }),
   suggestedQty: 10,
+  overrideQty: null,
+  actionDisagreement: null,
+  availableMargin: null,
   status: "pending",
   slackTs: null,
   createdAt: new Date().toISOString(),
@@ -144,6 +147,17 @@ describe("executeApprovedInstruction", () => {
     const logValues = valuesSpy.mock.calls[0]?.[0] as { action: string };
     expect(logValues.action).toBe("buy_entry_gtt_failed");
     expect(mockResolveApproval).not.toHaveBeenCalled();
+  });
+
+  it("uses overrideQty and skips the margin recompute when an override is present", async () => {
+    mockGetApproval.mockReturnValue(makeApproval({ suggestedQty: 10, overrideQty: 42 }));
+    mockCreateGTT.mockResolvedValue({ ok: true, value: "order-id-123" });
+
+    const result = await executeApprovedInstruction("approval-1", "run-1");
+
+    expect(result.ok).toBe(true);
+    expect(mockCreateGTT).toHaveBeenCalledWith(expect.objectContaining({ quantity: 42 }), false);
+    expect(mockFetchMargins).not.toHaveBeenCalled();
   });
 
   it("returns an error when entryHigh is missing from the stored instruction", async () => {

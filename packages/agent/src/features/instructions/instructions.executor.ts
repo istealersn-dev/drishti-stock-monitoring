@@ -10,9 +10,21 @@ import { fetchMargins } from "../portfolio/portfolio.tools.js";
 
 import { updateApprovalCard } from "./instructions.approval.js";
 import { ParsedInstructionSchema } from "./instructions.schema.js";
+import type { ParsedInstruction } from "./instructions.schema.js";
 
 const BUY_LIMIT_BUFFER = 1.005;
 const MIN_QUANTITY = 1;
+
+/**
+ * The midpoint of an entry range, used as the single reference price for both
+ * qty-from-margin and amount-from-qty conversions so the two can't drift.
+ * @param entryHigh - Upper bound of the entry range
+ * @param entryLow - Lower bound of the entry range (defaults to entryHigh)
+ * @returns The midpoint entry price
+ */
+export function midpointEntryPrice(entryHigh: number, entryLow: number = entryHigh): number {
+  return (entryLow + entryHigh) / 2;
+}
 
 /**
  * Calculate suggested buy quantity from available margin and entry price.
@@ -27,8 +39,44 @@ export function calculateSuggestedQty(
   entryHigh: number,
   entryLow: number = entryHigh,
 ): number {
-  const midpoint = (entryLow + entryHigh) / 2;
-  return Math.max(MIN_QUANTITY, Math.floor(availableMargin / midpoint));
+  return Math.max(
+    MIN_QUANTITY,
+    Math.floor(availableMargin / midpointEntryPrice(entryHigh, entryLow)),
+  );
+}
+
+export type StoredInstructionResult =
+  | { ok: true; instruction: ParsedInstruction; instrumentToken: string | null }
+  | { ok: false; error: string };
+
+/**
+ * Parse and validate an approval's stored instruction JSON — shared by
+ * execution, amount overrides, and the Slack edit-amount handlers so the
+ * parse/validate logic (and any future schema change) lives in one place.
+ * @param parsedJson - The approval row's parsedJson column
+ * @returns The validated instruction and instrument token, or an error
+ */
+export function parseStoredInstruction(parsedJson: string): StoredInstructionResult {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(parsedJson);
+  } catch {
+    return { ok: false, error: "Failed to parse stored instruction JSON" };
+  }
+
+  const rawRecord = raw as Record<string, unknown>;
+  const instrumentToken =
+    typeof rawRecord["_instrumentToken"] === "string" ? rawRecord["_instrumentToken"] : null;
+
+  const parsedResult = ParsedInstructionSchema.safeParse(raw);
+  if (!parsedResult.success) {
+    return {
+      ok: false,
+      error: `Stored instruction failed validation: ${parsedResult.error.message}`,
+    };
+  }
+
+  return { ok: true, instruction: parsedResult.data, instrumentToken };
 }
 
 /**
@@ -53,16 +101,11 @@ export async function executeApprovedInstruction(
     return { ok: false, error: `Approval ${approvalId} is already ${approval.status}` };
   }
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(approval.parsedJson);
-  } catch {
-    return { ok: false, error: "Failed to parse stored instruction JSON" };
+  const storedResult = parseStoredInstruction(approval.parsedJson);
+  if (!storedResult.ok) {
+    return { ok: false, error: storedResult.error };
   }
-
-  const rawRecord = raw as Record<string, unknown>;
-  const instrumentToken =
-    typeof rawRecord._instrumentToken === "string" ? rawRecord._instrumentToken : null;
+  const { instruction, instrumentToken } = storedResult;
 
   if (!instrumentToken) {
     return {
@@ -71,15 +114,6 @@ export async function executeApprovedInstruction(
     };
   }
 
-  const parsedResult = ParsedInstructionSchema.safeParse(raw);
-  if (!parsedResult.success) {
-    return {
-      ok: false,
-      error: `Stored instruction failed validation: ${parsedResult.error.message}`,
-    };
-  }
-
-  const instruction = parsedResult.data;
   if (!instruction.entryHigh) {
     return {
       ok: false,
@@ -89,15 +123,22 @@ export async function executeApprovedInstruction(
   const entryHigh = instruction.entryHigh;
   const entryLow = instruction.entryLow ?? entryHigh;
 
-  const marginResult = await fetchMargins();
-  let qty = approval.suggestedQty;
-  if (marginResult.ok) {
-    qty = calculateSuggestedQty(marginResult.value.available_margin, entryHigh, entryLow);
+  // An approver-chosen override always wins — it must not be silently replaced
+  // by a fresh margin-based recompute, which would defeat the point of editing it.
+  let qty: number;
+  if (approval.overrideQty !== null) {
+    qty = approval.overrideQty;
   } else {
-    logger.warn("Failed to fetch margins for qty calculation; using stored qty", {
-      approvalId,
-      error: marginResult.error.message,
-    });
+    qty = approval.suggestedQty;
+    const marginResult = await fetchMargins();
+    if (marginResult.ok) {
+      qty = calculateSuggestedQty(marginResult.value.available_margin, entryHigh, entryLow);
+    } else {
+      logger.warn("Failed to fetch margins for qty calculation; using stored qty", {
+        approvalId,
+        error: marginResult.error.message,
+      });
+    }
   }
 
   const limitPrice = Number((entryHigh * BUY_LIMIT_BUFFER).toFixed(2));

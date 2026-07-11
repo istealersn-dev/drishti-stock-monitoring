@@ -10,6 +10,8 @@ const {
   mockCalculateSuggestedQty,
   mockCreateApproval,
   mockSetApprovalSlackTs,
+  mockGetApproval,
+  mockSetApprovalOverrideQty,
   mockSendApprovalCard,
   mockPushAlert,
 } = vi.hoisted(() => ({
@@ -22,6 +24,8 @@ const {
   mockCalculateSuggestedQty: vi.fn(),
   mockCreateApproval: vi.fn(),
   mockSetApprovalSlackTs: vi.fn(),
+  mockGetApproval: vi.fn(),
+  mockSetApprovalOverrideQty: vi.fn(),
   mockSendApprovalCard: vi.fn(),
   mockPushAlert: vi.fn(),
 }));
@@ -34,12 +38,18 @@ vi.mock("../portfolio/portfolio.tools.js", () => ({ fetchMargins: mockFetchMargi
 vi.mock("../validator/validator.concentration.js", () => ({
   validateConcentration: mockValidateConcentration,
 }));
-vi.mock("./instructions.executor.js", () => ({
-  calculateSuggestedQty: mockCalculateSuggestedQty,
-}));
+vi.mock("./instructions.executor.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof InstructionsExecutor>();
+  return {
+    ...actual,
+    calculateSuggestedQty: mockCalculateSuggestedQty,
+  };
+});
 vi.mock("../approval/approval.store.js", () => ({
   createApproval: mockCreateApproval,
   setApprovalSlackTs: mockSetApprovalSlackTs,
+  getApproval: mockGetApproval,
+  setApprovalOverrideQty: mockSetApprovalOverrideQty,
 }));
 vi.mock("./instructions.approval.js", () => ({ sendApprovalCard: mockSendApprovalCard }));
 vi.mock("../alerts/alerts.slack.js", () => ({ pushAlert: mockPushAlert }));
@@ -47,7 +57,9 @@ vi.mock("../../shared/env.js", () => ({ env: { SLACK_ALERT_CHANNEL_ID: "C_ALERTS
 
 import { err, ok } from "../../shared/errors.js";
 
+import type * as InstructionsExecutor from "./instructions.executor.js";
 import {
+  applyAmountOverride,
   processValidatedInstruction,
   submitBuyInstruction,
   validateBuyInstruction,
@@ -219,5 +231,77 @@ describe("submitBuyInstruction", () => {
     if (!result.ok) return;
     expect(result.symbol).toBe("RAMCOSYS-EQ");
     expect(mockAnalyzeBuyInstruction).toHaveBeenCalled();
+  });
+});
+
+describe("applyAmountOverride", () => {
+  const approvalRow = {
+    id: "approval-1",
+    symbol: "RAMCOSYS-EQ",
+    parsedJson: JSON.stringify(instruction),
+    suggestedQty: 10,
+    overrideQty: null,
+    actionDisagreement: null,
+    availableMargin: null,
+    status: "pending" as const,
+    slackTs: "slack-ts-001",
+    createdAt: new Date().toISOString(),
+    resolvedAt: null,
+  };
+
+  it("computes qty from the amount and persists it as the override", async () => {
+    mockGetApproval.mockReturnValue(approvalRow);
+    mockCalculateSuggestedQty.mockReturnValue(86);
+
+    const result = await applyAmountOverride("approval-1", 50_000);
+
+    expect(result).toEqual({ ok: true, qty: 86 });
+    expect(mockCalculateSuggestedQty).toHaveBeenCalledWith(50_000, 580, 560);
+    expect(mockSetApprovalOverrideQty).toHaveBeenCalledWith("approval-1", 86);
+  });
+
+  it("pushes a concentration warning but still persists the override", async () => {
+    mockGetApproval.mockReturnValue(approvalRow);
+    mockCalculateSuggestedQty.mockReturnValue(86);
+    mockValidateConcentration.mockResolvedValue({
+      pass: false,
+      reason: "exceeds 25% single-position cap",
+    });
+
+    const result = await applyAmountOverride("approval-1", 50_000);
+
+    expect(result).toEqual({ ok: true, qty: 86 });
+    expect(mockPushAlert).toHaveBeenCalledWith(expect.stringContaining("Concentration Warning"));
+    expect(mockSetApprovalOverrideQty).toHaveBeenCalledWith("approval-1", 86);
+  });
+
+  it("returns an error when the approval doesn't exist", async () => {
+    mockGetApproval.mockReturnValue(null);
+
+    const result = await applyAmountOverride("missing-id", 50_000);
+
+    expect(result).toEqual({ ok: false, error: "Approval not found" });
+    expect(mockSetApprovalOverrideQty).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when the approval is already resolved", async () => {
+    mockGetApproval.mockReturnValue({ ...approvalRow, status: "approved" });
+
+    const result = await applyAmountOverride("approval-1", 50_000);
+
+    expect(result).toEqual({ ok: false, error: "Already approved" });
+    expect(mockSetApprovalOverrideQty).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when the stored instruction has no entry price", async () => {
+    mockGetApproval.mockReturnValue({
+      ...approvalRow,
+      parsedJson: JSON.stringify({ ...instruction, entryLow: null, entryHigh: null }),
+    });
+
+    const result = await applyAmountOverride("approval-1", 50_000);
+
+    expect(result).toEqual({ ok: false, error: "Instruction is missing an entry price" });
+    expect(mockSetApprovalOverrideQty).not.toHaveBeenCalled();
   });
 });
