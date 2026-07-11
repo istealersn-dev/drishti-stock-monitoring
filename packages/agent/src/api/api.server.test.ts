@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockDbSelect, mockDbInsert, mockIsDryRunActive } = vi.hoisted(() => ({
-  mockDbSelect: vi.fn(),
-  mockDbInsert: vi.fn(),
-  mockIsDryRunActive: vi.fn().mockReturnValue(false),
-}));
+const { mockDbSelect, mockDbInsert, mockDbUpdate, mockIsDryRunActive, mockCancelGTT } = vi.hoisted(
+  () => ({
+    mockDbSelect: vi.fn(),
+    mockDbInsert: vi.fn(),
+    mockDbUpdate: vi.fn(),
+    mockIsDryRunActive: vi.fn().mockReturnValue(false),
+    mockCancelGTT: vi.fn(),
+  }),
+);
 
-vi.mock("../db/db.js", () => ({ db: { select: mockDbSelect, insert: mockDbInsert } }));
+vi.mock("../db/db.js", () => ({
+  db: { select: mockDbSelect, insert: mockDbInsert, update: mockDbUpdate },
+}));
 vi.mock("../shared/dryRun.js", () => ({ isDryRunActive: mockIsDryRunActive }));
 vi.mock("../db/schema.js", () => ({
   agentRuns: {},
@@ -23,16 +29,19 @@ vi.mock("../shared/env.js", () => ({
     DRISHTI_MARKET_CLOSE: "15:30",
     DRISHTI_APPROVAL_TIMEOUT_MINUTES: 10,
     AGENT_API_PORT: 4000,
+    DRISHTI_ACCESS_KEY: "test-key",
   },
 }));
 vi.mock("../features/portfolio/portfolio.cache.js", () => ({
   getCachedHoldings: vi.fn().mockReturnValue({ holdings: [], cachedAt: null }),
 }));
+vi.mock("../features/gtt/gtt.tools.js", () => ({ cancelGTT: mockCancelGTT }));
 vi.mock("../shared/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 import {
+  buildApiApp,
   queryRuns,
   queryGttOrders,
   queryLogs,
@@ -223,5 +232,118 @@ describe("queryApprovals", () => {
 
     const result = queryApprovals() as Array<{ parsedInstruction: unknown }>;
     expect(result[0]?.parsedInstruction).toBeNull();
+  });
+});
+
+describe("DELETE /api/gtt/:id", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const mockRow = (overrides: Record<string, unknown> = {}): void => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          get: vi.fn().mockReturnValue({
+            id: "gtt-1",
+            symbol: "AXISBANK-EQ",
+            status: "active",
+            upstoxOrderId: "upstox-order-1",
+            ...overrides,
+          }),
+        }),
+      }),
+    });
+  };
+
+  const inject = (app: Awaited<ReturnType<typeof buildApiApp>>): ReturnType<typeof app.inject> =>
+    app.inject({
+      method: "DELETE",
+      url: "/api/gtt/gtt-1",
+      headers: { "x-access-key": "test-key" },
+    });
+
+  it("returns 404 when the GTT row does not exist", async () => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ get: vi.fn().mockReturnValue(undefined) }),
+      }),
+    });
+    const app = await buildApiApp();
+    const response = await inject(app);
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("returns 409 when the row is already cancelled", async () => {
+    mockRow({ status: "cancelled" });
+    const app = await buildApiApp();
+    const response = await inject(app);
+    expect(response.statusCode).toBe(409);
+  });
+
+  it("live mode, no Upstox order ID on record: returns 422 and logs the failure without marking cancelled", async () => {
+    mockIsDryRunActive.mockReturnValue(false);
+    mockRow({ upstoxOrderId: null });
+    const insertValues = vi.fn().mockReturnValue({ run: vi.fn() });
+    mockDbInsert.mockReturnValue({ values: insertValues });
+
+    const app = await buildApiApp();
+    const response = await inject(app);
+
+    expect(response.statusCode).toBe(422);
+    expect(mockCancelGTT).not.toHaveBeenCalled();
+    expect(mockDbUpdate).not.toHaveBeenCalled();
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "gtt_cancel_failed" }),
+    );
+  });
+
+  it("live mode, Upstox cancel succeeds: marks the row cancelled", async () => {
+    mockIsDryRunActive.mockReturnValue(false);
+    mockRow();
+    mockCancelGTT.mockResolvedValue({ ok: true, value: "upstox-order-1" });
+    const updateRun = vi.fn();
+    mockDbUpdate.mockReturnValue({
+      set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ run: updateRun }) }),
+    });
+
+    const app = await buildApiApp();
+    const response = await inject(app);
+
+    expect(mockCancelGTT).toHaveBeenCalledWith("upstox-order-1", false);
+    expect(updateRun).toHaveBeenCalledOnce();
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({ ok: true });
+  });
+
+  it("live mode, Upstox cancel fails: returns 502 and logs the failure without marking cancelled", async () => {
+    mockIsDryRunActive.mockReturnValue(false);
+    mockRow();
+    mockCancelGTT.mockResolvedValue({ ok: false, error: { message: "Upstox timeout" } });
+    const insertValues = vi.fn().mockReturnValue({ run: vi.fn() });
+    mockDbInsert.mockReturnValue({ values: insertValues });
+
+    const app = await buildApiApp();
+    const response = await inject(app);
+
+    expect(response.statusCode).toBe(502);
+    expect(mockDbUpdate).not.toHaveBeenCalled();
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "gtt_cancel_failed", error: "Upstox timeout" }),
+    );
+  });
+
+  it("dry-run: marks the row cancelled without calling Upstox", async () => {
+    mockIsDryRunActive.mockReturnValue(true);
+    mockRow();
+    const updateRun = vi.fn();
+    mockDbUpdate.mockReturnValue({
+      set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ run: updateRun }) }),
+    });
+
+    const app = await buildApiApp();
+    const response = await inject(app);
+
+    expect(mockCancelGTT).not.toHaveBeenCalled();
+    expect(updateRun).toHaveBeenCalledOnce();
+    expect(response.statusCode).toBe(200);
   });
 });

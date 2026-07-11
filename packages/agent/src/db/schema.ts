@@ -36,6 +36,10 @@ export const gttOrders = sqliteTable("gtt_orders", {
   quantity: integer("quantity").notNull(),
   status: text("status").notNull(),
   approvalId: text("approval_id"),
+  // Null for rows created before this column existed, or during a dry-run — no reconciliation
+  // job backfills these via Upstox's listGTTs(), so a null here permanently blocks a remote
+  // cancel/modify for that row (see api.server.ts's DELETE /api/gtt/:id and agent.graph.ts's
+  // gtt_cancel/gtt_modify handling).
   upstoxOrderId: text("upstox_order_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

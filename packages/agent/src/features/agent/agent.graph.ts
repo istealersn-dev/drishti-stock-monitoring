@@ -360,6 +360,9 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
         continue;
       }
 
+      // The guard above guarantees upstoxOrderId is set whenever !dryRun; the `?? gtt.id`
+      // fallback only fires in dry-run mode, where cancelGTT never touches the network and
+      // the id is only used cosmetically in the "[DRY_RUN] would cancel" log string.
       const cancelResult = await cancelGTT(gtt.upstoxOrderId ?? gtt.id, dryRun);
       // Only flip the row to "cancelled" when a real Upstox cancel happened — cancelGTT
       // returns ok:true for a dry-run "would cancel" too, and marking the row cancelled
@@ -438,6 +441,9 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
         continue;
       }
 
+      // The guard above guarantees upstoxOrderId is set whenever !dryRun; the `?? gtt.id`
+      // fallback only fires in dry-run mode, where cancelGTT never touches the network and
+      // the id is only used cosmetically in the "[DRY_RUN] would cancel" log string.
       const cancelResult = await cancelGTT(gtt.upstoxOrderId ?? gtt.id, dryRun);
       if (!cancelResult.ok) {
         logger.error("executeActions: cancel before modify failed", {

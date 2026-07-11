@@ -482,7 +482,7 @@ describe("buildAgentGraph", () => {
     });
 
     // db.select() is shared across unrelated queries in one graph run (wasRecentlyAlerted,
-    // findActiveGttId, isDryRunActive) — discriminate by the table passed to .from() so
+    // findActiveGtt, isDryRunActive) — discriminate by the table passed to .from() so
     // setting up the dry-run/active-GTT state for this test doesn't corrupt the other
     // queries the graph makes along the way.
     const mockSelectByTable = (dryRunValue: string | undefined): void => {
