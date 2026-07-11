@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
 import { isMarketOpen } from "../../scheduler/cron.js";
@@ -10,7 +11,6 @@ import { logger } from "../../shared/logger.js";
 import { TRADING_DAY_MS } from "../../shared/timeWindows.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
 import { buildSlExitRequest } from "../gtt/gtt.service.js";
-import { cancelGTT, createGTT } from "../gtt/gtt.tools.js";
 import { hasMovedSignificantly, recordAnalysisSnapshot } from "../insights/insights.cache.js";
 import { analysePortfolio } from "../insights/insights.chain.js";
 import { updateHoldingsCache } from "../portfolio/portfolio.cache.js";
@@ -363,7 +363,10 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
       // The guard above guarantees upstoxOrderId is set whenever !dryRun; the `?? gtt.id`
       // fallback only fires in dry-run mode, where cancelGTT never touches the network and
       // the id is only used cosmetically in the "[DRY_RUN] would cancel" log string.
-      const cancelResult = await cancelGTT(gtt.upstoxOrderId ?? gtt.id, dryRun);
+      const cancelResult = await getActiveBrokerClient().cancelTriggerOrder(
+        gtt.upstoxOrderId ?? gtt.id,
+        dryRun,
+      );
       // Only flip the row to "cancelled" when a real Upstox cancel happened — cancelGTT
       // returns ok:true for a dry-run "would cancel" too, and marking the row cancelled
       // in that case would make the agent believe the real GTT is gone when Upstox still
@@ -444,7 +447,10 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
       // The guard above guarantees upstoxOrderId is set whenever !dryRun; the `?? gtt.id`
       // fallback only fires in dry-run mode, where cancelGTT never touches the network and
       // the id is only used cosmetically in the "[DRY_RUN] would cancel" log string.
-      const cancelResult = await cancelGTT(gtt.upstoxOrderId ?? gtt.id, dryRun);
+      const cancelResult = await getActiveBrokerClient().cancelTriggerOrder(
+        gtt.upstoxOrderId ?? gtt.id,
+        dryRun,
+      );
       if (!cancelResult.ok) {
         logger.error("executeActions: cancel before modify failed", {
           symbol: decision.symbol,
@@ -479,10 +485,10 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
         (decision.gttParams.newTriggerPrice * GTT_LIMIT_BUFFER).toFixed(2),
       );
 
-      const createResult = await createGTT(
+      const createResult = await getActiveBrokerClient().createTriggerOrder(
         {
           ...newRequest,
-          limit_price: newLimitPrice,
+          limitPrice: newLimitPrice,
         },
         dryRun,
       );

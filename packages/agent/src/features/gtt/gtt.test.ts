@@ -8,6 +8,7 @@ vi.mock("../../shared/env.js", () => ({
 
 import type { Holding } from "../portfolio/portfolio.schema.js";
 
+import type { GttCreateRequest } from "./gtt.schema.js";
 import { buildSlExitRequest } from "./gtt.service.js";
 import { createGTT, cancelGTT } from "./gtt.tools.js";
 
@@ -33,24 +34,23 @@ describe("buildSlExitRequest", () => {
     const holding = makeHolding();
     const request = buildSlExitRequest(holding, 900);
 
-    expect(request.transaction_type).toBe("SELL");
-    expect(request.order_type).toBe("LIMIT");
-    expect(request.trigger_price).toBe(900);
-    expect(request.trading_symbol).toBe("AXISBANK-EQ");
+    expect(request.transactionType).toBe("SELL");
+    expect(request.triggerPrice).toBe(900);
+    expect(request.tradingSymbol).toBe("AXISBANK-EQ");
     expect(request.exchange).toBe("NSE");
     expect(request.quantity).toBe(50);
     expect(request.product).toBe("D");
-    expect(request.instrument_token).toBe("NSE_EQ|INE238A01034");
+    expect(request.instrumentToken).toBe("NSE_EQ|INE238A01034");
   });
 
   it("sets limit price 1% below trigger", () => {
     const request = buildSlExitRequest(makeHolding(), 1000);
-    expect(request.limit_price).toBe(990);
+    expect(request.limitPrice).toBe(990);
   });
 
   it("rounds limit price to 2 decimal places", () => {
     const request = buildSlExitRequest(makeHolding(), 333);
-    expect(request.limit_price).toBe(Number((333 * 0.99).toFixed(2)));
+    expect(request.limitPrice).toBe(Number((333 * 0.99).toFixed(2)));
   });
 });
 
@@ -60,7 +60,17 @@ describe("createGTT (dry run)", () => {
   });
 
   it("returns ok with dry-run message without calling fetch", async () => {
-    const request = buildSlExitRequest(makeHolding(), 900);
+    const request: GttCreateRequest = {
+      transaction_type: "SELL",
+      trading_symbol: "AXISBANK-EQ",
+      exchange: "NSE",
+      instrument_token: "NSE_EQ|INE238A01034",
+      product: "D",
+      quantity: 50,
+      order_type: "LIMIT",
+      trigger_price: 900,
+      limit_price: 891,
+    };
     const result = await createGTT(request, true);
 
     expect(result.ok).toBe(true);

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Holding } from "../../broker/brokerClient.types.js";
-import type { GttOrder } from "../gtt/gtt.schema.js";
+import type { Holding, TriggerOrder } from "../../broker/brokerClient.types.js";
 
 import { formatGtts, formatHoldings, formatPnl, formatStatus } from "./slackCommands.formatters.js";
 
@@ -22,17 +21,16 @@ const makeHolding = (overrides: Partial<Holding> = {}): Holding => ({
   ...overrides,
 });
 
-const makeGtt = (overrides: Partial<GttOrder> = {}): GttOrder => ({
-  order_id: "GTT001",
-  trading_symbol: "RELIANCE-EQ",
+const makeGtt = (overrides: Partial<TriggerOrder> = {}): TriggerOrder => ({
+  orderId: "GTT001",
+  tradingSymbol: "RELIANCE-EQ",
   exchange: "NSE",
-  instrument_token: "NSE_EQ|INE123A01010",
-  transaction_type: "SELL",
+  instrumentToken: "NSE_EQ|INE123A01010",
+  transactionType: "SELL",
   quantity: 10,
   product: "CNC",
-  order_type: "LIMIT",
-  trigger_price: 2600,
-  limit_price: 2580,
+  triggerPrice: 2600,
+  limitPrice: 2580,
   status: "active",
   ...overrides,
 });
@@ -139,7 +137,7 @@ describe("formatGtts", () => {
   });
 
   it("shows active count and total count in header", () => {
-    const gtts = [makeGtt(), makeGtt({ order_id: "GTT002", status: "triggered" })];
+    const gtts = [makeGtt(), makeGtt({ orderId: "GTT002", status: "triggered" })];
     const result = formatGtts(gtts);
     expect(result).toContain("1 active of 2 total");
   });
@@ -155,12 +153,12 @@ describe("formatGtts", () => {
   });
 
   it("labels SELL GTTs as SL", () => {
-    const result = formatGtts([makeGtt({ transaction_type: "SELL" })]);
+    const result = formatGtts([makeGtt({ transactionType: "SELL" })]);
     expect(result).toContain("SL");
   });
 
   it("labels BUY GTTs as BUY", () => {
-    const result = formatGtts([makeGtt({ transaction_type: "BUY" })]);
+    const result = formatGtts([makeGtt({ transactionType: "BUY" })]);
     expect(result).toContain("BUY");
   });
 });

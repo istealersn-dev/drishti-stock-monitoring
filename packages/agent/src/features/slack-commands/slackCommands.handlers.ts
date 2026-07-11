@@ -17,7 +17,6 @@ import { env } from "../../shared/env.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import { askAdvisor, generateTradeSetup } from "../advisor/advisor.chain.js";
-import { listGTTs } from "../gtt/gtt.tools.js";
 import { computeHealthReport } from "../health/health.engine.js";
 import { formatHealthReport } from "../health/health.formatter.js";
 import { resolveSymbol } from "../instructions/instructions.resolver.js";
@@ -121,7 +120,7 @@ export async function handleHoldings(say: SayFunction): Promise<void> {
  * @returns Resolved when message is sent
  */
 export async function handleGtts(say: SayFunction): Promise<void> {
-  const result = await listGTTs();
+  const result = await getActiveBrokerClient().listTriggerOrders();
   if (!result.ok) {
     logCommandError(CMD_GTTS, result.error.message);
     await say(`⚠️ Could not fetch GTTs: ${result.error.message}`);

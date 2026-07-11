@@ -1,12 +1,11 @@
 import crypto from "node:crypto";
 
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders, stockConfig } from "../../db/schema.js";
 import { isDryRunActive } from "../../shared/dryRun.js";
 import { logger } from "../../shared/logger.js";
 import { resolveApproval, getApproval } from "../approval/approval.store.js";
-import { createGTT } from "../gtt/gtt.tools.js";
-import { fetchMargins } from "../portfolio/portfolio.tools.js";
 
 import { updateApprovalCard } from "./instructions.approval.js";
 import { ParsedInstructionSchema } from "./instructions.schema.js";
@@ -130,9 +129,9 @@ export async function executeApprovedInstruction(
     qty = approval.overrideQty;
   } else {
     qty = approval.suggestedQty;
-    const marginResult = await fetchMargins();
+    const marginResult = await getActiveBrokerClient().fetchMargins();
     if (marginResult.ok) {
-      qty = calculateSuggestedQty(marginResult.value.available_margin, entryHigh, entryLow);
+      qty = calculateSuggestedQty(marginResult.value.availableMargin, entryHigh, entryLow);
     } else {
       logger.warn("Failed to fetch margins for qty calculation; using stored qty", {
         approvalId,
@@ -144,17 +143,16 @@ export async function executeApprovedInstruction(
   const limitPrice = Number((entryHigh * BUY_LIMIT_BUFFER).toFixed(2));
 
   const dryRun = isDryRunActive();
-  const gttResult = await createGTT(
+  const gttResult = await getActiveBrokerClient().createTriggerOrder(
     {
-      transaction_type: "BUY",
-      trading_symbol: approval.symbol,
+      transactionType: "BUY",
+      tradingSymbol: approval.symbol,
       exchange: "NSE",
-      instrument_token: instrumentToken,
+      instrumentToken,
       product: "D",
       quantity: qty,
-      order_type: "LIMIT",
-      trigger_price: entryHigh,
-      limit_price: limitPrice,
+      triggerPrice: entryHigh,
+      limitPrice,
     },
     dryRun,
   );

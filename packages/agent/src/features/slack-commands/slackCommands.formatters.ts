@@ -1,5 +1,4 @@
-import type { Holding } from "../../broker/brokerClient.types.js";
-import type { GttOrder } from "../gtt/gtt.schema.js";
+import type { Holding, TriggerOrder } from "../../broker/brokerClient.types.js";
 
 export type RunSummary = {
   startedAt: string;
@@ -127,10 +126,10 @@ export function formatHoldings(holdings: Holding[]): string {
 
 /**
  * Format the !gtts command reply.
- * @param gtts - Active GTT orders from Upstox
+ * @param gtts - Active trigger orders from the active broker
  * @returns Slack-formatted GTT summary
  */
-export function formatGtts(gtts: GttOrder[]): string {
+export function formatGtts(gtts: TriggerOrder[]): string {
   if (gtts.length === 0) return "🔔 No GTT orders found.";
 
   const activeCount = gtts.reduce(
@@ -141,9 +140,9 @@ export function formatGtts(gtts: GttOrder[]): string {
 
   for (const g of gtts) {
     const statusEmoji = g.status.toLowerCase() === "active" ? "🟢" : "⚪";
-    const side = g.transaction_type === "SELL" ? "SL" : "BUY";
+    const side = g.transactionType === "SELL" ? "SL" : "BUY";
     lines.push(
-      `${statusEmoji} *${g.trading_symbol}*  ${side} @₹${g.trigger_price.toLocaleString("en-IN")}  ×${g.quantity}  _${g.status}_`,
+      `${statusEmoji} *${g.tradingSymbol}*  ${side} @₹${g.triggerPrice.toLocaleString("en-IN")}  ×${g.quantity}  _${g.status}_`,
     );
   }
 
