@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte } from "drizzle-orm";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
 import { db } from "../../db/db.js";
 import { advisoryConversations } from "../../db/schema.js";
 import {
@@ -17,7 +18,6 @@ import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import { stripJsonCodeFence } from "../../shared/llmResponse.js";
 import { logger } from "../../shared/logger.js";
-import { fetchHoldings } from "../portfolio/portfolio.tools.js";
 import { createWebSearchExecutor } from "../websearch/webSearch.executor.js";
 import { webSearchToolDefinition } from "../websearch/webSearch.toolDefinition.js";
 
@@ -176,7 +176,7 @@ export async function askAdvisor(
   request: AdvisoryRequest,
 ): Promise<Result<AdvisoryResponse, Error>> {
   try {
-    const holdingsResult = await fetchHoldings();
+    const holdingsResult = await getActiveBrokerClient().fetchHoldings();
     if (!holdingsResult.ok) {
       logger.warn("askAdvisor: holdings unavailable — answering without portfolio context", {
         error: holdingsResult.error.message,

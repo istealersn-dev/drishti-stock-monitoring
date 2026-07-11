@@ -1,4 +1,4 @@
-import { fetchHoldings } from "../portfolio/portfolio.tools.js";
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
 
 import type { ValidationResult } from "./validator.schema.js";
 
@@ -16,13 +16,13 @@ export async function validateConcentration(
   suggestedQty: number,
   entryHigh: number,
 ): Promise<ValidationResult> {
-  const holdingsResult = await fetchHoldings();
+  const holdingsResult = await getActiveBrokerClient().fetchHoldings();
   if (!holdingsResult.ok) {
     return { pass: true };
   }
 
   const totalPortfolioValue = holdingsResult.value.reduce(
-    (sum, holding) => sum + holding.quantity * holding.last_price,
+    (sum, holding) => sum + holding.quantity * holding.lastPrice,
     0,
   );
   if (totalPortfolioValue <= 0) {

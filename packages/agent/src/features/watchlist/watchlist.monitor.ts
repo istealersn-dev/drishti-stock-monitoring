@@ -1,5 +1,5 @@
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
 import { logger } from "../../shared/logger.js";
-import { fetchLTP } from "../portfolio/portfolio.tools.js";
 
 import type { ProximityAlert, WatchlistEntry } from "./watchlist.schema.js";
 
@@ -28,9 +28,8 @@ export async function checkProximity(
 
   const instrumentKeys = candidates
     .map((entry) => instrumentKeyMap[entry.symbol])
-    .filter(Boolean)
-    .join(",");
-  const ltpResult = await fetchLTP(instrumentKeys);
+    .filter((key): key is string => Boolean(key));
+  const ltpResult = await getActiveBrokerClient().fetchQuotes(instrumentKeys);
   if (!ltpResult.ok) {
     logger.error("Watchlist proximity check failed — LTP fetch error", {
       error: ltpResult.error.message,
@@ -53,7 +52,7 @@ export async function checkProximity(
       });
       continue;
     }
-    const ltp = ltpData.last_price;
+    const ltp = ltpData.lastPrice;
     const distancePct = (Math.abs(ltp - dma200) / dma200) * 100;
     if (distancePct < PROXIMITY_THRESHOLD_PCT) {
       alerts.push({

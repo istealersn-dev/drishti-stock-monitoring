@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest";
 
+import type { Holding } from "../../broker/brokerClient.types.js";
 import type { GttOrder } from "../gtt/gtt.schema.js";
-import type { Holding } from "../portfolio/portfolio.schema.js";
 
 import { formatGtts, formatHoldings, formatPnl, formatStatus } from "./slackCommands.formatters.js";
 
 const makeHolding = (overrides: Partial<Holding> = {}): Holding => ({
   isin: "INE123A01010",
-  trading_symbol: "RELIANCE-EQ",
-  company_name: "Reliance Industries",
+  tradingSymbol: "RELIANCE-EQ",
+  companyName: "Reliance Industries",
   quantity: 10,
-  average_price: 2800,
-  last_price: 2900,
-  close_price: 2890,
+  averagePrice: 2800,
+  lastPrice: 2900,
+  closePrice: 2890,
   pnl: 1000,
-  day_change: 10,
-  day_change_percentage: 0.35,
-  instrument_token: "NSE_EQ|INE123A01010",
+  dayChange: 10,
+  dayChangePercentage: 0.35,
+  instrumentToken: "NSE_EQ|INE123A01010",
   exchange: "NSE",
   product: "CNC",
   ...overrides,
@@ -89,11 +89,11 @@ describe("formatPnl", () => {
 
   it("sums day P&L and overall P&L", () => {
     const holdings = [
-      makeHolding({ day_change: 10, quantity: 10, pnl: 1000 }),
+      makeHolding({ dayChange: 10, quantity: 10, pnl: 1000 }),
       makeHolding({
-        trading_symbol: "HDFC-EQ",
-        day_change: -5,
-        day_change_percentage: -0.3,
+        tradingSymbol: "HDFC-EQ",
+        dayChange: -5,
+        dayChangePercentage: -0.3,
         quantity: 20,
         pnl: -500,
       }),
@@ -106,7 +106,7 @@ describe("formatPnl", () => {
   });
 
   it("shows positive sign for gains", () => {
-    const result = formatPnl([makeHolding({ pnl: 1000, day_change: 10 })]);
+    const result = formatPnl([makeHolding({ pnl: 1000, dayChange: 10 })]);
     expect(result).toMatch(/\+/);
   });
 });
@@ -126,7 +126,7 @@ describe("formatHoldings", () => {
   });
 
   it("shows count in header", () => {
-    const result = formatHoldings([makeHolding(), makeHolding({ trading_symbol: "HDFC-EQ" })]);
+    const result = formatHoldings([makeHolding(), makeHolding({ tradingSymbol: "HDFC-EQ" })]);
     expect(result).toContain("Holdings (2)");
   });
 });

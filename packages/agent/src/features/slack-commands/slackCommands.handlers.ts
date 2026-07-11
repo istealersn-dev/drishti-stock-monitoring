@@ -3,6 +3,8 @@ import crypto from "node:crypto";
 import type { SayFn } from "@slack/bolt";
 import { desc, eq } from "drizzle-orm";
 
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
+import type { Holding } from "../../broker/brokerClient.types.js";
 import { db } from "../../db/db.js";
 import { agentLogs, agentRuns, slackSessions, stockConfig } from "../../db/schema.js";
 import {
@@ -19,8 +21,6 @@ import { listGTTs } from "../gtt/gtt.tools.js";
 import { computeHealthReport } from "../health/health.engine.js";
 import { formatHealthReport } from "../health/health.formatter.js";
 import { resolveSymbol } from "../instructions/instructions.resolver.js";
-import type { Holding } from "../portfolio/portfolio.schema.js";
-import { fetchHoldings } from "../portfolio/portfolio.tools.js";
 import { getCachedLevels, saveLevels } from "../technicals/technicals.cache.js";
 import type { TechnicalLevels } from "../technicals/technicals.schema.js";
 import { fetchOHLCV, computeLevels } from "../technicals/technicals.service.js";
@@ -91,7 +91,7 @@ export async function handleStatus(say: SayFunction): Promise<void> {
  * @returns Resolved when message is sent
  */
 export async function handlePnl(say: SayFunction): Promise<void> {
-  const result = await fetchHoldings();
+  const result = await getActiveBrokerClient().fetchHoldings();
   if (!result.ok) {
     logCommandError(CMD_PNL, result.error.message);
     await say(`⚠️ Could not fetch holdings: ${result.error.message}`);
@@ -106,7 +106,7 @@ export async function handlePnl(say: SayFunction): Promise<void> {
  * @returns Resolved when message is sent
  */
 export async function handleHoldings(say: SayFunction): Promise<void> {
-  const result = await fetchHoldings();
+  const result = await getActiveBrokerClient().fetchHoldings();
   if (!result.ok) {
     logCommandError(CMD_HOLDINGS, result.error.message);
     await say(`⚠️ Could not fetch holdings: ${result.error.message}`);
@@ -153,23 +153,23 @@ async function resolveHolding(query: string, holdings: Holding[]): Promise<Holdi
   const normNeedle = normalize(query);
 
   // 1. Exact symbol
-  const exact = holdings.find((h) => h.trading_symbol.toLowerCase() === needle);
+  const exact = holdings.find((h) => h.tradingSymbol.toLowerCase() === needle);
   if (exact) return exact;
 
   // 2. Symbol contains query
-  const symbolContains = holdings.find((h) => h.trading_symbol.toLowerCase().includes(needle));
+  const symbolContains = holdings.find((h) => h.tradingSymbol.toLowerCase().includes(needle));
   if (symbolContains) return symbolContains;
 
   // 3. Normalized company name prefix (handles "federalbank" → "Federal Bank")
-  const normPrefix = holdings.find((h) => normalize(h.company_name).startsWith(normNeedle));
+  const normPrefix = holdings.find((h) => normalize(h.companyName).startsWith(normNeedle));
   if (normPrefix) return normPrefix;
 
   // 4. Normalized company name substring
-  const normContains = holdings.find((h) => normalize(h.company_name).includes(normNeedle));
+  const normContains = holdings.find((h) => normalize(h.companyName).includes(normNeedle));
   if (normContains) return normContains;
 
   // 5. LLM fallback — ask the model to pick the best match from the holdings list
-  const symbolList = holdings.map((h) => `${h.trading_symbol} (${h.company_name})`).join("\n");
+  const symbolList = holdings.map((h) => `${h.tradingSymbol} (${h.companyName})`).join("\n");
   try {
     const response = await chatOnce(
       "You are a stock symbol resolver. Given a user query and a list of holdings, return ONLY the exact trading symbol that best matches the query. If nothing matches, return the word NONE. No explanation.",
@@ -181,7 +181,7 @@ async function resolveHolding(query: string, holdings: Holding[]): Promise<Holdi
       .toUpperCase()
       .replaceAll(/[^A-Z0-9]/g, "");
     if (resolved !== "NONE") {
-      const llmMatch = holdings.find((h) => h.trading_symbol === resolved);
+      const llmMatch = holdings.find((h) => h.tradingSymbol === resolved);
       if (llmMatch) return llmMatch;
     }
   } catch (error) {
@@ -194,7 +194,7 @@ async function resolveHolding(query: string, holdings: Holding[]): Promise<Holdi
 }
 
 export async function handleAnalyse(query: string, say: SayFunction): Promise<void> {
-  const holdingsResult = await fetchHoldings();
+  const holdingsResult = await getActiveBrokerClient().fetchHoldings();
   if (!holdingsResult.ok) {
     logCommandError(CMD_ANALYSE, holdingsResult.error.message);
     await say(`⚠️ Could not fetch holdings: ${holdingsResult.error.message}`);
@@ -212,32 +212,32 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
   const config = db
     .select()
     .from(stockConfig)
-    .where(eq(stockConfig.symbol, holding.trading_symbol))
+    .where(eq(stockConfig.symbol, holding.tradingSymbol))
     .get();
 
   if (config == null) {
-    logCommandError(CMD_ANALYSE_NO_CONFIG, "No stock_config row found", holding.trading_symbol);
+    logCommandError(CMD_ANALYSE_NO_CONFIG, "No stock_config row found", holding.tradingSymbol);
     await say(
-      `ℹ️ No SL/target config found for *${holding.trading_symbol}* — analysis will use price data only. Configure via the dashboard to enable full analysis.`,
+      `ℹ️ No SL/target config found for *${holding.tradingSymbol}* — analysis will use price data only. Configure via the dashboard to enable full analysis.`,
     );
     // intentional fall-through: analysis still runs with null SL/target fields
   }
 
   const pnlPct =
-    holding.average_price > 0
-      ? ((holding.last_price - holding.average_price) / holding.average_price) * 100
+    holding.averagePrice > 0
+      ? ((holding.lastPrice - holding.averagePrice) / holding.averagePrice) * 100
       : 0;
 
   const snapshot = {
-    symbol: holding.trading_symbol,
-    company: holding.company_name,
+    symbol: holding.tradingSymbol,
+    company: holding.companyName,
     quantity: holding.quantity,
-    averagePrice: holding.average_price,
-    lastPrice: holding.last_price,
+    averagePrice: holding.averagePrice,
+    lastPrice: holding.lastPrice,
     pnlRupees: holding.pnl,
     pnlPercent: Number(pnlPct.toFixed(2)),
-    dayChange: holding.day_change,
-    dayChangePct: holding.day_change_percentage,
+    dayChange: holding.dayChange,
+    dayChangePct: holding.dayChangePercentage,
     product: holding.product,
     entryLow: config?.entryLow ?? null,
     entryHigh: config?.entryHigh ?? null,
@@ -248,7 +248,7 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
     targetTwoOpen: config?.targetTwoOpen ?? false,
   };
 
-  await say(`🔍 Analysing *${holding.trading_symbol}*…`);
+  await say(`🔍 Analysing *${holding.tradingSymbol}*…`);
 
   try {
     const reasoning = await chatOnce(
@@ -256,10 +256,10 @@ export async function handleAnalyse(query: string, say: SayFunction): Promise<vo
       `Holding snapshot:\n${JSON.stringify(snapshot, null, 2)}`,
       { timeoutMs: ADVISOR_LLM_TIMEOUT_MS },
     );
-    await say(formatAnalysis(holding.trading_symbol, reasoning));
+    await say(formatAnalysis(holding.tradingSymbol, reasoning));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logCommandError(CMD_ANALYSE_LLM, message, holding.trading_symbol);
+    logCommandError(CMD_ANALYSE_LLM, message, holding.tradingSymbol);
     await say(`⚠️ Analysis failed: ${message}`);
   }
 }

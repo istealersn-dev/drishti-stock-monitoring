@@ -1,11 +1,11 @@
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
+import type { Holding } from "../../broker/brokerClient.types.js";
 import { db } from "../../db/db.js";
 import { stockConfig } from "../../db/schema.js";
 import { chat } from "../../llm/llmClient.js";
 import { err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import { logger } from "../../shared/logger.js";
-import type { Holding } from "../portfolio/portfolio.schema.js";
-import { fetchHoldings } from "../portfolio/portfolio.tools.js";
 
 import type { PortfolioHealthReport, Underperformer } from "./health.schema.js";
 
@@ -36,7 +36,7 @@ function capitalAtRiskFor(holding: Holding, slThreshold: number | null | undefin
   if (slThreshold == null || slThreshold === 0) {
     return 0;
   }
-  return Math.abs(holding.last_price - slThreshold) * holding.quantity;
+  return Math.abs(holding.lastPrice - slThreshold) * holding.quantity;
 }
 
 /**
@@ -45,7 +45,7 @@ function capitalAtRiskFor(holding: Holding, slThreshold: number | null | undefin
  * @returns A Result with the health report, or an Error on holdings/LLM failure
  */
 export async function computeHealthReport(): Promise<Result<PortfolioHealthReport, Error>> {
-  const holdingsResult = await fetchHoldings();
+  const holdingsResult = await getActiveBrokerClient().fetchHoldings();
   if (!holdingsResult.ok) {
     return err(holdingsResult.error);
   }
@@ -56,10 +56,10 @@ export async function computeHealthReport(): Promise<Result<PortfolioHealthRepor
     configRows.map((row) => [row.symbol, row.slThreshold]),
   );
 
-  const totalPortfolioValue = holdings.reduce((sum, h) => sum + h.quantity * h.last_price, 0);
+  const totalPortfolioValue = holdings.reduce((sum, h) => sum + h.quantity * h.lastPrice, 0);
 
   const totalCapitalAtRisk = holdings.reduce(
-    (sum, h) => sum + capitalAtRiskFor(h, slBySymbol.get(h.trading_symbol)),
+    (sum, h) => sum + capitalAtRiskFor(h, slBySymbol.get(h.tradingSymbol)),
     0,
   );
 
@@ -68,16 +68,16 @@ export async function computeHealthReport(): Promise<Result<PortfolioHealthRepor
 
   const mtfBurnRateMonthly = holdings
     .filter((h) => h.product === MTF_PRODUCT)
-    .reduce((sum, h) => sum + (h.quantity * h.average_price * MTF_ANNUAL_RATE) / MONTHS_IN_YEAR, 0);
+    .reduce((sum, h) => sum + (h.quantity * h.averagePrice * MTF_ANNUAL_RATE) / MONTHS_IN_YEAR, 0);
 
   const underperformers: Underperformer[] = holdings
-    .filter((h) => h.last_price < h.average_price * UNDERPERFORMER_THRESHOLD)
+    .filter((h) => h.lastPrice < h.averagePrice * UNDERPERFORMER_THRESHOLD)
     .map((h) => ({
-      symbol: h.trading_symbol,
-      companyName: h.company_name,
-      buyPrice: h.average_price,
-      currentLtp: h.last_price,
-      pctDown: Number((((h.average_price - h.last_price) / h.average_price) * 100).toFixed(2)),
+      symbol: h.tradingSymbol,
+      companyName: h.companyName,
+      buyPrice: h.averagePrice,
+      currentLtp: h.lastPrice,
+      pctDown: Number((((h.averagePrice - h.lastPrice) / h.averagePrice) * 100).toFixed(2)),
     }));
 
   // Positions with a config row but no SL set
@@ -86,8 +86,8 @@ export async function computeHealthReport(): Promise<Result<PortfolioHealthRepor
     .map((row) => row.symbol);
   // Active holdings with no stock_config row at all (never configured)
   const neverConfigured = holdings
-    .filter((h) => !slBySymbol.has(h.trading_symbol))
-    .map((h) => h.trading_symbol);
+    .filter((h) => !slBySymbol.has(h.tradingSymbol))
+    .map((h) => h.tradingSymbol);
   const overdueForReview = [...new Set([...configuredWithoutSl, ...neverConfigured])];
 
   const metrics = {
