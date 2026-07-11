@@ -6,6 +6,7 @@ import Fastify from "fastify";
 import { z } from "zod";
 
 import { getActiveBrokerClient } from "../broker/brokerClient.registry.js";
+import type { Holding } from "../broker/brokerClient.types.js";
 import { db } from "../db/db.js";
 import {
   advisoryConversations,
@@ -58,6 +59,34 @@ const SETTINGS_VALUE_PARSERS = {
 };
 
 // ── Query helpers (exported for unit tests) ───────────────────────────────────
+
+/**
+ * Translate a broker-agnostic Holding into the snake_case wire shape the UI's
+ * HoldingSchema (packages/ui/src/lib/api.ts) still expects. The UI package
+ * hand-types /api/holdings' response independently of this backend, so this
+ * keeps that HTTP contract stable even though the backend's internal Holding
+ * type moved to camelCase — updating the UI to consume the broker-agnostic
+ * shape directly is a separate, later change.
+ * @param holding - A broker-agnostic holding from the active broker
+ * @returns The same holding in the UI's expected snake_case shape
+ */
+function toUiHolding(holding: Holding): Record<string, unknown> {
+  return {
+    isin: holding.isin,
+    trading_symbol: holding.tradingSymbol,
+    company_name: holding.companyName,
+    quantity: holding.quantity,
+    average_price: holding.averagePrice,
+    last_price: holding.lastPrice,
+    close_price: holding.closePrice,
+    pnl: holding.pnl,
+    day_change: holding.dayChange,
+    day_change_percentage: holding.dayChangePercentage,
+    product: holding.product,
+    exchange: holding.exchange,
+    instrument_token: holding.instrumentToken,
+  };
+}
 
 /**
  * Query the most recent agent runs.
@@ -216,7 +245,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
 
   app.get("/api/holdings", async (_request, reply) => {
     const { holdings, cachedAt } = getCachedHoldings();
-    return reply.send({ ok: true, data: holdings, cachedAt });
+    return reply.send({ ok: true, data: holdings.map(toUiHolding), cachedAt });
   });
 
   app.get<{ Querystring: { status?: string } }>("/api/gtt", async (request, reply) => {

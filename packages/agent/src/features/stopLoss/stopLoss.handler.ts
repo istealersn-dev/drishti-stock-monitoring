@@ -68,7 +68,7 @@ function hasActiveSlExitGtt(symbol: string): boolean {
  */
 export async function handleSlBreach(breach: SlBreach, runId: string): Promise<void> {
   const { holding, lastTradedPrice, slThreshold } = breach;
-  const symbol = holding.trading_symbol;
+  const symbol = holding.tradingSymbol;
   const now = new Date().toISOString();
 
   const gttAlreadyActive = hasActiveSlExitGtt(symbol);

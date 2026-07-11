@@ -1,11 +1,11 @@
-import type { Holding } from "./portfolio.schema.js";
+import type { Holding } from "../../broker/brokerClient.types.js";
 
 let cachedHoldings: Holding[] = [];
 let cachedAt: string | null = null;
 
 /**
  * Update the in-memory holdings cache. Called by the agent graph after each successful fetch.
- * @param holdings - Latest holdings from Upstox
+ * @param holdings - Latest holdings from the active broker
  */
 export function updateHoldingsCache(holdings: Holding[]): void {
   cachedHoldings = holdings;

@@ -105,14 +105,14 @@ export function startAdvisorCrons(): void {
 
         const allSymbols = [
           ...new Set([
-            ...holdings.map((h) => h.trading_symbol),
+            ...holdings.map((h) => h.tradingSymbol),
             ...watchlistEntries.map((w) => w.symbol),
           ]),
         ];
 
         const instrumentKeyMap: Record<string, string> = {};
         for (const h of holdings) {
-          instrumentKeyMap[h.trading_symbol] = h.instrument_token;
+          instrumentKeyMap[h.tradingSymbol] = h.instrumentToken;
         }
         // Resolve instrument tokens for watchlist-only symbols (not in holdings)
         const watchlistOnly = watchlistEntries
@@ -178,7 +178,7 @@ export async function getWatchlistProximityAlerts(): Promise<string[]> {
     const instrumentKeyMap: Record<string, string> = {};
     const { holdings } = getCachedHoldings();
     for (const h of holdings) {
-      instrumentKeyMap[h.trading_symbol] = h.instrument_token;
+      instrumentKeyMap[h.tradingSymbol] = h.instrumentToken;
     }
     for (const entry of entries) {
       const cached = getCachedLevels(entry.symbol);

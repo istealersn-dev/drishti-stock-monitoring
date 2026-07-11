@@ -1,5 +1,5 @@
+import type { Holding, Quote } from "../../broker/brokerClient.types.js";
 import type { LlmOutput } from "../insights/insights.schema.js";
-import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 import type { StockSlConfig } from "../stopLoss/stopLoss.config.js";
 import type { SlBreach } from "../stopLoss/stopLoss.detector.js";
 import type { TargetHit } from "../targets/targets.detector.js";
@@ -7,7 +7,7 @@ import type { TargetHit } from "../targets/targets.detector.js";
 export type AgentState = {
   runId: string;
   holdings: Holding[];
-  ltpMap: Record<string, LtpData>;
+  ltpMap: Record<string, Quote>;
   slConfigs: StockSlConfig[];
   breaches: SlBreach[];
   targetHits: TargetHit[];

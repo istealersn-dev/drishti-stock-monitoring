@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockDbSelect, mockDbInsert, mockDbUpdate, mockIsDryRunActive, mockCancelGTT } = vi.hoisted(
-  () => ({
-    mockDbSelect: vi.fn(),
-    mockDbInsert: vi.fn(),
-    mockDbUpdate: vi.fn(),
-    mockIsDryRunActive: vi.fn().mockReturnValue(false),
-    mockCancelGTT: vi.fn(),
-  }),
-);
+const {
+  mockDbSelect,
+  mockDbInsert,
+  mockDbUpdate,
+  mockIsDryRunActive,
+  mockCancelGTT,
+  mockGetCachedHoldings,
+} = vi.hoisted(() => ({
+  mockDbSelect: vi.fn(),
+  mockDbInsert: vi.fn(),
+  mockDbUpdate: vi.fn(),
+  mockIsDryRunActive: vi.fn().mockReturnValue(false),
+  mockCancelGTT: vi.fn(),
+  mockGetCachedHoldings: vi.fn().mockReturnValue({ holdings: [], cachedAt: null }),
+}));
 
 vi.mock("../db/db.js", () => ({
   db: { select: mockDbSelect, insert: mockDbInsert, update: mockDbUpdate },
@@ -33,7 +39,7 @@ vi.mock("../shared/env.js", () => ({
   },
 }));
 vi.mock("../features/portfolio/portfolio.cache.js", () => ({
-  getCachedHoldings: vi.fn().mockReturnValue({ holdings: [], cachedAt: null }),
+  getCachedHoldings: mockGetCachedHoldings,
 }));
 vi.mock("../features/gtt/gtt.tools.js", () => ({ cancelGTT: mockCancelGTT }));
 vi.mock("../shared/logger.js", () => ({
@@ -345,5 +351,57 @@ describe("DELETE /api/gtt/:id", () => {
     expect(mockCancelGTT).not.toHaveBeenCalled();
     expect(updateRun).toHaveBeenCalledOnce();
     expect(response.statusCode).toBe(200);
+  });
+});
+
+describe("GET /api/holdings", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("translates cached broker-agnostic holdings back to the UI's snake_case wire shape", async () => {
+    mockGetCachedHoldings.mockReturnValue({
+      holdings: [
+        {
+          isin: "INE002A01018",
+          tradingSymbol: "RELIANCE",
+          companyName: "Reliance Industries Ltd",
+          quantity: 10,
+          averagePrice: 2800,
+          lastPrice: 2900,
+          closePrice: 2880,
+          pnl: 1000,
+          dayChange: 20,
+          dayChangePercentage: 0.69,
+          instrumentToken: "NSE_EQ|INE002A01018",
+          exchange: "NSE",
+          product: "CNC",
+        },
+      ],
+      cachedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    const app = await buildApiApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/holdings",
+      headers: { "x-access-key": "test-key" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body) as { data: Record<string, unknown>[] };
+    expect(body.data[0]).toEqual({
+      isin: "INE002A01018",
+      trading_symbol: "RELIANCE",
+      company_name: "Reliance Industries Ltd",
+      quantity: 10,
+      average_price: 2800,
+      last_price: 2900,
+      close_price: 2880,
+      pnl: 1000,
+      day_change: 20,
+      day_change_percentage: 0.69,
+      product: "CNC",
+      exchange: "NSE",
+      instrument_token: "NSE_EQ|INE002A01018",
+    });
   });
 });

@@ -14,7 +14,6 @@ import { buildSlExitRequest } from "../gtt/gtt.service.js";
 import { hasMovedSignificantly, recordAnalysisSnapshot } from "../insights/insights.cache.js";
 import { analysePortfolio } from "../insights/insights.chain.js";
 import { updateHoldingsCache } from "../portfolio/portfolio.cache.js";
-import { fetchHoldings, fetchLTP } from "../portfolio/portfolio.tools.js";
 import { loadSlConfigs } from "../stopLoss/stopLoss.config.js";
 import { detectBreaches } from "../stopLoss/stopLoss.detector.js";
 import { handleSlBreach } from "../stopLoss/stopLoss.handler.js";
@@ -75,7 +74,8 @@ async function alertUpstoxAuthFailure(runId: string, errorMessage: string): Prom
 
 /** Fetch holdings and LTP; populate state or append to errors on failure. */
 async function fetchPortfolioNode(state: Readonly<AgentState>): Promise<Partial<AgentState>> {
-  const holdingsResult = await fetchHoldings();
+  const broker = getActiveBrokerClient();
+  const holdingsResult = await broker.fetchHoldings();
   if (!holdingsResult.ok) {
     logger.error("fetchPortfolio: holdings fetch failed", {
       error: holdingsResult.error.message,
@@ -95,8 +95,8 @@ async function fetchPortfolioNode(state: Readonly<AgentState>): Promise<Partial<
     return { holdings: [] };
   }
 
-  const instrumentKeys = holdings.map((h) => h.instrument_token).join(",");
-  const ltpResult = await fetchLTP(instrumentKeys);
+  const instrumentKeys = holdings.map((h) => h.instrumentToken);
+  const ltpResult = await broker.fetchQuotes(instrumentKeys);
   if (!ltpResult.ok) {
     logger.error("fetchPortfolio: LTP fetch failed", { error: ltpResult.error.message });
     return {
@@ -418,7 +418,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
         continue;
       }
 
-      const holding = state.holdings.find((h) => h.trading_symbol === decision.symbol);
+      const holding = state.holdings.find((h) => h.tradingSymbol === decision.symbol);
       if (!holding) continue;
 
       const dryRun = isDryRunActive();

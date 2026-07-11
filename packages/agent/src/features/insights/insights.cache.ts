@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
+import type { Holding, Quote } from "../../broker/brokerClient.types.js";
 import { db } from "../../db/db.js";
 import { agentSettings } from "../../db/schema.js";
 import { logger } from "../../shared/logger.js";
-import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 
 const SNAPSHOT_SETTINGS_KEY = "llm_analysis_last_ltp";
 
@@ -66,11 +66,11 @@ function loadSnapshot(): Record<string, number> {
  * @param holdings - Holdings included in the analysis
  * @param ltpMap - Map of instrument_token → LTP used for that analysis
  */
-export function recordAnalysisSnapshot(holdings: Holding[], ltpMap: Record<string, LtpData>): void {
+export function recordAnalysisSnapshot(holdings: Holding[], ltpMap: Record<string, Quote>): void {
   const snapshot: Record<string, number> = {};
   for (const holding of holdings) {
-    const ltp = ltpMap[holding.instrument_token]?.last_price ?? holding.last_price;
-    snapshot[holding.trading_symbol] = ltp;
+    const ltp = ltpMap[holding.instrumentToken]?.lastPrice ?? holding.lastPrice;
+    snapshot[holding.tradingSymbol] = ltp;
   }
   cachedSnapshot = snapshot;
 
@@ -95,15 +95,15 @@ export function recordAnalysisSnapshot(holdings: Holding[], ltpMap: Record<strin
  */
 export function hasMovedSignificantly(
   holdings: Holding[],
-  ltpMap: Record<string, LtpData>,
+  ltpMap: Record<string, Quote>,
   thresholdPct: number,
 ): boolean {
   const snapshot = loadSnapshot();
   return holdings.some((holding) => {
-    const priorLtp = snapshot[holding.trading_symbol];
+    const priorLtp = snapshot[holding.tradingSymbol];
     if (priorLtp === undefined) return true;
 
-    const ltp = ltpMap[holding.instrument_token]?.last_price ?? holding.last_price;
+    const ltp = ltpMap[holding.instrumentToken]?.lastPrice ?? holding.lastPrice;
     if (priorLtp === 0) return ltp !== 0;
 
     const movePct = (Math.abs(ltp - priorLtp) / priorLtp) * 100;

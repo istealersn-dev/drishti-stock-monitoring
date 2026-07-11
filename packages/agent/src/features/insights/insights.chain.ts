@@ -1,8 +1,8 @@
+import type { Holding, Quote } from "../../broker/brokerClient.types.js";
 import { chatOnce, PORTFOLIO_MAX_TOKENS, PORTFOLIO_LLM_TIMEOUT_MS } from "../../llm/llmClient.js";
 import { LlmError, err, ok } from "../../shared/errors.js";
 import type { Result } from "../../shared/errors.js";
 import { stripJsonCodeFence } from "../../shared/llmResponse.js";
-import type { Holding, LtpData } from "../portfolio/portfolio.schema.js";
 import type { StockSlConfig } from "../stopLoss/stopLoss.config.js";
 
 import { buildPortfolioPrompt, PORTFOLIO_ANALYSIS_SYSTEM_PROMPT } from "./insights.prompts.js";
@@ -31,21 +31,21 @@ type HoldingSnapshot = {
  */
 function buildSnapshot(
   holdings: Holding[],
-  ltpMap: Record<string, LtpData>,
+  ltpMap: Record<string, Quote>,
   slConfigs: StockSlConfig[],
 ): HoldingSnapshot[] {
   const slBySymbol = new Map(slConfigs.map((c) => [c.symbol, c]));
 
   return holdings.map((h) => {
-    const ltp = ltpMap[h.instrument_token]?.last_price ?? h.last_price;
-    const pnlPercent = h.average_price > 0 ? ((ltp - h.average_price) / h.average_price) * 100 : 0;
-    const config = slBySymbol.get(h.trading_symbol);
+    const ltp = ltpMap[h.instrumentToken]?.lastPrice ?? h.lastPrice;
+    const pnlPercent = h.averagePrice > 0 ? ((ltp - h.averagePrice) / h.averagePrice) * 100 : 0;
+    const config = slBySymbol.get(h.tradingSymbol);
 
     return {
-      symbol: h.trading_symbol,
-      companyName: h.company_name,
+      symbol: h.tradingSymbol,
+      companyName: h.companyName,
       quantity: h.quantity,
-      avgPrice: h.average_price,
+      avgPrice: h.averagePrice,
       ltp,
       pnlPercent: Number(pnlPercent.toFixed(2)),
       slThreshold: config?.slThreshold ?? null,
@@ -66,7 +66,7 @@ function buildSnapshot(
  */
 export async function analysePortfolio(
   holdings: Holding[],
-  ltpMap: Record<string, LtpData>,
+  ltpMap: Record<string, Quote>,
   slConfigs: StockSlConfig[],
 ): Promise<Result<LlmOutput, LlmError>> {
   const snapshot = buildSnapshot(holdings, ltpMap, slConfigs);
