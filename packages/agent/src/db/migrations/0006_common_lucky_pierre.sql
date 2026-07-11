@@ -1,0 +1,1 @@
+ALTER TABLE `gtt_orders` ADD `upstox_order_id` text;

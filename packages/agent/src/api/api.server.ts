@@ -17,6 +17,7 @@ import {
 } from "../db/schema.js";
 import { askAdvisor, generateTradeSetup } from "../features/advisor/advisor.chain.js";
 import { getApproval, resolveApproval } from "../features/approval/approval.store.js";
+import { cancelGTT } from "../features/gtt/gtt.tools.js";
 import { getLastHealthReport, setLastHealthReport } from "../features/health/health.cache.js";
 import { computeHealthReport } from "../features/health/health.engine.js";
 import { updateApprovalCard } from "../features/instructions/instructions.approval.js";
@@ -346,13 +347,56 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
       return reply.status(409).send({ ok: false, error: `Order is already ${row.status}` });
     }
 
-    if (isDryRunActive()) {
-      logger.info("[DRY_RUN] would cancel GTT", { id, symbol: row.symbol });
+    const dryRun = isDryRunActive();
+
+    if (!dryRun) {
+      if (!row.upstoxOrderId) {
+        // Rows created before the upstox_order_id column existed (or during a dry-run) have
+        // no Upstox-side ID on record — there is currently no reconciliation job that backfills
+        // this via listGTTs(), so these rows can only be cancelled by a manual DB/Upstox fix.
+        // Same known-limitation shape as hasActiveSlExitGtt's docstring in stopLoss.handler.ts.
+        const error =
+          "This GTT row has no Upstox order ID on record, so it can't be cancelled remotely.";
+        logger.error(
+          "GTT cancel requested but row has no Upstox order ID — refusing to mark cancelled",
+          { id, symbol: row.symbol },
+        );
+        db.insert(agentLogs)
+          .values({
+            runId: "ui",
+            symbol: row.symbol,
+            action: "gtt_cancel_failed",
+            reasoning: null,
+            dryRun,
+            error,
+            createdAt: new Date().toISOString(),
+          })
+          .run();
+        return reply.status(422).send({ ok: false, error });
+      }
+
+      const cancelResult = await cancelGTT(row.upstoxOrderId, dryRun);
+      if (!cancelResult.ok) {
+        logger.error("DELETE /api/gtt/:id — Upstox cancel failed", {
+          id,
+          symbol: row.symbol,
+          error: cancelResult.error.message,
+        });
+        db.insert(agentLogs)
+          .values({
+            runId: "ui",
+            symbol: row.symbol,
+            action: "gtt_cancel_failed",
+            reasoning: null,
+            dryRun,
+            error: cancelResult.error.message,
+            createdAt: new Date().toISOString(),
+          })
+          .run();
+        return reply.status(502).send({ ok: false, error: cancelResult.error.message });
+      }
     } else {
-      logger.warn("GTT cancelled in DB; Upstox remote cancel unavailable without upstoxOrderId", {
-        id,
-        symbol: row.symbol,
-      });
+      logger.info("[DRY_RUN] would cancel GTT", { id, symbol: row.symbol });
     }
 
     db.update(gttOrders)

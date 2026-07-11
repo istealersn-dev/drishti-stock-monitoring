@@ -260,17 +260,19 @@ async function llmAnalyseNode(state: Readonly<AgentState>): Promise<Partial<Agen
 }
 
 /**
- * Look up the active buy-entry GTT order ID for a symbol from the local DB.
- * Returns null when none is found (GTT may have already triggered or been cancelled).
+ * Look up the active GTT order for a symbol from the local DB — both the local row ID
+ * (used to update `gtt_orders.status`) and the Upstox order ID (required to cancel the
+ * order remotely; null for rows created before this field existed, or during dry-run).
+ * Returns null when no active row is found (GTT may have already triggered or been cancelled).
  */
-function findActiveGttId(symbol: string): string | null {
+function findActiveGtt(symbol: string): { id: string; upstoxOrderId: string | null } | null {
   const rows = db
-    .select({ id: gttOrders.id })
+    .select({ id: gttOrders.id, upstoxOrderId: gttOrders.upstoxOrderId })
     .from(gttOrders)
     .where(and(eq(gttOrders.symbol, symbol), eq(gttOrders.status, "active")))
     .all();
 
-  return rows[0]?.id ?? null;
+  return rows[0] ?? null;
 }
 
 /** Execute LLM decisions: modify or cancel GTTs. Hold and alert_only are fire-and-forget alerts. */
@@ -327,8 +329,8 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
     }
 
     if (decision.action === "gtt_cancel") {
-      const gttId = findActiveGttId(decision.symbol);
-      if (!gttId) {
+      const gtt = findActiveGtt(decision.symbol);
+      if (!gtt) {
         logger.warn("executeActions: no active GTT found for cancel", {
           symbol: decision.symbol,
         });
@@ -336,7 +338,32 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
       }
 
       const dryRun = isDryRunActive();
-      const cancelResult = await cancelGTT(gttId, dryRun);
+      if (!dryRun && !gtt.upstoxOrderId) {
+        logger.error(
+          "executeActions: active GTT row has no Upstox order ID — cannot cancel remotely",
+          {
+            symbol: decision.symbol,
+            gttId: gtt.id,
+          },
+        );
+        db.insert(agentLogs)
+          .values({
+            runId: state.runId,
+            symbol: decision.symbol,
+            action: "gtt_cancel",
+            reasoning: decision.reasoning,
+            dryRun,
+            error: "Active GTT row has no Upstox order ID — cannot cancel remotely",
+            createdAt: now,
+          })
+          .run();
+        continue;
+      }
+
+      // The guard above guarantees upstoxOrderId is set whenever !dryRun; the `?? gtt.id`
+      // fallback only fires in dry-run mode, where cancelGTT never touches the network and
+      // the id is only used cosmetically in the "[DRY_RUN] would cancel" log string.
+      const cancelResult = await cancelGTT(gtt.upstoxOrderId ?? gtt.id, dryRun);
       // Only flip the row to "cancelled" when a real Upstox cancel happened — cancelGTT
       // returns ok:true for a dry-run "would cancel" too, and marking the row cancelled
       // in that case would make the agent believe the real GTT is gone when Upstox still
@@ -344,7 +371,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
       if (cancelResult.ok && !dryRun) {
         db.update(gttOrders)
           .set({ status: "cancelled", updatedAt: now })
-          .where(eq(gttOrders.id, gttId))
+          .where(eq(gttOrders.id, gtt.id))
           .run();
       }
       db.insert(agentLogs)
@@ -380,8 +407,8 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
     }
 
     if (decision.action === "gtt_modify" && decision.gttParams) {
-      const gttId = findActiveGttId(decision.symbol);
-      if (!gttId) {
+      const gtt = findActiveGtt(decision.symbol);
+      if (!gtt) {
         logger.warn("executeActions: no active GTT found for modify", {
           symbol: decision.symbol,
         });
@@ -392,7 +419,32 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
       if (!holding) continue;
 
       const dryRun = isDryRunActive();
-      const cancelResult = await cancelGTT(gttId, dryRun);
+      if (!dryRun && !gtt.upstoxOrderId) {
+        logger.error(
+          "executeActions: active GTT row has no Upstox order ID — cannot modify remotely",
+          {
+            symbol: decision.symbol,
+            gttId: gtt.id,
+          },
+        );
+        db.insert(agentLogs)
+          .values({
+            runId: state.runId,
+            symbol: decision.symbol,
+            action: "gtt_modify_failed",
+            reasoning: decision.reasoning,
+            dryRun,
+            error: "Active GTT row has no Upstox order ID — cannot modify remotely",
+            createdAt: now,
+          })
+          .run();
+        continue;
+      }
+
+      // The guard above guarantees upstoxOrderId is set whenever !dryRun; the `?? gtt.id`
+      // fallback only fires in dry-run mode, where cancelGTT never touches the network and
+      // the id is only used cosmetically in the "[DRY_RUN] would cancel" log string.
+      const cancelResult = await cancelGTT(gtt.upstoxOrderId ?? gtt.id, dryRun);
       if (!cancelResult.ok) {
         logger.error("executeActions: cancel before modify failed", {
           symbol: decision.symbol,
@@ -418,7 +470,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
       if (!dryRun) {
         db.update(gttOrders)
           .set({ status: "cancelled", updatedAt: now })
-          .where(eq(gttOrders.id, gttId))
+          .where(eq(gttOrders.id, gtt.id))
           .run();
       }
 
@@ -446,6 +498,7 @@ async function executeActionsNode(state: Readonly<AgentState>): Promise<Partial<
             quantity: holding.quantity,
             status: dryRun ? "dry_run" : "active",
             approvalId: null,
+            upstoxOrderId: dryRun ? null : createResult.value,
             createdAt: now,
             updatedAt: now,
           })
