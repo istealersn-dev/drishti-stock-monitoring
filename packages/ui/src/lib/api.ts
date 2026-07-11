@@ -467,3 +467,61 @@ export async function fetchAdvisoryConversations(): Promise<AdvisoryConversation
   );
   return response.data;
 }
+
+// ── Brokers ────────────────────────────────────────────────────────────────
+
+export const BrokerConnectionSchema = z.object({
+  brokerId: z.string(),
+  isActive: z.boolean(),
+  status: z.string(),
+  lastCheckedAt: z.string().nullable(),
+  lastError: z.string().nullable(),
+});
+export type BrokerConnection = z.infer<typeof BrokerConnectionSchema>;
+
+const BrokersResponseSchema = z.object({ ok: z.boolean(), data: z.array(BrokerConnectionSchema) });
+
+/**
+ * Fetch connection status for every known broker (Upstox plus any planned
+ * brokers without a real adapter yet, which come back "not_configured").
+ * @returns Every broker's connection status row
+ */
+export async function fetchBrokers(): Promise<BrokerConnection[]> {
+  const response = await apiFetch("/api/brokers", BrokersResponseSchema);
+  return response.data;
+}
+
+const VerifyBrokerResponseSchema = z.object({
+  ok: z.boolean(),
+  data: z.object({ status: z.string(), error: z.string().optional() }),
+});
+
+/**
+ * Trigger a live connectivity check for a broker (one cheap read through its
+ * adapter) and persist the result. Returns 501 for a broker with no adapter
+ * yet, surfaced as a thrown error by apiFetch.
+ * @param brokerId - The broker to verify
+ * @returns The resulting status ("connected" or "error") and error detail if any
+ */
+export async function verifyBroker(brokerId: string): Promise<{ status: string; error?: string }> {
+  const response = await apiFetch(
+    `/api/brokers/${encodeURIComponent(brokerId)}/verify`,
+    VerifyBrokerResponseSchema,
+    { method: "POST" },
+  );
+  return response.data;
+}
+
+/**
+ * Set a broker as the active one. Returns 501 for a broker with no adapter
+ * yet, surfaced as a thrown error by apiFetch.
+ * @param brokerId - The broker to activate
+ * @returns Resolves on success, throws on HTTP error
+ */
+export async function activateBroker(brokerId: string): Promise<void> {
+  await apiFetch(
+    `/api/brokers/${encodeURIComponent(brokerId)}/activate`,
+    z.object({ ok: z.boolean() }),
+    { method: "POST" },
+  );
+}
