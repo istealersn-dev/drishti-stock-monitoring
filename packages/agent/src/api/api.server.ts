@@ -5,7 +5,11 @@ import { desc, eq } from "drizzle-orm";
 import Fastify from "fastify";
 import { z } from "zod";
 
-import { getActiveBrokerClient } from "../broker/brokerClient.registry.js";
+import {
+  createBrokerClient,
+  getActiveBrokerClient,
+  IMPLEMENTED_BROKER_IDS,
+} from "../broker/brokerClient.registry.js";
 import type { Holding } from "../broker/brokerClient.types.js";
 import { db } from "../db/db.js";
 import {
@@ -32,8 +36,11 @@ import { ParsedInstructionSchema } from "../features/instructions/instructions.s
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
 import {
   BOOLEAN_SETTING_VALUES,
+  getBrokerConnections,
   isBooleanSettingEnabled,
   PAUSE_AGENT_SETTINGS_KEY,
+  recordBrokerVerification,
+  setActiveBroker,
 } from "../features/settings/settings.service.js";
 import { getCachedLevels, saveLevels } from "../features/technicals/technicals.cache.js";
 import { computeLevels } from "../features/technicals/technicals.service.js";
@@ -43,6 +50,7 @@ import {
   getWatchlist,
   removeFromWatchlist,
 } from "../features/watchlist/watchlist.service.js";
+import { BROKER_IDS, BrokerIdSchema } from "../shared/brokerId.js";
 import { isDryRunActive } from "../shared/dryRun.js";
 import { env } from "../shared/env.js";
 import { logger } from "../shared/logger.js";
@@ -279,6 +287,58 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
     }
 
     return reply.send({ ok: true, updated });
+  });
+
+  app.get("/api/brokers", async (_request, reply) => {
+    const connections = getBrokerConnections();
+    const byId = new Map(connections.map((row) => [row.brokerId, row]));
+    const data = BROKER_IDS.map(
+      (brokerId) =>
+        byId.get(brokerId) ?? {
+          brokerId,
+          isActive: false,
+          status: "not_configured",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+    );
+    return reply.send({ ok: true, data });
+  });
+
+  app.post<{ Params: { id: string } }>("/api/brokers/:id/verify", async (request, reply) => {
+    const parsedId = BrokerIdSchema.safeParse(request.params.id);
+    if (!parsedId.success) {
+      return reply.status(400).send({ ok: false, error: `Unknown broker: ${request.params.id}` });
+    }
+    const brokerId = parsedId.data;
+    if (!IMPLEMENTED_BROKER_IDS.includes(brokerId)) {
+      return reply
+        .status(501)
+        .send({ ok: false, error: `${brokerId} is not integrated yet — no adapter exists.` });
+    }
+
+    const result = await createBrokerClient(brokerId).fetchMargins();
+    if (!result.ok) {
+      recordBrokerVerification(brokerId, "error", result.error.message);
+      return reply.send({ ok: true, data: { status: "error", error: result.error.message } });
+    }
+    recordBrokerVerification(brokerId, "connected", null);
+    return reply.send({ ok: true, data: { status: "connected" } });
+  });
+
+  app.post<{ Params: { id: string } }>("/api/brokers/:id/activate", async (request, reply) => {
+    const parsedId = BrokerIdSchema.safeParse(request.params.id);
+    if (!parsedId.success) {
+      return reply.status(400).send({ ok: false, error: `Unknown broker: ${request.params.id}` });
+    }
+    const brokerId = parsedId.data;
+    if (!IMPLEMENTED_BROKER_IDS.includes(brokerId)) {
+      return reply
+        .status(501)
+        .send({ ok: false, error: `${brokerId} is not integrated yet — no adapter exists.` });
+    }
+    setActiveBroker(brokerId);
+    return reply.send({ ok: true });
   });
 
   app.get("/api/approvals", async (_request, reply) => {

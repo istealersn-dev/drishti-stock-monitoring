@@ -88,3 +88,35 @@ export function setActiveBroker(brokerId: BrokerId): void {
 export function getBrokerConnections(): (typeof brokerConnections.$inferSelect)[] {
   return db.select().from(brokerConnections).all();
 }
+
+/**
+ * Record the result of a live connectivity check for a broker, without
+ * changing which broker is active. Upserts so verifying a broker before it's
+ * ever been activated (no existing row) still records status.
+ * @param brokerId - The broker that was checked
+ * @param status - "connected" on a successful live read, "error" otherwise
+ * @param lastError - The error message on failure, or null on success
+ * @returns Nothing
+ */
+export function recordBrokerVerification(
+  brokerId: BrokerId,
+  status: "connected" | "error",
+  lastError: string | null,
+): void {
+  const now = new Date().toISOString();
+  db.insert(brokerConnections)
+    .values({
+      brokerId,
+      isActive: false,
+      status,
+      lastCheckedAt: now,
+      lastError,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: brokerConnections.brokerId,
+      set: { status, lastCheckedAt: now, lastError, updatedAt: now },
+    })
+    .run();
+}
