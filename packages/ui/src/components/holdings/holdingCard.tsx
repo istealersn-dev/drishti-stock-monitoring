@@ -27,9 +27,8 @@ type HoldingCardProperties = {
  * @returns Holding card element
  */
 export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElement {
-  const { sl, setSl, target, setTarget, saveError, isPending, handleSetGtt } = useHoldingGttForm(
-    holding.trading_symbol,
-  );
+  const { sl, setSl, target, setTarget, saveError, isPending, handleSaveThreshold } =
+    useHoldingGttForm(holding.trading_symbol);
   const ltpColor = holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
   const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
   const cost = holding.quantity * holding.average_price;
@@ -97,9 +96,12 @@ export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElem
 
       {saveError !== null && <p className="text-caption text-neg">{saveError}</p>}
 
-      <Button variant="secondary" onClick={handleSetGtt} disabled={isPending}>
-        {isPending ? "Saving…" : "Set GTT"}
+      <Button variant="secondary" onClick={handleSaveThreshold} disabled={isPending}>
+        {isPending ? "Saving…" : "Save SL threshold"}
       </Button>
+      <p className="text-micro text-fg-faint">
+        Places an exit GTT automatically if price breaches this SL — no order is placed now.
+      </p>
     </Card>
   );
 }
