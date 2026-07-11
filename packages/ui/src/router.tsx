@@ -10,6 +10,7 @@ import { AppShell } from "./components/shell/appShell";
 import { isAuthenticated } from "./lib/auth";
 import { Ask } from "./pages/ask";
 import { CatalogPreview } from "./pages/catalogPreview";
+import { ConnectBroker } from "./pages/connectBroker";
 import { Dashboard } from "./pages/dashboard";
 import { Gtt } from "./pages/gtt";
 import { Health } from "./pages/health";
@@ -136,6 +137,12 @@ const settingsRoute = createRoute({
   component: Settings,
 });
 
+const connectBrokerRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/settings/connect/$brokerId",
+  component: ConnectBroker,
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   tokensRoute,
@@ -151,6 +158,7 @@ const routeTree = rootRoute.addChildren([
     askRoute,
     logsRoute,
     settingsRoute,
+    connectBrokerRoute,
   ]),
 ]);
 

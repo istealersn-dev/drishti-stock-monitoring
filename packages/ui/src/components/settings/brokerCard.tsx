@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import type React from "react";
 
 import angeloneLogo from "../../assets/broker-logos/angelone.png";
@@ -54,24 +55,26 @@ const PLANNED_BROKERS: { id: string; name: string; icon: BrokerIconProperties }[
 ];
 
 type BrokerRowProperties = {
+  id: string;
   icon: BrokerIconProperties;
   name: string;
   statusVariant: BadgeVariant;
   statusLabel: string;
   dimmed?: boolean;
+  navigable?: boolean;
 };
 
 function BrokerRow({
+  id,
   icon,
   name,
   statusVariant,
   statusLabel,
   dimmed = false,
+  navigable = false,
 }: BrokerRowProperties): React.ReactElement {
-  return (
-    <div
-      className={`flex items-center gap-3 rounded-xl border border-border-strong bg-surface-2 p-3 ${dimmed ? "opacity-60" : ""}`}
-    >
+  const content = (
+    <>
       <BrokerIcon {...icon} />
       <div>
         <div className="text-body-sm font-medium text-fg">{name}</div>
@@ -79,8 +82,18 @@ function BrokerRow({
           {statusLabel}
         </Badge>
       </div>
-    </div>
+    </>
   );
+  const className = `flex items-center gap-3 rounded-xl border border-border-strong bg-surface-2 p-3 ${dimmed ? "opacity-60" : ""} ${navigable ? "cursor-pointer transition-colors hover:border-border-muted hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold" : ""}`;
+
+  if (navigable) {
+    return (
+      <Link to="/settings/connect/$brokerId" params={{ brokerId: id }} className={className}>
+        {content}
+      </Link>
+    );
+  }
+  return <div className={className}>{content}</div>;
 }
 
 /**
@@ -123,12 +136,14 @@ export function BrokerCard(): React.ReactElement {
       statusVariant: upstoxStatus.variant,
       statusLabel: upstoxStatus.label,
       dimmed: false,
+      navigable: true,
     },
     ...PLANNED_BROKERS.map((broker) => ({
       ...broker,
       statusVariant: "neutral" as const,
       statusLabel: "Not integrated yet",
       dimmed: true,
+      navigable: false,
     })),
   ];
 
@@ -140,20 +155,23 @@ export function BrokerCard(): React.ReactElement {
         {brokers.map((broker) => (
           <BrokerRow
             key={broker.id}
+            id={broker.id}
             icon={broker.icon}
             name={broker.name}
             statusVariant={broker.statusVariant}
             statusLabel={broker.statusLabel}
             dimmed={broker.dimmed}
+            navigable={broker.navigable}
           />
         ))}
       </div>
 
       <p className="text-caption text-fg-faint">
-        Drishti is hardcoded to a single Upstox account today — read access covers holdings &amp;
-        market data, and order placement isn&apos;t a separate per-broker permission; it&apos;s
-        gated by the Dry Run toggle in Agent controls. Angel One, Groww, and HDFC Sky are planned
-        for a future phase.
+        Drishti supports one active broker at a time — Upstox is the only one with a working adapter
+        today; click it to view or manage its connection. Read access covers holdings &amp; market
+        data, and order placement isn&apos;t a separate per-broker permission; it&apos;s gated by
+        the Dry Run toggle in Agent controls. Angel One, Groww, and HDFC Sky are planned for a
+        future phase.
       </p>
     </Card>
   );
