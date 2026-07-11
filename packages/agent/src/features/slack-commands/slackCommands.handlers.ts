@@ -19,10 +19,9 @@ import type { Result } from "../../shared/errors.js";
 import { askAdvisor, generateTradeSetup } from "../advisor/advisor.chain.js";
 import { computeHealthReport } from "../health/health.engine.js";
 import { formatHealthReport } from "../health/health.formatter.js";
-import { resolveSymbol } from "../instructions/instructions.resolver.js";
 import { getCachedLevels, saveLevels } from "../technicals/technicals.cache.js";
 import type { TechnicalLevels } from "../technicals/technicals.schema.js";
-import { fetchOHLCV, computeLevels } from "../technicals/technicals.service.js";
+import { computeLevels } from "../technicals/technicals.service.js";
 import {
   addToWatchlist,
   getWatchlist,
@@ -348,7 +347,7 @@ async function fetchOrComputeLevels(
   const cached = getCachedLevels(symbol);
   if (cached) return ok(cached);
 
-  const ohlcvResult = await fetchOHLCV(instrumentKey, SETUP_HISTORY_DAYS);
+  const ohlcvResult = await getActiveBrokerClient().fetchOHLCV(instrumentKey, SETUP_HISTORY_DAYS);
   if (!ohlcvResult.ok) {
     return err(new Error(`Could not fetch price history: ${ohlcvResult.error.message}`));
   }
@@ -366,7 +365,7 @@ async function fetchOrComputeLevels(
 export async function handleSetup(stockName: string, say: SayFunction): Promise<void> {
   await say(`📊 Generating trade setup for *${stockName}*…`);
 
-  const resolveResult = await resolveSymbol(stockName);
+  const resolveResult = await getActiveBrokerClient().searchInstrument(stockName);
   if (!resolveResult.ok) {
     await say(`⚠️ Could not resolve symbol for *${stockName}*: ${resolveResult.error.message}`);
     return;

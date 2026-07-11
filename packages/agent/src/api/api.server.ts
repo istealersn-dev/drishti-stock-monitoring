@@ -28,7 +28,6 @@ import {
   processValidatedInstruction,
   validateBuyInstruction,
 } from "../features/instructions/instructions.pipeline.js";
-import { resolveSymbol } from "../features/instructions/instructions.resolver.js";
 import { ParsedInstructionSchema } from "../features/instructions/instructions.schema.js";
 import { getCachedHoldings } from "../features/portfolio/portfolio.cache.js";
 import {
@@ -37,7 +36,7 @@ import {
   PAUSE_AGENT_SETTINGS_KEY,
 } from "../features/settings/settings.service.js";
 import { getCachedLevels, saveLevels } from "../features/technicals/technicals.cache.js";
-import { computeLevels, fetchOHLCV } from "../features/technicals/technicals.service.js";
+import { computeLevels } from "../features/technicals/technicals.service.js";
 import { checkProximity } from "../features/watchlist/watchlist.monitor.js";
 import {
   addToWatchlist,
@@ -533,7 +532,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
     }
     await Promise.allSettled(
       entries.map(async (entry) => {
-        const resolved = await resolveSymbol(entry.symbol);
+        const resolved = await getActiveBrokerClient().searchInstrument(entry.symbol);
         if (resolved.ok) {
           instrumentKeyMap[entry.symbol] = resolved.value.instrumentToken;
         } else {
@@ -633,7 +632,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
 
   app.get<{ Params: { symbol: string } }>("/api/advisor/setup/:symbol", async (request, reply) => {
     const { symbol } = request.params;
-    const resolveResult = await resolveSymbol(symbol);
+    const resolveResult = await getActiveBrokerClient().searchInstrument(symbol);
     if (!resolveResult.ok) {
       return reply
         .status(404)
@@ -643,7 +642,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
 
     let levels = getCachedLevels(tradingSymbol);
     if (!levels) {
-      const ohlcvResult = await fetchOHLCV(instrumentToken, 260);
+      const ohlcvResult = await getActiveBrokerClient().fetchOHLCV(instrumentToken, 260);
       if (!ohlcvResult.ok) {
         return reply.status(502).send({ ok: false, error: ohlcvResult.error.message });
       }
