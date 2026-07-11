@@ -18,12 +18,20 @@ export function err<E>(error: E): Result<never, E> {
   return { ok: false, error };
 }
 
-export class UpstoxError extends Error {
+export class BrokerError extends Error {
   constructor(
     message: string,
+    public readonly brokerId?: string,
     public readonly statusCode?: number,
   ) {
     super(message);
+    this.name = "BrokerError";
+  }
+}
+
+export class UpstoxError extends BrokerError {
+  constructor(message: string, statusCode?: number) {
+    super(message, "upstox", statusCode);
     this.name = "UpstoxError";
   }
 }
