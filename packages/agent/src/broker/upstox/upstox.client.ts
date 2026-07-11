@@ -94,6 +94,7 @@ export function createUpstoxClient(): BrokerClient {
     async fetchQuotes(
       instrumentKeys: string[],
     ): Promise<Result<Record<string, Quote>, BrokerError>> {
+      if (instrumentKeys.length === 0) return ok({});
       const result = await upstoxFetchLTP(instrumentKeys.join(","));
       if (!result.ok) return result;
       const quotes: Record<string, Quote> = {};

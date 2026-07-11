@@ -126,6 +126,23 @@ describe("createUpstoxClient", () => {
         });
       }
     });
+
+    it("short-circuits to an empty map without calling fetchLTP when instrumentKeys is empty", async () => {
+      mockFetchLTP.mockClear();
+      const result = await client.fetchQuotes([]);
+
+      expect(mockFetchLTP).not.toHaveBeenCalled();
+      expect(result).toEqual(ok({}));
+    });
+
+    it("passes through the underlying error unchanged", async () => {
+      const error = new UpstoxError("boom", 500);
+      mockFetchLTP.mockResolvedValue(err(error));
+
+      const result = await client.fetchQuotes(["NSE_EQ|INE002A01018"]);
+
+      expect(result).toEqual(err(error));
+    });
   });
 
   describe("fetchMargins", () => {
@@ -138,6 +155,15 @@ describe("createUpstoxClient", () => {
       if (result.ok) {
         expect(result.value).toEqual({ availableMargin: 50000, usedMargin: 10000 });
       }
+    });
+
+    it("passes through the underlying error unchanged", async () => {
+      const error = new UpstoxError("boom", 500);
+      mockFetchMargins.mockResolvedValue(err(error));
+
+      const result = await client.fetchMargins();
+
+      expect(result).toEqual(err(error));
     });
   });
 
@@ -174,6 +200,27 @@ describe("createUpstoxClient", () => {
         true,
       );
       expect(result).toEqual(ok("order-123"));
+    });
+
+    it("passes through the underlying error unchanged", async () => {
+      const error = new UpstoxError("boom", 500);
+      mockCreateGTT.mockResolvedValue(err(error));
+
+      const result = await client.createTriggerOrder(
+        {
+          transactionType: "SELL",
+          tradingSymbol: "RELIANCE",
+          exchange: "NSE",
+          instrumentToken: "NSE_EQ|INE002A01018",
+          product: "CNC",
+          quantity: 10,
+          triggerPrice: 2500,
+          limitPrice: 2475,
+        },
+        false,
+      );
+
+      expect(result).toEqual(err(error));
     });
   });
 
@@ -217,6 +264,15 @@ describe("createUpstoxClient", () => {
         ]);
       }
     });
+
+    it("passes through the underlying error unchanged", async () => {
+      const error = new UpstoxError("boom", 500);
+      mockListGTTs.mockResolvedValue(err(error));
+
+      const result = await client.listTriggerOrders();
+
+      expect(result).toEqual(err(error));
+    });
   });
 
   describe("cancelTriggerOrder", () => {
@@ -227,6 +283,15 @@ describe("createUpstoxClient", () => {
 
       expect(mockCancelGTT).toHaveBeenCalledWith("order-123", false);
       expect(result).toEqual(ok("order-123"));
+    });
+
+    it("passes through the underlying error unchanged", async () => {
+      const error = new UpstoxError("boom", 500);
+      mockCancelGTT.mockResolvedValue(err(error));
+
+      const result = await client.cancelTriggerOrder("order-123", false);
+
+      expect(result).toEqual(err(error));
     });
   });
 
@@ -251,6 +316,15 @@ describe("createUpstoxClient", () => {
           instrumentToken: "NSE_EQ|INE002A01018",
         });
       }
+    });
+
+    it("passes through the underlying error unchanged", async () => {
+      const error = new UpstoxError("boom", 500);
+      mockResolveSymbol.mockResolvedValue(err(error));
+
+      const result = await client.searchInstrument("Reliance");
+
+      expect(result).toEqual(err(error));
     });
   });
 
@@ -287,6 +361,15 @@ describe("createUpstoxClient", () => {
           },
         ]);
       }
+    });
+
+    it("passes through the underlying error unchanged", async () => {
+      const error = new UpstoxError("boom", 500);
+      mockFetchOHLCV.mockResolvedValue(err(error));
+
+      const result = await client.fetchOHLCV("NSE_EQ|INE002A01018", 30);
+
+      expect(result).toEqual(err(error));
     });
   });
 });
