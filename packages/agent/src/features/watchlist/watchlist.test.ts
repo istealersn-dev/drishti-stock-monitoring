@@ -31,6 +31,13 @@ vi.mock("../portfolio/portfolio.tools.js", () => ({
   fetchLTP: mockFetchLTP,
 }));
 
+// Bypass the DB-backed active-broker lookup — this test isn't exercising
+// broker selection, just the (already-mocked) Upstox LTP fetch it wraps.
+vi.mock("../../broker/brokerClient.registry.js", async () => {
+  const { createUpstoxClient } = await import("../../broker/upstox/upstox.client.js");
+  return { getActiveBrokerClient: createUpstoxClient };
+});
+
 import { checkProximity } from "./watchlist.monitor.js";
 import type { WatchlistEntry } from "./watchlist.schema.js";
 import { addToWatchlist, removeFromWatchlist, getWatchlist } from "./watchlist.service.js";

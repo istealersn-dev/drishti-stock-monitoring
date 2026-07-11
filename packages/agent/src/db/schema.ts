@@ -120,3 +120,13 @@ export const slackSessions = sqliteTable("slack_sessions", {
   sessionId: text("session_id").notNull(),
   lastActiveAt: text("last_active_at").notNull(),
 });
+
+export const brokerConnections = sqliteTable("broker_connections", {
+  brokerId: text("broker_id").primaryKey(),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),
+  status: text("status").notNull(),
+  lastCheckedAt: text("last_checked_at"),
+  lastError: text("last_error"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

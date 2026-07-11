@@ -31,6 +31,13 @@ vi.mock("../../db/schema.js", () => ({
   stockConfig: { symbol: "symbol", slThreshold: "sl_threshold", isActive: "is_active" },
 }));
 
+// Bypass the DB-backed active-broker lookup — these tests aren't exercising
+// broker selection, just the (already-mocked) Upstox holdings fetch it wraps.
+vi.mock("../../broker/brokerClient.registry.js", async () => {
+  const { createUpstoxClient } = await import("../../broker/upstox/upstox.client.js");
+  return { getActiveBrokerClient: createUpstoxClient };
+});
+
 import { computeHealthReport } from "./health.engine.js";
 import { formatHealthReport } from "./health.formatter.js";
 import type { PortfolioHealthReport } from "./health.schema.js";
