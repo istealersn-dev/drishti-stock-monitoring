@@ -26,6 +26,12 @@ vi.mock("../approval/approval.store.js", () => ({
 vi.mock("../gtt/gtt.tools.js", () => ({ createGTT: mockCreateGTT }));
 vi.mock("../portfolio/portfolio.tools.js", () => ({ fetchMargins: mockFetchMargins }));
 vi.mock("./instructions.approval.js", () => ({ updateApprovalCard: mockUpdateApprovalCard }));
+// Bypass the DB-backed active-broker lookup — these tests aren't exercising
+// broker selection, just the (already-mocked) Upstox GTT/margin calls it wraps.
+vi.mock("../../broker/brokerClient.registry.js", async () => {
+  const { createUpstoxClient } = await import("../../broker/upstox/upstox.client.js");
+  return { getActiveBrokerClient: createUpstoxClient };
+});
 vi.mock("../../shared/dryRun.js", () => ({ isDryRunActive: mockIsDryRunActive }));
 vi.mock("../../shared/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },

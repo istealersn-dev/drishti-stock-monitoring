@@ -50,6 +50,13 @@ vi.mock("../portfolio/portfolio.tools.js", () => ({
   fetchHoldings: mockFetchHoldings,
 }));
 
+// Bypass the DB-backed active-broker lookup — these tests aren't exercising
+// broker selection, just the (already-mocked) Upstox holdings fetch it wraps.
+vi.mock("../../broker/brokerClient.registry.js", async () => {
+  const { createUpstoxClient } = await import("../../broker/upstox/upstox.client.js");
+  return { getActiveBrokerClient: createUpstoxClient };
+});
+
 vi.mock("../websearch/webSearch.tools.js", () => ({ searchWeb: vi.fn() }));
 
 import { err, ok } from "../../shared/errors.js";
