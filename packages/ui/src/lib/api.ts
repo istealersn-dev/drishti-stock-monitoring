@@ -6,7 +6,8 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
   const key = getStoredKey();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {};
+  if (init?.body) headers["Content-Type"] = "application/json";
   if (key) headers["X-Access-Key"] = key;
 
   const response = await fetch(`${API_BASE}${path}`, { headers, ...init });
