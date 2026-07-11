@@ -1,5 +1,5 @@
+import type { Holding } from "../../broker/brokerClient.types.js";
 import type { GttOrder } from "../gtt/gtt.schema.js";
-import type { Holding } from "../portfolio/portfolio.schema.js";
 
 export type RunSummary = {
   startedAt: string;
@@ -72,14 +72,14 @@ export function formatStatus(input: StatusInput): string {
 export function formatPnl(holdings: Holding[]): string {
   if (holdings.length === 0) return "📊 No holdings found.";
 
-  const dayPnl = holdings.reduce((sum, h) => sum + h.day_change * h.quantity, 0);
+  const dayPnl = holdings.reduce((sum, h) => sum + h.dayChange * h.quantity, 0);
   const totalPnl = holdings.reduce((sum, h) => sum + h.pnl, 0);
-  const totalValue = holdings.reduce((sum, h) => sum + h.last_price * h.quantity, 0);
-  const totalCost = holdings.reduce((sum, h) => sum + h.average_price * h.quantity, 0);
+  const totalValue = holdings.reduce((sum, h) => sum + h.lastPrice * h.quantity, 0);
+  const totalCost = holdings.reduce((sum, h) => sum + h.averagePrice * h.quantity, 0);
   const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
 
   const sorted = [...holdings].sort(
-    (a, b) => Math.abs(b.day_change * b.quantity) - Math.abs(a.day_change * a.quantity),
+    (a, b) => Math.abs(b.dayChange * b.quantity) - Math.abs(a.dayChange * a.quantity),
   );
   const movers = sorted.slice(0, 5);
 
@@ -94,10 +94,10 @@ export function formatPnl(holdings: Holding[]): string {
   ];
 
   for (const h of movers) {
-    const dayAmount = h.day_change * h.quantity;
+    const dayAmount = h.dayChange * h.quantity;
     const arrow = dayAmount >= 0 ? "▲" : "▼";
     lines.push(
-      `${arrow} ${h.trading_symbol}  ${sign(dayAmount)}${inr(dayAmount)}  (${sign(h.day_change_percentage)}${h.day_change_percentage.toFixed(1)}%)`,
+      `${arrow} ${h.tradingSymbol}  ${sign(dayAmount)}${inr(dayAmount)}  (${sign(h.dayChangePercentage)}${h.dayChangePercentage.toFixed(1)}%)`,
     );
   }
 
@@ -115,10 +115,10 @@ export function formatHoldings(holdings: Holding[]): string {
   const lines: string[] = [`📋 *Holdings (${holdings.length})*`, ""];
 
   for (const h of holdings) {
-    const pnlPct = h.average_price > 0 ? (h.pnl / (h.average_price * h.quantity)) * 100 : 0;
+    const pnlPct = h.averagePrice > 0 ? (h.pnl / (h.averagePrice * h.quantity)) * 100 : 0;
     const pnlLabel = `${sign(h.pnl)}${inr(h.pnl)} (${sign(pnlPct)}${pnlPct.toFixed(1)}%)`;
     lines.push(
-      `*${h.trading_symbol}*  ×${h.quantity}  LTP ₹${h.last_price.toLocaleString("en-IN")}  P&L ${pnlLabel}`,
+      `*${h.tradingSymbol}*  ×${h.quantity}  LTP ₹${h.lastPrice.toLocaleString("en-IN")}  P&L ${pnlLabel}`,
     );
   }
 
