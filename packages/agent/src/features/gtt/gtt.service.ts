@@ -1,27 +1,27 @@
+import type { TriggerOrderRequest } from "../../broker/brokerClient.types.js";
 import type { Holding } from "../portfolio/portfolio.schema.js";
-
-import type { GttCreateRequest } from "./gtt.schema.js";
 
 const LIMIT_PRICE_BUFFER = 0.99;
 
 /**
- * Build a GTT stop-loss exit request for a holding.
+ * Build a broker-agnostic stop-loss exit request for a holding.
  * Sets the limit price 1% below the trigger to absorb gap-down risk.
- * @param holding - The portfolio holding to exit
+ * @param holding - The portfolio holding to exit (still Upstox-shaped —
+ *   agent.graph.ts's state.holdings hasn't been migrated to the broker-agnostic
+ *   type yet; that's a separate PR since it cascades through several detectors)
  * @param slThreshold - The stop-loss trigger price
- * @returns A GttCreateRequest ready to send to Upstox
+ * @returns A TriggerOrderRequest ready to send through BrokerClient
  */
-export function buildSlExitRequest(holding: Holding, slThreshold: number): GttCreateRequest {
+export function buildSlExitRequest(holding: Holding, slThreshold: number): TriggerOrderRequest {
   const limitPrice = Number((slThreshold * LIMIT_PRICE_BUFFER).toFixed(2));
   return {
-    transaction_type: "SELL",
-    trading_symbol: holding.trading_symbol,
+    transactionType: "SELL",
+    tradingSymbol: holding.trading_symbol,
     exchange: holding.exchange,
-    instrument_token: holding.instrument_token,
+    instrumentToken: holding.instrument_token,
     product: holding.product,
     quantity: holding.quantity,
-    order_type: "LIMIT",
-    trigger_price: slThreshold,
-    limit_price: limitPrice,
+    triggerPrice: slThreshold,
+    limitPrice,
   };
 }

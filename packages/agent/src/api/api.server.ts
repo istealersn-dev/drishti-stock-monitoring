@@ -5,6 +5,7 @@ import { desc, eq } from "drizzle-orm";
 import Fastify from "fastify";
 import { z } from "zod";
 
+import { getActiveBrokerClient } from "../broker/brokerClient.registry.js";
 import { db } from "../db/db.js";
 import {
   advisoryConversations,
@@ -17,7 +18,6 @@ import {
 } from "../db/schema.js";
 import { askAdvisor, generateTradeSetup } from "../features/advisor/advisor.chain.js";
 import { getApproval, resolveApproval } from "../features/approval/approval.store.js";
-import { cancelGTT } from "../features/gtt/gtt.tools.js";
 import { getLastHealthReport, setLastHealthReport } from "../features/health/health.cache.js";
 import { computeHealthReport } from "../features/health/health.engine.js";
 import { updateApprovalCard } from "../features/instructions/instructions.approval.js";
@@ -375,7 +375,10 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
         return reply.status(422).send({ ok: false, error });
       }
 
-      const cancelResult = await cancelGTT(row.upstoxOrderId, dryRun);
+      const cancelResult = await getActiveBrokerClient().cancelTriggerOrder(
+        row.upstoxOrderId,
+        dryRun,
+      );
       if (!cancelResult.ok) {
         logger.error("DELETE /api/gtt/:id — Upstox cancel failed", {
           id,

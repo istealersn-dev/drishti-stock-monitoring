@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
 import { env } from "../../shared/env.js";
 import { logger } from "../../shared/logger.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
@@ -9,7 +10,6 @@ import {
   setApprovalOverrideQty,
   setApprovalSlackTs,
 } from "../approval/approval.store.js";
-import { fetchMargins } from "../portfolio/portfolio.tools.js";
 import { validateConcentration } from "../validator/validator.concentration.js";
 import { validateRiskReward } from "../validator/validator.rr.js";
 
@@ -121,8 +121,8 @@ export async function processValidatedInstruction(
   const analysisResult = await analyzeBuyInstruction(instruction, resolved.tradingSymbol);
   const analysis = analysisResult.ok ? analysisResult.value : null;
 
-  const marginResult = await fetchMargins();
-  const availableMargin = marginResult.ok ? marginResult.value.available_margin : 0;
+  const marginResult = await getActiveBrokerClient().fetchMargins();
+  const availableMargin = marginResult.ok ? marginResult.value.availableMargin : 0;
   const entryHigh = instruction.entryHigh ?? 0;
   const entryLow = instruction.entryLow ?? entryHigh;
   // Use the best available price reference — point-entry instructions only set entryLow

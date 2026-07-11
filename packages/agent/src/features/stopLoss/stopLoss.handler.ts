@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { and, eq } from "drizzle-orm";
 
+import { getActiveBrokerClient } from "../../broker/brokerClient.registry.js";
 import { db } from "../../db/db.js";
 import { agentLogs, gttOrders } from "../../db/schema.js";
 import { wasRecentlyAlerted } from "../../shared/dedup.js";
@@ -10,7 +11,6 @@ import { logger } from "../../shared/logger.js";
 import { TRADING_DAY_MS } from "../../shared/timeWindows.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
 import { buildSlExitRequest } from "../gtt/gtt.service.js";
-import { createGTT } from "../gtt/gtt.tools.js";
 
 import type { SlBreach } from "./stopLoss.detector.js";
 
@@ -89,7 +89,7 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
     gttResult = { ok: true, value: "GTT already active from an earlier tick" };
   } else {
     const request = buildSlExitRequest(holding, slThreshold);
-    gttResult = await createGTT(request, dryRun);
+    gttResult = await getActiveBrokerClient().createTriggerOrder(request, dryRun);
 
     db.insert(gttOrders)
       .values({
@@ -97,7 +97,7 @@ export async function handleSlBreach(breach: SlBreach, runId: string): Promise<v
         symbol,
         type: "sl_exit",
         triggerPrice: slThreshold,
-        limitPrice: request.limit_price,
+        limitPrice: request.limitPrice,
         quantity: holding.quantity,
         status: !gttResult.ok ? "failed" : dryRun ? "dry_run" : "active",
         approvalId: null,
