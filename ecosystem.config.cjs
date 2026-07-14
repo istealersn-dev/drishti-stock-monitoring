@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "drishti-agent",
       script: "packages/agent/dist/main.js",
-      cwd: "/Users/stanleynadar/Documents/Engineering/drishti-stock-monitoring",
+      cwd: "/Users/stanleynadar/Documents/Engineering/LIVE/drishti-stock-monitoring",
       interpreter: "node",
       env: {
         NODE_ENV: "production",
