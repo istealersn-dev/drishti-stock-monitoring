@@ -121,6 +121,16 @@ export const slackSessions = sqliteTable("slack_sessions", {
   lastActiveAt: text("last_active_at").notNull(),
 });
 
+// Single-row (id = 1) snapshot of the last successful holdings fetch, so the
+// dashboard and Slack keep showing last-known-good positions across an agent
+// restart or a sustained broker-auth outage — the in-memory cache alone is
+// wiped on restart and only repopulates on a successful fetch.
+export const holdingsSnapshot = sqliteTable("holdings_snapshot", {
+  id: integer("id", { mode: "number" }).primaryKey(),
+  holdingsJson: text("holdings_json").notNull(),
+  cachedAt: text("cached_at").notNull(),
+});
+
 export const brokerConnections = sqliteTable("broker_connections", {
   brokerId: text("broker_id").primaryKey(),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),

@@ -57,6 +57,13 @@
       "when": 1783791036743,
       "tag": "0007_overrated_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784831093377,
+      "tag": "0008_holdings_snapshot",
+      "breakpoints": true
     }
   ]
 }
