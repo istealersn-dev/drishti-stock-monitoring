@@ -57,8 +57,11 @@ vi.mock("../shared/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+import { BrokerError, UpstoxError } from "../shared/errors.js";
+
 import {
   buildApiApp,
+  healthErrorCode,
   queryRuns,
   queryGttOrders,
   queryLogs,
@@ -585,5 +588,25 @@ describe("POST /api/brokers/:id/activate", () => {
 
     expect(response.statusCode).toBe(501);
     expect(mockDbTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("healthErrorCode", () => {
+  it("tags a broker 401 as BROKER_UNAUTHORIZED", () => {
+    expect(healthErrorCode(new BrokerError("Unauthorized", "upstox", 401))).toBe(
+      "BROKER_UNAUTHORIZED",
+    );
+    expect(healthErrorCode(new UpstoxError("Holdings request failed: Unauthorized", 401))).toBe(
+      "BROKER_UNAUTHORIZED",
+    );
+  });
+
+  it("returns undefined for a broker error with a non-401 status", () => {
+    expect(healthErrorCode(new BrokerError("Server error", "upstox", 500))).toBeUndefined();
+    expect(healthErrorCode(new BrokerError("No status", "upstox"))).toBeUndefined();
+  });
+
+  it("returns undefined for a non-broker error (e.g. LLM failure)", () => {
+    expect(healthErrorCode(new Error("LLM narrative failed"))).toBeUndefined();
   });
 });

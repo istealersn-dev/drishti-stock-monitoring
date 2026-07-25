@@ -73,7 +73,7 @@ const BOOLEAN_SETTING_SCHEMA = z.enum(BOOLEAN_SETTING_VALUES);
  * @param error - The error a health computation failed with
  * @returns "BROKER_UNAUTHORIZED" for a broker 401, otherwise undefined
  */
-function healthErrorCode(error: Error): "BROKER_UNAUTHORIZED" | undefined {
+export function healthErrorCode(error: Error): "BROKER_UNAUTHORIZED" | undefined {
   return error instanceof BrokerError && error.statusCode === HTTP_UNAUTHORIZED
     ? "BROKER_UNAUTHORIZED"
     : undefined;
