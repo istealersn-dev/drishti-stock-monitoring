@@ -10,6 +10,7 @@ import { sumHoldingsValue } from "../../lib/holdingFormat";
 
 import { AppFooter } from "./appFooter";
 import { AppHeaderMobile } from "./appHeaderMobile";
+import { AppTopHeader } from "./appTopHeader";
 import { MobileTabBar } from "./mobileTabBar";
 import { Sidebar } from "./sidebar";
 
@@ -113,15 +114,22 @@ export function AppShell(): React.ReactElement {
             }}
           />
         )}
-        <main
-          className={
-            isDesktop
-              ? "min-w-0 flex-1 overflow-y-auto p-5"
-              : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom"
-          }
-        >
-          <Outlet />
-        </main>
+        {/* Right column: the desktop top header (updated design) sits above the
+            scrollable main, beside the full-height sidebar. The wrapper renders
+            on every breakpoint so <main><Outlet/></main> keeps its tree
+            position when isDesktop flips (see the single-return note above). */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {isDesktop && <AppTopHeader />}
+          <main
+            className={
+              isDesktop
+                ? "min-w-0 flex-1 overflow-y-auto p-5"
+                : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom"
+            }
+          >
+            <Outlet />
+          </main>
+        </div>
       </div>
       {isDesktop && (
         <AppFooter
