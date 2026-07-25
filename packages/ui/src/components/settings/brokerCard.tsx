@@ -5,10 +5,31 @@ import type React from "react";
 import angeloneLogo from "../../assets/broker-logos/angelone.png";
 import growwLogo from "../../assets/broker-logos/groww.png";
 import upstoxLogo from "../../assets/broker-logos/upstox.png";
-import { HEALTH_CHECK_INTERVAL_MS } from "../../lib/agentStatus";
+import { classifyHealthError, HEALTH_CHECK_INTERVAL_MS } from "../../lib/agentStatus";
 import { fetchHealth } from "../../lib/api";
 import { Badge, type BadgeVariant } from "../ui/badge";
 import { Card } from "../ui/card";
+
+type BrokerStatus = { variant: BadgeVariant; label: string };
+
+/**
+ * Map a failed health check to an Upstox status badge that names the actual
+ * fault. A broker-auth failure sends the user to reconnect the token (the row
+ * links to the connect page); an unreachable agent points at the process; any
+ * other error is genuinely worth a log check.
+ * @param error - The error React Query captured from the health query
+ * @returns The status badge variant and label
+ */
+function upstoxStatusForError(error: unknown): BrokerStatus {
+  switch (classifyHealthError(error)) {
+    case "broker-auth":
+      return { variant: "neg", label: "Auth expired — reconnect" };
+    case "unreachable":
+      return { variant: "neg", label: "Agent unreachable" };
+    case "other":
+      return { variant: "neg", label: "Connection issue — check agent logs" };
+  }
+}
 
 // Logo-mode vs letter-fallback-mode are mutually exclusive, so this is a
 // discriminated union rather than one shape with both fields always present
@@ -115,18 +136,18 @@ function BrokerRow({
  * @returns Broker card element
  */
 export function BrokerCard(): React.ReactElement {
-  const { isLoading, isError } = useQuery({
+  const { isLoading, isError, error } = useQuery({
     queryKey: ["health"],
     queryFn: fetchHealth,
     staleTime: HEALTH_CHECK_INTERVAL_MS,
     refetchInterval: HEALTH_CHECK_INTERVAL_MS,
   });
 
-  const upstoxStatus = isLoading
-    ? { variant: "warn" as const, label: "Checking…" }
+  const upstoxStatus: BrokerStatus = isLoading
+    ? { variant: "warn", label: "Checking…" }
     : isError
-      ? { variant: "neg" as const, label: "Connection issue — check agent logs" }
-      : { variant: "pos" as const, label: "Connected" };
+      ? upstoxStatusForError(error)
+      : { variant: "pos", label: "Connected" };
 
   const brokers = [
     {

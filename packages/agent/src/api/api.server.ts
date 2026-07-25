@@ -53,9 +53,24 @@ import {
 import { BROKER_IDS, BrokerIdSchema } from "../shared/brokerId.js";
 import { isDryRunActive } from "../shared/dryRun.js";
 import { env } from "../shared/env.js";
+import { BrokerError } from "../shared/errors.js";
 import { logger } from "../shared/logger.js";
 
 const API_RUNS_LIMIT = 20;
+const HTTP_UNAUTHORIZED = 401;
+
+/**
+ * Machine-readable code the dashboard uses to tell "the agent is up but the
+ * broker token expired" apart from "the agent is down". Without it the UI
+ * can only see an opaque 500 and wrongly tells the user to check the process.
+ * @param error - The error a health computation failed with
+ * @returns "BROKER_UNAUTHORIZED" for a broker 401, otherwise undefined
+ */
+function healthErrorCode(error: Error): "BROKER_UNAUTHORIZED" | undefined {
+  return error instanceof BrokerError && error.statusCode === HTTP_UNAUTHORIZED
+    ? "BROKER_UNAUTHORIZED"
+    : undefined;
+}
 const API_LOGS_LIMIT = 100;
 
 const BOOLEAN_SETTING_SCHEMA = z.enum(BOOLEAN_SETTING_VALUES);
@@ -642,7 +657,9 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
     const result = await computeHealthReport();
     if (!result.ok) {
       logger.error("Health report computation failed", { error: result.error.message });
-      return reply.status(500).send({ ok: false, error: result.error.message });
+      return reply
+        .status(500)
+        .send({ ok: false, error: result.error.message, code: healthErrorCode(result.error) });
     }
     setLastHealthReport(result.value);
     return reply.send({ ok: true, data: result.value });
@@ -652,7 +669,9 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
     const result = await computeHealthReport();
     if (!result.ok) {
       logger.error("Health report computation failed", { error: result.error.message });
-      return reply.status(500).send({ ok: false, error: result.error.message });
+      return reply
+        .status(500)
+        .send({ ok: false, error: result.error.message, code: healthErrorCode(result.error) });
     }
     setLastHealthReport(result.value);
     return reply.send({ ok: true, data: result.value });
