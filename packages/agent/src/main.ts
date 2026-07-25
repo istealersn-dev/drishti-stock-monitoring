@@ -67,6 +67,10 @@ async function main(): Promise<void> {
   // pm2 sees a healthy process while messages go unanswered. Exiting hands the
   // restart to pm2, which is the only reliable way back to a working socket.
   startSlackConnectionWatchdog(receiver.client, {
+    // start() has resolved, so the socket is up — seed from the client's real
+    // state so the watchdog doesn't count the already-fired `connected` event
+    // as missed and kill a healthy process after the grace period.
+    initiallyConnected: receiver.client.connected,
     onStalled: (disconnectedForMs) => {
       logger.error("Exiting so the supervisor can restart with a fresh Slack connection", {
         disconnectedForMs,

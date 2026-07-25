@@ -2,6 +2,9 @@ import type { BadgeVariant } from "../components/ui/badge";
 
 import { AgentUnreachableError, ApiError } from "./apiError";
 
+// WIRE CONTRACT: must match the code the agent emits in the /api/health error
+// body (packages/agent/src/api/api.server.ts, healthErrorCode). The two
+// packages don't share code, so keep them in sync when renaming.
 const BROKER_UNAUTHORIZED_CODE = "BROKER_UNAUTHORIZED";
 
 /**

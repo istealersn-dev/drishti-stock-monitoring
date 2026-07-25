@@ -27,11 +27,19 @@ let hydrated = false;
  */
 function hydrateFromDatabase(): void {
   hydrated = true;
-  const row = db
-    .select()
-    .from(holdingsSnapshot)
-    .where(eq(holdingsSnapshot.id, SNAPSHOT_ROW_ID))
-    .get();
+
+  let row: { holdingsJson: string; cachedAt: string } | undefined;
+  try {
+    row = db.select().from(holdingsSnapshot).where(eq(holdingsSnapshot.id, SNAPSHOT_ROW_ID)).get();
+  } catch (error) {
+    // A DB-access failure (e.g. the migration hasn't run yet, so the table is
+    // missing) must not propagate — a read stays best-effort and degrades to
+    // empty rather than crashing /api/holdings, the digest, or the SL cron.
+    logger.warn("Holdings snapshot read failed — starting empty", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
   if (!row) return;
 
   let parsedJson: unknown;

@@ -21,6 +21,14 @@ type WatchdogOptions = {
    * been stranded.
    */
   onStalled: (disconnectedForMs: number) => void;
+  /**
+   * The client's connection state at attach time. Callers that wire the
+   * watchdog *after* the socket is already up (e.g. right after
+   * `await boltApp.start()`) must pass `true` — otherwise the initial
+   * `connected` event has already fired and been missed, and the watchdog
+   * would wrongly judge a healthy socket stalled after the grace period.
+   */
+  initiallyConnected?: boolean;
   graceMs?: number;
 };
 
@@ -42,8 +50,8 @@ export function startSlackConnectionWatchdog(
   options: WatchdogOptions,
 ): () => void {
   const graceMs = options.graceMs ?? SLACK_RECONNECT_GRACE_MS;
-  let connected = false;
-  let disconnectedSince: number | null = Date.now();
+  let connected = options.initiallyConnected ?? false;
+  let disconnectedSince: number | null = connected ? null : Date.now();
   let stalledReported = false;
 
   client.on("connected", () => {

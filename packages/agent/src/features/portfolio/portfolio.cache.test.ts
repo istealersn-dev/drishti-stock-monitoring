@@ -89,6 +89,14 @@ describe("getCachedHoldings", () => {
     expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
+  it("falls back to empty when the DB read throws (e.g. missing table)", () => {
+    mockGet.mockImplementation(() => {
+      throw new Error("no such table: holdings_snapshot");
+    });
+    expect(() => getCachedHoldings()).not.toThrow();
+    expect(getCachedHoldings()).toEqual({ holdings: [], cachedAt: null });
+  });
+
   it("falls back to empty when the stored JSON is unparseable", () => {
     mockGet.mockReturnValue({ id: 1, holdingsJson: "{not json", cachedAt: "x" });
     expect(getCachedHoldings()).toEqual({ holdings: [], cachedAt: null });

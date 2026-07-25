@@ -7,6 +7,7 @@ import { isMarketOpen } from "../../scheduler/cron.js";
 import { wasRecentlyAlerted } from "../../shared/dedup.js";
 import { isDryRunActive } from "../../shared/dryRun.js";
 import { env } from "../../shared/env.js";
+import { HTTP_UNAUTHORIZED } from "../../shared/httpStatus.js";
 import { logger } from "../../shared/logger.js";
 import { TRADING_DAY_MS } from "../../shared/timeWindows.js";
 import { pushAlert } from "../alerts/alerts.slack.js";
@@ -29,7 +30,6 @@ const PORTFOLIO_SENTINEL = "__portfolio__"; // symbol key for portfolio-level ag
 const LLM_ANALYSE_GATE_ACTION = "llm_analyse_gate"; // marks an attempted (not necessarily successful) LLM analysis, for fallback cadence
 
 const AUTH_FAILURE_ACTION = "upstox_auth_failure";
-const HTTP_UNAUTHORIZED = 401;
 // A dead token stays dead until someone refreshes it, so re-alert on a slow cadence
 // rather than once — a single missed Slack message shouldn't leave SL monitoring
 // blind for the rest of the day.

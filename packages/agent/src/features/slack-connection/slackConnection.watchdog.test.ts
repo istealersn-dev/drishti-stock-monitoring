@@ -26,6 +26,27 @@ describe("startSlackConnectionWatchdog", () => {
     expect(onStalled).toHaveBeenCalledTimes(1);
   });
 
+  it("stays quiet when seeded as already connected and no event fires", () => {
+    const client = new EventEmitter();
+    const onStalled = vi.fn();
+
+    startSlackConnectionWatchdog(client, { onStalled, initiallyConnected: true });
+    vi.advanceTimersByTime(PAST_GRACE_MS * 3);
+
+    expect(onStalled).not.toHaveBeenCalled();
+  });
+
+  it("still detects a stall after a seeded-connected socket later drops", () => {
+    const client = new EventEmitter();
+    const onStalled = vi.fn();
+
+    startSlackConnectionWatchdog(client, { onStalled, initiallyConnected: true });
+    client.emit("reconnecting");
+    vi.advanceTimersByTime(PAST_GRACE_MS);
+
+    expect(onStalled).toHaveBeenCalledTimes(1);
+  });
+
   it("stays quiet while connected", () => {
     const client = new EventEmitter();
     const onStalled = vi.fn();
