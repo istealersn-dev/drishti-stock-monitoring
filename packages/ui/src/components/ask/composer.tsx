@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import type React from "react";
 
-import { HEALTH_CHECK_INTERVAL_MS } from "../../lib/agentStatus";
+import { classifyHealthError, HEALTH_CHECK_INTERVAL_MS } from "../../lib/agentStatus";
 import { fetchHealth } from "../../lib/api";
 import { LM_MODEL_SHORT_LABEL } from "../../lib/llmConfig";
 import { Button } from "../ui/button";
@@ -45,12 +45,17 @@ export function Composer({
   // Shares the ["health"] cache with BrokerCard — same query key, same
   // 5-minute interval override, so opening Ask Drishti alone doesn't spin up
   // a second, more frequent poll of the same live Upstox+LLM health check.
-  const { isError: llmUnreachable } = useQuery({
+  const { isError, error } = useQuery({
     queryKey: ["health"],
     queryFn: fetchHealth,
     staleTime: HEALTH_CHECK_INTERVAL_MS,
     refetchInterval: HEALTH_CHECK_INTERVAL_MS,
   });
+
+  // A broker-auth failure fails the health check but says nothing about the
+  // LLM — don't redden the model pill for it, or the user chases the wrong
+  // fault. Only a truly unreachable agent or an unexplained error dims it.
+  const llmUnreachable = isError && classifyHealthError(error) !== "broker-auth";
 
   return (
     <form

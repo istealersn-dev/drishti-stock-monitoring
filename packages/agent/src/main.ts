@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import bolt from "@slack/bolt";
 
-const { App } = bolt;
+const { App, SocketModeReceiver } = bolt;
 
 import { startApiServer } from "./api/api.server.js";
 import { tick } from "./features/agent/agent.tick.js";
@@ -12,16 +12,25 @@ import { startDigestCrons } from "./features/digest/digest.service.js";
 import { submitBuyInstruction } from "./features/instructions/instructions.pipeline.js";
 import { registerSlackCommands } from "./features/slack-commands/slackCommands.router.js";
 import { SlackMessageShape } from "./features/slack-commands/slackCommands.schema.js";
+import { startSlackConnectionWatchdog } from "./features/slack-connection/slackConnection.watchdog.js";
 import { startAdvisorCrons, startCron } from "./scheduler/cron.js";
 import { env } from "./shared/env.js";
 import { logger } from "./shared/logger.js";
 import { MENTION_PREFIX_REGEX } from "./shared/slackMention.js";
 
 async function main(): Promise<void> {
+  // The receiver is constructed here rather than via `socketMode: true` so we
+  // hold a typed reference to its Socket Mode client and can watch the
+  // connection (App.receiver is private).
+  const receiver = new SocketModeReceiver({ appToken: env.SLACK_APP_TOKEN });
+
   const boltApp = new App({
     token: env.SLACK_BOT_TOKEN,
-    appToken: env.SLACK_APP_TOKEN,
-    socketMode: true,
+    receiver,
+  });
+
+  boltApp.error(async (error) => {
+    logger.error("Slack Bolt app error", { error: error.message });
   });
 
   registerApprovalHandlers(boltApp);
@@ -53,6 +62,22 @@ async function main(): Promise<void> {
 
   await boltApp.start();
   logger.info("Slack Bolt app started (socket mode)");
+
+  // A stranded Socket Mode client leaves the process alive but deaf to Slack —
+  // pm2 sees a healthy process while messages go unanswered. Exiting hands the
+  // restart to pm2, which is the only reliable way back to a working socket.
+  startSlackConnectionWatchdog(receiver.client, {
+    // start() has resolved, so the socket is up — seed from the client's real
+    // state so the watchdog doesn't count the already-fired `connected` event
+    // as missed and kill a healthy process after the grace period.
+    initiallyConnected: receiver.client.connected,
+    onStalled: (disconnectedForMs) => {
+      logger.error("Exiting so the supervisor can restart with a fresh Slack connection", {
+        disconnectedForMs,
+      });
+      process.exit(1);
+    },
+  });
 
   startTimeoutPoller();
   startDigestCrons();

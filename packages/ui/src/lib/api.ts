@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { AgentUnreachableError, ApiError } from "./apiError";
 import { clearKey, getStoredKey } from "./auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -14,7 +15,14 @@ async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestIni
   if (init?.body !== undefined) headers["Content-Type"] = "application/json";
   if (key) headers["X-Access-Key"] = key;
 
-  const response = await fetch(`${API_BASE}${path}`, { headers, ...init });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { headers, ...init });
+  } catch (error) {
+    // fetch only rejects on a network-level failure (no response at all) —
+    // the agent process is unreachable, not merely erroring.
+    throw new AgentUnreachableError(error);
+  }
 
   if (response.status === 401) {
     clearKey();
@@ -24,20 +32,18 @@ async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestIni
 
   if (!response.ok) {
     let detail = "";
+    let code: string | undefined;
     try {
       const body: unknown = await response.json();
-      if (
-        typeof body === "object" &&
-        body !== null &&
-        "error" in body &&
-        typeof (body as Record<string, unknown>)["error"] === "string"
-      ) {
-        detail = `: ${String((body as Record<string, unknown>)["error"])}`;
+      if (typeof body === "object" && body !== null) {
+        const record = body as Record<string, unknown>;
+        if (typeof record["error"] === "string") detail = `: ${record["error"]}`;
+        if (typeof record["code"] === "string") code = record["code"];
       }
     } catch {
-      // non-JSON body (e.g. nginx 502 HTML) — detail stays empty
+      // non-JSON body (e.g. nginx 502 HTML) — detail/code stay empty
     }
-    throw new Error(`HTTP ${String(response.status)}${detail}`);
+    throw new ApiError(`HTTP ${String(response.status)}${detail}`, response.status, code);
   }
   const json: unknown = await response.json();
   return schema.parse(json);
