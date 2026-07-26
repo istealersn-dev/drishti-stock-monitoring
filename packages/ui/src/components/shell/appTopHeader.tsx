@@ -1,9 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronDown, History, LogOut, Settings } from "lucide-react";
+import { ChevronDown, LogOut } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { useLogout } from "../../lib/auth";
+
+import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM } from "./navItems";
 
 // Single-broker app with no per-user identity (access-key auth), so the
 // account chip is a fixed label — matching the desktop footer's "admin".
@@ -54,7 +56,7 @@ function MarketTicker({ indices }: { indices: MarketIndex[] }): React.ReactEleme
 
 type AccountMenuItem = {
   label: string;
-  icon: typeof History;
+  icon: typeof LogOut;
   onSelect: () => void;
   danger?: boolean;
 };
@@ -108,23 +110,25 @@ function AccountMenu(): React.ReactElement {
     };
   }, [open]);
 
+  // Secondary routes (Agent Logs, Watchlist, Health) live here on desktop
+  // rather than the streamlined sidebar, plus Settings — all sourced from the
+  // shared nav metadata so a route can't silently fall off both surfaces.
+  const navToMenuItem = (route: {
+    label: string;
+    icon: typeof LogOut;
+    path: string;
+  }): AccountMenuItem => ({
+    label: route.label,
+    icon: route.icon,
+    onSelect: (): void => {
+      setOpen(false);
+      void navigate({ to: route.path });
+    },
+  });
+
   const items: AccountMenuItem[] = [
-    {
-      label: "Agent Logs",
-      icon: History,
-      onSelect: (): void => {
-        setOpen(false);
-        void navigate({ to: "/logs" });
-      },
-    },
-    {
-      label: "Settings",
-      icon: Settings,
-      onSelect: (): void => {
-        setOpen(false);
-        void navigate({ to: "/settings" });
-      },
-    },
+    ...MAIN_NAV_ITEMS.filter((item) => item.secondary).map(navToMenuItem),
+    navToMenuItem(SETTINGS_NAV_ITEM),
     {
       label: "Log out",
       icon: LogOut,

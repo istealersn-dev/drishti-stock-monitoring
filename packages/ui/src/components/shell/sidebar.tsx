@@ -72,7 +72,7 @@ export function Sidebar({
         aria-label="Primary"
         className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 py-2"
       >
-        {MAIN_NAV_ITEMS.map((item) => (
+        {MAIN_NAV_ITEMS.filter((item) => !item.secondary).map((item) => (
           <NavLink
             key={item.path}
             item={item}

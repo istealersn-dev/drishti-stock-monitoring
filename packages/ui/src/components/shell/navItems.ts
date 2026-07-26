@@ -15,24 +15,28 @@ export type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   pendingBadge?: boolean;
+  // Secondary routes live in the desktop account menu (updated design moved
+  // Agent Logs out of the sidebar; Watchlist/Health have no sidebar slot in
+  // the reference) rather than the primary sidebar. They stay in the mobile
+  // "Others" sheet so nothing becomes unreachable on mobile.
+  secondary?: boolean;
 };
 
 // Single source of truth for every route's nav metadata (icon, label,
-// pending-badge eligibility) — desktop Sidebar and the mobile "Others" sheet
-// both derive their item lists from this so a route can't go missing from
-// one surface while staying present on the other. Order matches
-// Drishti.dc.html's sidebar exactly (Ask Drishti first) — Watchlist/Health
-// have no counterpart in the reference (they predate this design pass) so
-// they're slotted after Agent Logs, before Ask Drishti.
+// pending-badge eligibility) — desktop Sidebar, the desktop account menu, and
+// the mobile "Others" sheet all derive their item lists from this so a route
+// can't go missing from one surface while staying present on another. Primary
+// order matches Drishti.dc.html's sidebar exactly (Ask Drishti, Dashboard,
+// Approvals, Holdings, GTT Orders); secondary items follow.
 export const MAIN_NAV_ITEMS: NavItem[] = [
   { path: "/ask", label: "Ask Drishti", icon: MessageSquare },
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/holdings", label: "Holdings", icon: Table2 },
   { path: "/instructions", label: "Approvals", icon: Send, pendingBadge: true },
+  { path: "/holdings", label: "Holdings", icon: Table2 },
   { path: "/gtt", label: "GTT Orders", icon: Layers },
-  { path: "/logs", label: "Agent Logs", icon: History },
-  { path: "/watchlist", label: "Watchlist", icon: Eye },
-  { path: "/health", label: "Health", icon: Activity },
+  { path: "/logs", label: "Agent Logs", icon: History, secondary: true },
+  { path: "/watchlist", label: "Watchlist", icon: Eye, secondary: true },
+  { path: "/health", label: "Health", icon: Activity, secondary: true },
 ];
 
 export const SETTINGS_NAV_ITEM: NavItem = {
