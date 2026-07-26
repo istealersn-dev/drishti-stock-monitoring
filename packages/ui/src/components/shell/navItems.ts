@@ -28,7 +28,7 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
   { path: "/ask", label: "Ask Drishti", icon: MessageSquare },
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/holdings", label: "Holdings", icon: Table2 },
-  { path: "/instructions", label: "Instructions", icon: Send, pendingBadge: true },
+  { path: "/instructions", label: "Approvals", icon: Send, pendingBadge: true },
   { path: "/gtt", label: "GTT Orders", icon: Layers },
   { path: "/logs", label: "Agent Logs", icon: History },
   { path: "/watchlist", label: "Watchlist", icon: Eye },

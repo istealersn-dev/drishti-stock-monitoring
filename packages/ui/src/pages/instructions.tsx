@@ -3,9 +3,9 @@ import type React from "react";
 import { useState } from "react";
 
 import { ApprovalCard } from "../components/instructions/approvalCard";
+import { type ApprovalSource, ApprovalSegments } from "../components/instructions/approvalSegments";
 import { InstructionComposer } from "../components/instructions/instructionComposer";
 import { PageHeader } from "../components/shell/pageHeader";
-import { Badge } from "../components/ui/badge";
 import { Spinner } from "../components/ui/spinner";
 import {
   type Approval,
@@ -30,6 +30,7 @@ export function Instructions(): React.ReactElement {
   const [pendingApproveIds, setPendingApproveIds] = useState<ReadonlySet<string>>(new Set());
   const [pendingRejectIds, setPendingRejectIds] = useState<ReadonlySet<string>>(new Set());
   const [pendingAmountIds, setPendingAmountIds] = useState<ReadonlySet<string>>(new Set());
+  const [segment, setSegment] = useState<ApprovalSource>("drishti");
   const queryClient = useQueryClient();
 
   const {
@@ -164,56 +165,60 @@ export function Instructions(): React.ReactElement {
   return (
     <div className="flex max-w-3xl flex-col gap-4">
       <PageHeader
-        title="Instructions"
-        subtitle="Send buy instructions and review pending approvals."
-      />
-      <InstructionComposer
-        value={instructionText}
-        onChange={(value) => {
-          setInstructionText(value);
-          setSubmitError(null);
-          setSubmitSuccess(null);
-        }}
-        onSubmit={handleSubmit}
-        isPending={submitMutation.isPending}
-        submitError={submitError}
-        submitSuccess={submitSuccess}
+        title="Approvals"
+        subtitle="Drishti's proposals and your own instructions. Nothing executes until you approve."
       />
 
-      <div className="flex items-center gap-2">
-        <h2 className="text-title font-semibold text-fg">Pending approvals</h2>
-        {pendingApprovals.length > 0 && <Badge variant="warn">{pendingApprovals.length}</Badge>}
-      </div>
+      <ApprovalSegments
+        active={segment}
+        drishtiCount={pendingApprovals.length}
+        onSelect={setSegment}
+      />
 
-      {approvalsError && approvals.length === 0 ? (
-        <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-          Failed to load approvals. Is the agent running?
-        </div>
-      ) : isLoading ? (
-        <div className="flex h-24 items-center justify-center">
-          <Spinner />
-        </div>
-      ) : pendingApprovals.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
-          <p className="text-body-sm font-medium text-fg-muted">No pending approvals</p>
-          <p className="text-caption text-fg-faint">Send a buy instruction above.</p>
-        </div>
+      {segment === "drishti" ? (
+        approvalsError && approvals.length === 0 ? (
+          <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
+            Failed to load approvals. Is the agent running?
+          </div>
+        ) : isLoading ? (
+          <div className="flex h-24 items-center justify-center">
+            <Spinner />
+          </div>
+        ) : pendingApprovals.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-12">
+            <p className="text-body-sm font-medium text-fg">You&apos;re all caught up</p>
+            <p className="text-caption text-fg-faint">New proposals will appear here.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 items-start gap-3 nav:grid-cols-2">
+            {pendingApprovals.map((approval: Approval) => (
+              <ApprovalCard
+                key={approval.id}
+                approval={approval}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                onUpdateAmount={handleUpdateAmount}
+                approvePending={pendingApproveIds.has(approval.id)}
+                rejectPending={pendingRejectIds.has(approval.id)}
+                amountPending={pendingAmountIds.has(approval.id)}
+                actionError={actionErrors[approval.id] ?? null}
+              />
+            ))}
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-1 items-start gap-3 nav:grid-cols-2">
-          {pendingApprovals.map((approval: Approval) => (
-            <ApprovalCard
-              key={approval.id}
-              approval={approval}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              onUpdateAmount={handleUpdateAmount}
-              approvePending={pendingApproveIds.has(approval.id)}
-              rejectPending={pendingRejectIds.has(approval.id)}
-              amountPending={pendingAmountIds.has(approval.id)}
-              actionError={actionErrors[approval.id] ?? null}
-            />
-          ))}
-        </div>
+        <InstructionComposer
+          value={instructionText}
+          onChange={(value) => {
+            setInstructionText(value);
+            setSubmitError(null);
+            setSubmitSuccess(null);
+          }}
+          onSubmit={handleSubmit}
+          isPending={submitMutation.isPending}
+          submitError={submitError}
+          submitSuccess={submitSuccess}
+        />
       )}
     </div>
   );
