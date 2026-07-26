@@ -4,16 +4,22 @@ import { ArrowRight, Bell } from "lucide-react";
 import type React from "react";
 
 import { MarketIndexCards } from "../components/dashboard/marketIndexCards";
+import { NeedsAttentionCard } from "../components/dashboard/needsAttentionCard";
 import { PortfolioTrendCard } from "../components/dashboard/portfolioTrendCard";
 import { PositionsSnapshot } from "../components/dashboard/positionsSnapshot";
 import { StatCard } from "../components/dashboard/statCard";
 import { Spinner } from "../components/ui/spinner";
+import { StatusDot } from "../components/ui/statusDot";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
 import { formatInr } from "../lib/format";
 import { sumHoldingsValue } from "../lib/holdingFormat";
-import { buildSlMap } from "../lib/holdingStatus";
+import { type HoldingStatus, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
 const PLACEHOLDER = "—";
+
+// Breach (neg) sorts before near-SL (warn); pos is filtered out before sorting
+// but kept so the map stays exhaustive over the status union.
+const SEVERITY_RANK: Record<HoldingStatus["variant"], number> = { neg: 0, warn: 1, pos: 2 };
 
 /**
  * Time-of-day greeting for the dashboard header, matching the updated design's
@@ -68,6 +74,19 @@ export function Dashboard(): React.ReactElement {
   const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
   const slMap = buildSlMap(gttOrders);
   const pendingProposals = approvals.filter((approval) => approval.status === "pending").length;
+
+  // Holdings at or within 5% of their stop-loss, breach-first — the mobile
+  // dashboard's focus (desktop conveys the same via the positions Status
+  // column). flatMap so `sl` is proven defined for each surviving entry.
+  const needsAttention = holdings
+    .flatMap((holding) => {
+      const sl = slMap.get(holding.trading_symbol);
+      if (sl === undefined) return [];
+      const status = resolveHoldingStatus(holding, slMap);
+      if (status.variant === "pos") return [];
+      return [{ holding, sl, status }];
+    })
+    .sort((a, b) => SEVERITY_RANK[a.status.variant] - SEVERITY_RANK[b.status.variant]);
 
   if (isError) {
     return (
@@ -164,7 +183,44 @@ export function Dashboard(): React.ReactElement {
 
       <PortfolioTrendCard />
 
-      <PositionsSnapshot holdings={holdings} slMap={slMap} />
+      {/* Positions live in a wide table on desktop; the mobile dashboard
+          focuses on at-risk holdings and sends the full list to Holdings. */}
+      <div className="hidden nav:block">
+        <PositionsSnapshot holdings={holdings} slMap={slMap} />
+      </div>
+
+      <section className="flex flex-col gap-2.5 nav:hidden">
+        <h2 className="text-title font-semibold text-fg">Needs attention</h2>
+        {needsAttention.length === 0 ? (
+          <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">
+            <StatusDot variant="pos" label="All positions safe" pulse={false} />
+            <div>
+              <p className="text-body-sm font-medium text-fg">All positions safe</p>
+              <p className="text-caption text-fg-muted">No holdings near their stop-loss.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {needsAttention.map(({ holding, sl, status }) => {
+              const cost = holding.quantity * holding.average_price;
+              const pnlPct = cost > 0 ? (holding.pnl / cost) * 100 : 0;
+              const distanceToSl = sl !== 0 ? ((holding.last_price - sl) / sl) * 100 : 0;
+              return (
+                <NeedsAttentionCard
+                  key={`${holding.isin}-${holding.product}`}
+                  symbol={holding.trading_symbol}
+                  statusLabel={status.label}
+                  variant={status.variant === "neg" ? "danger" : "warning"}
+                  ltp={holding.last_price}
+                  pnlPercentage={pnlPct}
+                  sl={sl}
+                  distanceToSlPercentage={distanceToSl}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
