@@ -35,10 +35,18 @@ function formatPollTime(iso: string | null): string {
  */
 export function AppShell(): React.ReactElement {
   const [collapsed, setCollapsed] = useState(false);
+  // Whether the user has manually toggled the sidebar. Until they do, the
+  // sidebar auto-collapses on tablet widths (Drishti.dc.html: 578–1023).
+  const [collapseTouched, setCollapseTouched] = useState(false);
   const [spinning, setSpinning] = useState(false);
   const spinTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isDesktop = useMediaQuery("(min-width: 760px)");
+  const isDesktop = useMediaQuery("(min-width: 578px)");
+  const isTablet = useMediaQuery("(min-width: 578px) and (max-width: 1023px)");
   const queryClient = useQueryClient();
+
+  // Tablet defaults to a collapsed sidebar until the user says otherwise;
+  // laptop+ respects their explicit choice.
+  const sidebarCollapsed = isTablet && !collapseTouched ? true : collapsed;
 
   const { data: settings, isError: settingsError } = useQuery({
     queryKey: ["settings"],
@@ -108,9 +116,10 @@ export function AppShell(): React.ReactElement {
         {isDesktop && (
           <Sidebar
             pendingApprovals={pendingCount}
-            collapsed={collapsed}
+            collapsed={sidebarCollapsed}
             onToggle={() => {
-              setCollapsed((previous) => !previous);
+              setCollapsed(!sidebarCollapsed);
+              setCollapseTouched(true);
             }}
           />
         )}
@@ -123,7 +132,9 @@ export function AppShell(): React.ReactElement {
           <main
             className={
               isDesktop
-                ? "min-w-0 flex-1 overflow-y-auto p-5"
+                ? // Content is capped at 1440px and centred on wide screens;
+                  // padding tightens to 16px on tablet, 20px laptop+.
+                  "mx-auto min-w-0 w-full max-w-[90rem] flex-1 overflow-y-auto p-4 lap:p-5"
                 : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom"
             }
           >

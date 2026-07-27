@@ -141,7 +141,7 @@ export function Dashboard(): React.ReactElement {
         </Link>
       )}
 
-      <div className="grid grid-cols-2 gap-3.5 nav:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3.5 lap:grid-cols-4">
         <StatCard
           label="Total portfolio value"
           accent="gold"
@@ -185,11 +185,11 @@ export function Dashboard(): React.ReactElement {
 
       {/* Positions live in a wide table on desktop; the mobile dashboard
           focuses on at-risk holdings and sends the full list to Holdings. */}
-      <div className="hidden nav:block">
+      <div className="hidden tab:block">
         <PositionsSnapshot holdings={holdings} slMap={slMap} />
       </div>
 
-      <section className="flex flex-col gap-2.5 nav:hidden">
+      <section className="flex flex-col gap-2.5 tab:hidden">
         <h2 className="text-title font-semibold text-fg">Needs attention</h2>
         {needsAttention.length === 0 ? (
           <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">

@@ -15,7 +15,7 @@ import { fetchGttOrders } from "../lib/api";
  * @returns Gtt page element
  */
 export function Gtt(): React.ReactElement {
-  const isDesktop = useMediaQuery("(min-width: 760px)");
+  const isDesktop = useMediaQuery("(min-width: 578px)");
 
   const {
     data: orders = [],

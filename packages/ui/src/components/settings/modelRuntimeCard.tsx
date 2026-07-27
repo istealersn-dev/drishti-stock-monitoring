@@ -22,7 +22,7 @@ export function ModelRuntimeCard(): React.ReactElement {
     <Card className="flex flex-col gap-3.5">
       <h2 className="text-body-sm font-semibold text-fg">Model & runtime</h2>
 
-      <div className="grid grid-cols-1 gap-3 nav:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lap:grid-cols-2">
         <Input id="model-provider" label="Provider" value={LM_PROVIDER} onChange={noop} disabled />
         <Input id="model-name" label="Model" value={LM_MODEL} onChange={noop} disabled />
       </div>

@@ -56,7 +56,7 @@ export function DangerZone(): React.ReactElement {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 nav:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 lap:grid-cols-3">
         <DangerCard
           title="Cancel all active GTTs"
           description="Removes every pending trigger order from the agent and the broker in one action."

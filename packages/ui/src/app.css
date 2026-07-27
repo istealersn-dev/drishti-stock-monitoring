@@ -174,8 +174,12 @@ body {
   /* brand mark glyph only (Logo component) — not a general-purpose UI font */
   --font-tamil: "Noto Sans Tamil", sans-serif;
 
-  /* the single shell breakpoint, plus login's secondary split (Design.md §5) */
+  /* Responsive breakpoints (Drishti.dc.html): mobile <578 (mobile shell) ·
+     tablet 578–1023 (desktop shell, collapsed sidebar, condensed grids) ·
+     laptop 1024+ (full grids). `nav` (760) keeps the header market ticker. */
+  --breakpoint-tab: 578px;
   --breakpoint-nav: 760px;
+  --breakpoint-lap: 1024px;
   --breakpoint-login-split: 820px;
 
   /* shell dimensions (Design.md §5) — named so components reference tokens,

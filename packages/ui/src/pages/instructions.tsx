@@ -190,7 +190,7 @@ export function Instructions(): React.ReactElement {
             <p className="text-caption text-fg-faint">New proposals will appear here.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 items-start gap-3 nav:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-3 lap:grid-cols-2">
             {pendingApprovals.map((approval: Approval) => (
               <ApprovalCard
                 key={approval.id}

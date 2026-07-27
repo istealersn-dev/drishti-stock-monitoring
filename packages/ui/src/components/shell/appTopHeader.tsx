@@ -37,7 +37,7 @@ const DIRECTION_ARROW: Record<IndexDirection, string> = { up: "▲", down: "▼"
  */
 function MarketTicker({ indices }: { indices: MarketIndex[] }): React.ReactElement {
   return (
-    <div className="flex min-w-0 flex-nowrap items-center gap-4 overflow-hidden">
+    <div className="hidden min-w-0 flex-nowrap items-center gap-4 overflow-hidden nav:flex">
       <span className="flex-none font-mono text-eyebrow uppercase text-fg-faint">Markets</span>
       {indices.map((index) => (
         <div key={index.name} className="flex flex-none items-center gap-2">
@@ -141,7 +141,7 @@ function AccountMenu(): React.ReactElement {
   ];
 
   return (
-    <div ref={containerReference} className="relative flex-none">
+    <div ref={containerReference} className="relative ml-auto flex-none">
       <button
         type="button"
         onClick={(): void => {
