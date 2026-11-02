@@ -168,12 +168,14 @@ export function PositionsSnapshot({
   const atRiskCount = holdings.filter(
     (holding) => resolveHoldingStatus(holding, slMap).variant !== "pos",
   ).length;
-  // The default order leads with at-risk holdings: only `limit` rows show and
+  // Severity always wins, and P&L sorts within it: only `limit` rows show and
   // Needs attention is mobile-only, so a breach must not fall below the cut.
   const sorted = [...holdings].sort((a, b) => {
-    if (sortDirection === "desc") return pnlPercentage(b) - pnlPercentage(a);
-    if (sortDirection === "asc") return pnlPercentage(a) - pnlPercentage(b);
-    return severity(a) - severity(b);
+    const bySeverity = severity(a) - severity(b);
+    if (bySeverity !== 0 || sortDirection === "none") return bySeverity;
+    return sortDirection === "desc"
+      ? pnlPercentage(b) - pnlPercentage(a)
+      : pnlPercentage(a) - pnlPercentage(b);
   });
   const rows = sorted.slice(0, limit);
 

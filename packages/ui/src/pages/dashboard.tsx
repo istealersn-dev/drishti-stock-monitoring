@@ -14,23 +14,11 @@ import { Spinner } from "../components/ui/spinner";
 import { StatusDot } from "../components/ui/statusDot";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
-import { formatInr } from "../lib/format";
+import { formatInr, timeOfDayGreeting } from "../lib/format";
 import { sumHoldingsValue } from "../lib/holdingFormat";
 import { HOLDING_SEVERITY_RANK, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
 const PLACEHOLDER = "—";
-
-/**
- * Time-of-day greeting for the dashboard header, matching the updated design's
- * "{greeting} Your book … at a glance." line.
- * @returns A greeting word for the current local hour
- */
-function greeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning.";
-  if (hour < 17) return "Good afternoon.";
-  return "Good evening.";
-}
 
 /**
  * Dashboard (updated design) — "Portfolio overview": market index cards, a
@@ -115,7 +103,7 @@ export function Dashboard(): React.ReactElement {
         <div className="flex flex-col gap-1">
           <h1 className="text-h1 font-semibold tracking-tight text-fg">Portfolio overview</h1>
           <p className="text-body-sm text-fg-muted">
-            {greeting()}{" "}
+            {timeOfDayGreeting()}{" "}
             {isDesktop
               ? "Your book, open orders and today's activity at a glance."
               : "Your book at a glance."}
@@ -123,7 +111,7 @@ export function Dashboard(): React.ReactElement {
         </div>
         {holdingData?.cachedAt != null && (
           <span className="font-mono text-caption text-fg-faint">
-            last poll {new Date(holdingData.cachedAt).toLocaleTimeString("en-IN")}
+            prices as of {new Date(holdingData.cachedAt).toLocaleTimeString("en-IN")}
           </span>
         )}
       </div>

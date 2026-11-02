@@ -12,16 +12,9 @@ import { Breadcrumb } from "../components/ui/breadcrumb";
 import { Button } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
 import { askAdvisor, fetchAdvisoryConversations } from "../lib/api";
+import { timeOfDayGreeting } from "../lib/format";
 
 type View = "hero" | "conversation";
-
-/** Local-time greeting matching Drishti.dc.html's `greeting` state (morning/afternoon/evening). */
-function timeOfDayGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning.";
-  if (hour < 17) return "Good afternoon.";
-  return "Good evening.";
-}
 
 /**
  * Ask Drishti (Design.md §5) — empty-state hero (headline, suggestion grid,
