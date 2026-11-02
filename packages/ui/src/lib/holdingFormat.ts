@@ -13,15 +13,6 @@ export function formatPrice(price: number): string {
 }
 
 /**
- * Drops closed-out rows, which linger in the feed with no real exposure.
- * @param holdings - holdings from the API
- * @returns the positions still held
- */
-export function selectOpenHoldings(holdings: Holding[]): Holding[] {
-  return holdings.filter((holding) => holding.quantity > 0);
-}
-
-/**
  * Sums a holdings list's current market value (quantity × last price).
  * Shared by Dashboard's headline stat and the shell footer/header's
  * portfolio-value meta so the two can't silently drift on the formula.

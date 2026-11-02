@@ -7,7 +7,7 @@ export type HoldingStatus = {
   label: string;
 };
 
-/** Sort rank by SL status: breach, watch, unprotected, then safe. */
+/** Sort rank by SL status: breach, watch, no GTT to judge by, then safe. */
 export const HOLDING_SEVERITY_RANK: Record<HoldingStatus["variant"], number> = {
   neg: 0,
   warn: 1,
@@ -31,7 +31,9 @@ export function resolveHoldingStatus(holding: Holding, slMap: Map<string, number
     return { variant: "pos", label: "Safe" };
   }
   if (sl === undefined) {
-    return { variant: "none", label: "No SL" };
+    // Not "no stop-loss": thresholds live in stock_config, which this client
+    // can't read, and the agent only creates an sl_exit GTT after a breach.
+    return { variant: "none", label: "No GTT" };
   }
   if (holding.last_price <= sl) {
     return { variant: "neg", label: "Breach" };

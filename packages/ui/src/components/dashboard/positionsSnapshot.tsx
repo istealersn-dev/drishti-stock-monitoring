@@ -192,16 +192,16 @@ export function PositionsSnapshot({
   const atRiskCount = positions.filter(
     ({ status }) => status.variant === "neg" || status.variant === "warn",
   ).length;
-  const noStopLossCount = positions.filter(({ status }) => status.variant === "none").length;
+  const noGttCount = positions.filter(({ status }) => status.variant === "none").length;
   // Severity always wins, with the P&L sort or distance to SL inside it, and
-  // every at-risk or unprotected row shows regardless of the limit: this is
+  // every at-risk row, and every row with no GTT to judge by, shows regardless of the limit: this is
   // desktop's only list of them.
   const sorted = [...positions].sort((a, b) => {
     if (a.severity !== b.severity) return a.severity - b.severity;
     if (sortDirection === "none") return (a.distanceToSl ?? 0) - (b.distanceToSl ?? 0);
     return sortDirection === "desc" ? b.pnlPct - a.pnlPct : a.pnlPct - b.pnlPct;
   });
-  const rows = sorted.slice(0, Math.max(DEFAULT_ROW_LIMIT, atRiskCount + noStopLossCount));
+  const rows = sorted.slice(0, Math.max(DEFAULT_ROW_LIMIT, atRiskCount + noGttCount));
 
   return (
     <Card className="flex flex-col gap-0 overflow-hidden !p-0">
@@ -209,7 +209,7 @@ export function PositionsSnapshot({
         <div className="flex items-center gap-2">
           <span className="text-body-sm font-semibold text-fg">Positions snapshot</span>
           {atRiskCount > 0 && <Badge variant="warn">{atRiskCount} at risk</Badge>}
-          {noStopLossCount > 0 && <Badge variant="neutral">{noStopLossCount} no SL</Badge>}
+          {noGttCount > 0 && <Badge variant="neutral">{noGttCount} no GTT</Badge>}
         </div>
         <Link
           to="/holdings"

@@ -40,7 +40,9 @@ export function NeedsAttentionList({
         HOLDING_SEVERITY_RANK[a.status.variant] - HOLDING_SEVERITY_RANK[b.status.variant] ||
         a.distanceToSl - b.distanceToSl,
     );
-  const noStopLossCount = holdings.filter((holding) => !slMap.has(holding.trading_symbol)).length;
+  const noGttCount = holdings.filter(
+    (holding) => resolveHoldingStatus(holding, slMap).variant === "none",
+  ).length;
 
   return (
     <section className="flex flex-col gap-2.5">
@@ -56,15 +58,19 @@ export function NeedsAttentionList({
       ) : atRisk.length === 0 ? (
         <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">
           <StatusDot
-            variant={noStopLossCount > 0 ? "warn" : "pos"}
-            label={noStopLossCount > 0 ? "None near a stop-loss" : "All positions safe"}
+            variant={noGttCount > 0 ? "warn" : "pos"}
+            label={noGttCount > 0 ? "No active GTT near its trigger" : "All positions safe"}
             pulse={false}
           />
           <div>
             <p className="text-body-sm font-medium text-fg">
-              {noStopLossCount > 0 ? "None near a stop-loss" : "All positions safe"}
+              {noGttCount > 0 ? "No active GTT near its trigger" : "All positions safe"}
             </p>
-            <p className="text-caption text-fg-muted">No holdings near their stop-loss.</p>
+            <p className="text-caption text-fg-muted">
+              {noGttCount > 0
+                ? "Holdings without one aren't checked here."
+                : "No holdings near their stop-loss."}
+            </p>
           </div>
         </div>
       ) : (
@@ -83,9 +89,9 @@ export function NeedsAttentionList({
           ))}
         </div>
       )}
-      {noStopLossCount > 0 && (
+      {noGttCount > 0 && (
         <p className="text-caption text-warn">
-          {noStopLossCount} of {holdings.length} have no active stop-loss GTT.
+          {noGttCount} of {holdings.length} have no active GTT to check.
         </p>
       )}
     </section>
