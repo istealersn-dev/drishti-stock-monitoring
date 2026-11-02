@@ -2,33 +2,31 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   Outlet,
   redirect,
 } from "@tanstack/react-router";
 
 import { AppShell } from "./components/shell/appShell";
+import { RouteError } from "./components/shell/routeError";
+import { RouteNotFound } from "./components/shell/routeNotFound";
+import { RoutePending } from "./components/shell/routePending";
 import { isAuthenticated } from "./lib/auth";
-import { Ask } from "./pages/ask";
-import { CatalogPreview } from "./pages/catalogPreview";
-import { ConnectBroker } from "./pages/connectBroker";
-import { Dashboard } from "./pages/dashboard";
-import { Gtt } from "./pages/gtt";
-import { Health } from "./pages/health";
-import { Holdings } from "./pages/holdings";
-import { Instructions } from "./pages/instructions";
-import { Login } from "./pages/login";
-import { Logs } from "./pages/logs";
-import { PrimitivesPreview } from "./pages/primitivesPreview";
-import { Settings } from "./pages/settings";
-import { TokensPreview } from "./pages/tokensPreview";
-import { Watchlist } from "./pages/watchlist";
+import {
+  approvalsSearchSchema,
+  holdingsSearchSchema,
+  settingsSearchSchema,
+} from "./lib/routeSearch";
+
+// Long enough that a cached chunk never flashes a spinner.
+const ROUTE_PENDING_DELAY_MS = 150;
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
-  component: Login,
+  component: lazyRouteComponent(() => import("./pages/login"), "Login"),
 });
 
 // Design-system compliance page. Kept as a standalone root-level route (not nested
@@ -38,7 +36,7 @@ const loginRoute = createRoute({
 const tokensRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/tokens",
-  component: TokensPreview,
+  component: lazyRouteComponent(() => import("./pages/tokensPreview"), "TokensPreview"),
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: "/login" });
@@ -50,7 +48,7 @@ const tokensRoute = createRoute({
 const primitivesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/primitives",
-  component: PrimitivesPreview,
+  component: lazyRouteComponent(() => import("./pages/primitivesPreview"), "PrimitivesPreview"),
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: "/login" });
@@ -62,7 +60,7 @@ const primitivesRoute = createRoute({
 const catalogRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/catalog",
-  component: CatalogPreview,
+  component: lazyRouteComponent(() => import("./pages/catalogPreview"), "CatalogPreview"),
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: "/login" });
@@ -86,61 +84,64 @@ const layoutRoute = createRoute({
 const indexRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/",
-  component: Dashboard,
+  component: lazyRouteComponent(() => import("./pages/dashboard"), "Dashboard"),
 });
 
 const holdingsRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/holdings",
-  component: Holdings,
+  validateSearch: holdingsSearchSchema,
+  component: lazyRouteComponent(() => import("./pages/holdings"), "Holdings"),
 });
 
 const instructionsRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/instructions",
-  component: Instructions,
+  validateSearch: approvalsSearchSchema,
+  component: lazyRouteComponent(() => import("./pages/instructions"), "Instructions"),
 });
 
 const gttRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/gtt",
-  component: Gtt,
+  component: lazyRouteComponent(() => import("./pages/gtt"), "Gtt"),
 });
 
 const watchlistRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/watchlist",
-  component: Watchlist,
+  component: lazyRouteComponent(() => import("./pages/watchlist"), "Watchlist"),
 });
 
 const healthRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/health",
-  component: Health,
+  component: lazyRouteComponent(() => import("./pages/health"), "Health"),
 });
 
 const askRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/ask",
-  component: Ask,
+  component: lazyRouteComponent(() => import("./pages/ask"), "Ask"),
 });
 
 const logsRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/logs",
-  component: Logs,
+  component: lazyRouteComponent(() => import("./pages/logs"), "Logs"),
 });
 
 const settingsRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/settings",
-  component: Settings,
+  validateSearch: settingsSearchSchema,
+  component: lazyRouteComponent(() => import("./pages/settings"), "Settings"),
 });
 
 const connectBrokerRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/settings/connect/$brokerId",
-  component: ConnectBroker,
+  component: lazyRouteComponent(() => import("./pages/connectBroker"), "ConnectBroker"),
 });
 
 const routeTree = rootRoute.addChildren([
@@ -162,7 +163,13 @@ const routeTree = rootRoute.addChildren([
   ]),
 ]);
 
-export const router = createRouter({ routeTree });
+export const router = createRouter({
+  routeTree,
+  defaultErrorComponent: RouteError,
+  defaultNotFoundComponent: RouteNotFound,
+  defaultPendingComponent: RoutePending,
+  defaultPendingMs: ROUTE_PENDING_DELAY_MS,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

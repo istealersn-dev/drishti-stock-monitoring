@@ -1,14 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getRouteApi } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 
 import { ApprovalCard } from "../components/instructions/approvalCard";
 import { ApprovalSegments } from "../components/instructions/approvalSegments";
-import type { ApprovalSource } from "../components/instructions/approvalSource";
 import { InstructionComposer } from "../components/instructions/instructionComposer";
 import { PageHeader } from "../components/shell/pageHeader";
 import { Badge } from "../components/ui/badge";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import {
   type Approval,
@@ -19,6 +20,10 @@ import {
   updateApprovalAmount,
 } from "../lib/api";
 import { filterPendingApprovals } from "../lib/approvals";
+
+type ApprovalAction = "approve" | "reject" | "amount";
+
+const route = getRouteApi("/layout/instructions");
 
 /**
  * Approvals page (updated design) — "From Drishti" is for the agent's own
@@ -34,11 +39,32 @@ export function Instructions(): React.ReactElement {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [actionErrors, setActionErrors] = useState<Partial<Record<string, string>>>({});
-  const [pendingApproveIds, setPendingApproveIds] = useState<ReadonlySet<string>>(new Set());
-  const [pendingRejectIds, setPendingRejectIds] = useState<ReadonlySet<string>>(new Set());
-  const [pendingAmountIds, setPendingAmountIds] = useState<ReadonlySet<string>>(new Set());
-  const [segment, setSegment] = useState<ApprovalSource>("you");
+  const [actionsInFlight, setActionsInFlight] = useState<ReadonlyMap<string, ApprovalAction>>(
+    new Map(),
+  );
+  const { tab: segment = "you" } = route.useSearch();
+  const navigate = route.useNavigate();
   const queryClient = useQueryClient();
+
+  const finishAction = (id: string): void => {
+    setActionsInFlight((previous) => {
+      const next = new Map(previous);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  // One action per approval at a time, so a double click can't approve twice.
+  const startAction = (id: string, action: ApprovalAction): boolean => {
+    if (actionsInFlight.has(id)) return false;
+    setActionErrors((previous) => {
+      const next = { ...previous };
+      delete next[id];
+      return next;
+    });
+    setActionsInFlight((previous) => new Map(previous).set(id, action));
+    return true;
+  };
 
   const {
     data: approvals = [],
@@ -67,20 +93,12 @@ export function Instructions(): React.ReactElement {
   const approveMutation = useMutation({
     mutationFn: approveInstruction,
     onSuccess: (_data, id) => {
-      setPendingApproveIds((previous) => {
-        const next = new Set(previous);
-        next.delete(id);
-        return next;
-      });
+      finishAction(id);
       void queryClient.invalidateQueries({ queryKey: ["approvals"] });
       void queryClient.invalidateQueries({ queryKey: ["gtt"] });
     },
     onError: (error: Error, id: string) => {
-      setPendingApproveIds((previous) => {
-        const next = new Set(previous);
-        next.delete(id);
-        return next;
-      });
+      finishAction(id);
       setActionErrors((previous) => ({ ...previous, [id]: `Approve failed: ${error.message}` }));
     },
   });
@@ -88,19 +106,11 @@ export function Instructions(): React.ReactElement {
   const rejectMutation = useMutation({
     mutationFn: rejectInstruction,
     onSuccess: (_data, id) => {
-      setPendingRejectIds((previous) => {
-        const next = new Set(previous);
-        next.delete(id);
-        return next;
-      });
+      finishAction(id);
       void queryClient.invalidateQueries({ queryKey: ["approvals"] });
     },
     onError: (error: Error, id: string) => {
-      setPendingRejectIds((previous) => {
-        const next = new Set(previous);
-        next.delete(id);
-        return next;
-      });
+      finishAction(id);
       setActionErrors((previous) => ({ ...previous, [id]: `Reject failed: ${error.message}` }));
     },
   });
@@ -109,19 +119,11 @@ export function Instructions(): React.ReactElement {
     mutationFn: ({ id, amountInr }: { id: string; amountInr: number }) =>
       updateApprovalAmount(id, amountInr),
     onSuccess: (_data, { id }) => {
-      setPendingAmountIds((previous) => {
-        const next = new Set(previous);
-        next.delete(id);
-        return next;
-      });
+      finishAction(id);
       void queryClient.invalidateQueries({ queryKey: ["approvals"] });
     },
     onError: (error: Error, { id }) => {
-      setPendingAmountIds((previous) => {
-        const next = new Set(previous);
-        next.delete(id);
-        return next;
-      });
+      finishAction(id);
       setActionErrors((previous) => ({
         ...previous,
         [id]: `Update amount failed: ${error.message}`,
@@ -130,14 +132,7 @@ export function Instructions(): React.ReactElement {
   });
 
   const handleUpdateAmount = (id: string, amountInr: number): void => {
-    if (pendingApproveIds.has(id) || pendingRejectIds.has(id) || pendingAmountIds.has(id)) return;
-    setActionErrors((previous) => {
-      const next = { ...previous };
-      delete next[id];
-      return next;
-    });
-    setPendingAmountIds((previous) => new Set(previous).add(id));
-    amountMutation.mutate({ id, amountInr });
+    if (startAction(id, "amount")) amountMutation.mutate({ id, amountInr });
   };
 
   const handleSubmit = (): void => {
@@ -146,25 +141,11 @@ export function Instructions(): React.ReactElement {
   };
 
   const handleApprove = (id: string): void => {
-    if (pendingApproveIds.has(id) || pendingRejectIds.has(id) || pendingAmountIds.has(id)) return;
-    setActionErrors((previous) => {
-      const next = { ...previous };
-      delete next[id];
-      return next;
-    });
-    setPendingApproveIds((previous) => new Set(previous).add(id));
-    approveMutation.mutate(id);
+    if (startAction(id, "approve")) approveMutation.mutate(id);
   };
 
   const handleReject = (id: string): void => {
-    if (pendingApproveIds.has(id) || pendingRejectIds.has(id) || pendingAmountIds.has(id)) return;
-    setActionErrors((previous) => {
-      const next = { ...previous };
-      delete next[id];
-      return next;
-    });
-    setPendingRejectIds((previous) => new Set(previous).add(id));
-    rejectMutation.mutate(id);
+    if (startAction(id, "reject")) rejectMutation.mutate(id);
   };
 
   const pendingApprovals = filterPendingApprovals(approvals);
@@ -179,7 +160,13 @@ export function Instructions(): React.ReactElement {
         subtitle="Your buy instructions wait here for a decision. No new buy goes through until you approve."
       />
 
-      <ApprovalSegments active={segment} youCount={pendingCount} onSelect={setSegment} />
+      <ApprovalSegments
+        active={segment}
+        youCount={pendingCount}
+        onSelect={(tab) => {
+          void navigate({ search: { tab }, replace: true });
+        }}
+      />
 
       {segment === "drishti" && (
         <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-12">
@@ -215,15 +202,13 @@ export function Instructions(): React.ReactElement {
         </div>
 
         {approvalsError && approvals.length > 0 && (
-          <p className="text-caption text-neg">
+          <p role="alert" className="text-caption text-neg">
             Couldn&apos;t refresh approvals, so these may be out of date.
           </p>
         )}
 
         {approvalsError && approvals.length === 0 ? (
-          <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-            Failed to load approvals. Is the agent running?
-          </div>
+          <ErrorNotice>Failed to load approvals. Is the agent running?</ErrorNotice>
         ) : isLoading ? (
           <div className="flex h-24 items-center justify-center">
             <Spinner />
@@ -242,9 +227,9 @@ export function Instructions(): React.ReactElement {
                 onApprove={handleApprove}
                 onReject={handleReject}
                 onUpdateAmount={handleUpdateAmount}
-                approvePending={pendingApproveIds.has(approval.id)}
-                rejectPending={pendingRejectIds.has(approval.id)}
-                amountPending={pendingAmountIds.has(approval.id)}
+                approvePending={actionsInFlight.get(approval.id) === "approve"}
+                rejectPending={actionsInFlight.get(approval.id) === "reject"}
+                amountPending={actionsInFlight.get(approval.id) === "amount"}
                 actionError={actionErrors[approval.id] ?? null}
               />
             ))}

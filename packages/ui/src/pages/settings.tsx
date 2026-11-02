@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getRouteApi } from "@tanstack/react-router";
 import type React from "react";
 import { useEffect, useState } from "react";
 
@@ -7,12 +8,13 @@ import { BrokerCard } from "../components/settings/brokerCard";
 import { DangerZone } from "../components/settings/dangerZone";
 import { ModelRuntimeCard } from "../components/settings/modelRuntimeCard";
 import { PageHeader } from "../components/shell/pageHeader";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { Tabs } from "../components/ui/tabs";
 import { type Settings as SettingsType, fetchSettings, updateSettings } from "../lib/api";
+import { SETTINGS_TABS, type SettingsTab } from "../lib/routeSearch";
 
-type SettingsTab = "brokers" | "agent" | "runtime" | "danger";
-const SETTINGS_TABS: SettingsTab[] = ["brokers", "agent", "runtime", "danger"];
+const route = getRouteApi("/layout/settings");
 
 function isSettingsTab(value: string): value is SettingsTab {
   return SETTINGS_TABS.some((tab) => tab === value);
@@ -43,7 +45,8 @@ function formFromSettings(settings: SettingsType): FormState {
  */
 export function Settings(): React.ReactElement {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<SettingsTab>("brokers");
+  const { tab = "brokers" } = route.useSearch();
+  const navigate = route.useNavigate();
 
   const {
     data: settings,
@@ -88,11 +91,7 @@ export function Settings(): React.ReactElement {
   }
 
   if (isError || settings == null) {
-    return (
-      <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-        Failed to load settings.
-      </div>
-    );
+    return <ErrorNotice>Failed to load settings.</ErrorNotice>;
   }
 
   return (
@@ -105,7 +104,7 @@ export function Settings(): React.ReactElement {
       <Tabs
         value={tab}
         onChange={(value) => {
-          if (isSettingsTab(value)) setTab(value);
+          if (isSettingsTab(value)) void navigate({ search: { tab: value }, replace: true });
         }}
       >
         <Tabs.List>

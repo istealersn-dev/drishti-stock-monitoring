@@ -1,15 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
+import { getRouteApi } from "@tanstack/react-router";
 import type React from "react";
 import { useState } from "react";
 
 import { HoldingCard } from "../components/holdings/holdingCard";
-import { type ProductFilter, HoldingFilters } from "../components/holdings/holdingFilters";
+import { HoldingFilters } from "../components/holdings/holdingFilters";
 import { HoldingsTable } from "../components/holdings/holdingsTable";
 import { PageHeader } from "../components/shell/pageHeader";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
 import { buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
+import type { ProductFilter } from "../lib/routeSearch";
+
+const route = getRouteApi("/layout/holdings");
 
 function applyFilter(
   holdings: Holding[],
@@ -43,7 +48,8 @@ function applyFilter(
  * @returns Holdings page element
  */
 export function Holdings(): React.ReactElement {
-  const [filter, setFilter] = useState<ProductFilter>("ALL");
+  const { filter = "ALL" } = route.useSearch();
+  const navigate = route.useNavigate();
   const [search, setSearch] = useState("");
   const hasTableRoom = useHasTableRoom();
 
@@ -70,11 +76,7 @@ export function Holdings(): React.ReactElement {
 
   // A failed background refetch keeps its data, and any SL being typed here.
   if (isError && data === undefined) {
-    return (
-      <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-        Failed to load holdings. Is the agent running?
-      </div>
-    );
+    return <ErrorNotice>Failed to load holdings. Is the agent running?</ErrorNotice>;
   }
 
   return (
@@ -84,7 +86,7 @@ export function Holdings(): React.ReactElement {
         subtitle="All positions, with inline stop-loss and target editing."
       />
       {gttError && (
-        <p className="text-caption text-neg">
+        <p role="alert" className="text-caption text-neg">
           Couldn&apos;t load GTTs, so Breach and Watch may be missing holdings.
         </p>
       )}
@@ -92,7 +94,9 @@ export function Holdings(): React.ReactElement {
         search={search}
         onSearchChange={setSearch}
         filter={filter}
-        onFilterChange={setFilter}
+        onFilterChange={(next) => {
+          void navigate({ search: { filter: next }, replace: true });
+        }}
       />
 
       {visible.length === 0 ? (

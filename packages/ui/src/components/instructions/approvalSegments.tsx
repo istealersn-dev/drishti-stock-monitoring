@@ -1,8 +1,7 @@
 import type React from "react";
 
+import type { ApprovalSource } from "../../lib/routeSearch";
 import { Badge } from "../ui/badge";
-
-import type { ApprovalSource } from "./approvalSource";
 
 type ApprovalSegmentsProperties = {
   active: ApprovalSource;
