@@ -1,10 +1,10 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, LogOut } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { LogoutDialog } from "./logoutDialog";
-import { MAIN_NAV_ITEMS, type NavItem, SETTINGS_NAV_ITEM } from "./navItems";
+import { MAIN_NAV_ITEMS, type NavItem, SETTINGS_NAV_ITEM, isNavItemActive } from "./navItems";
 
 // Single-broker app with no per-user identity (access-key auth), so the
 // account chip is a fixed label — matching the desktop footer's "admin".
@@ -18,6 +18,7 @@ type AccountMenuItem = {
   icon: typeof LogOut;
   onSelect: () => void;
   danger?: boolean;
+  isActive?: boolean;
 };
 
 /**
@@ -31,8 +32,13 @@ function MenuButton({ item }: { item: AccountMenuItem }): React.ReactElement {
     <button
       type="button"
       onClick={item.onSelect}
+      aria-current={item.isActive === true ? "page" : undefined}
       className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-body font-medium transition-colors ${
-        item.danger ? "text-neg-soft hover:bg-neg-tint" : "text-fg-soft hover:bg-surface-hover"
+        item.danger
+          ? "text-neg-soft hover:bg-neg-tint"
+          : item.isActive === true
+            ? "bg-gold/[0.13] text-fg"
+            : "text-fg-soft hover:bg-surface-hover"
       }`}
     >
       <Icon aria-hidden="true" className="h-4 w-4 flex-none" />
@@ -56,6 +62,7 @@ type AccountMenuProperties = {
  */
 export function AccountMenu({ compact = false }: AccountMenuProperties): React.ReactElement {
   const navigate = useNavigate();
+  const currentPath = useRouterState().location.pathname;
   const [open, setOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const containerReference = useRef<HTMLDivElement>(null);
@@ -87,8 +94,10 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
   const navToMenuItem = (route: NavItem): AccountMenuItem => ({
     label: route.label,
     icon: route.icon,
+    isActive: isNavItemActive(route, currentPath),
     onSelect: (): void => {
       setOpen(false);
+      triggerReference.current?.focus();
       void navigate({ to: route.path });
     },
   });
