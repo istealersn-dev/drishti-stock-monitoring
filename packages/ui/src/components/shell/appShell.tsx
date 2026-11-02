@@ -3,6 +3,7 @@ import { Outlet } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import type React from "react";
 
+import { useIsDesktop } from "../../hooks/useIsDesktop";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { fetchApprovals, fetchHoldings, fetchRuns, fetchSettings } from "../../lib/api";
 import { formatInr } from "../../lib/format";
@@ -28,7 +29,7 @@ function formatPollTime(iso: string | null): string {
 /**
  * Root layout shell (handoff.md §3-4) — picks the desktop shell (`Sidebar` +
  * `AppFooter`) or mobile shell (`AppHeaderMobile` + `MobileTabBar`) by
- * `useMediaQuery('(min-width: 578px)')` rather than duplicating pages; both
+ * `useIsDesktop()` rather than duplicating pages; both
  * render the same routed `<Outlet/>` content. Fetches settings, approvals,
  * and runs to drive the status/pending/last-poll meta shared by both shells.
  * @returns App shell layout element
@@ -40,7 +41,7 @@ export function AppShell(): React.ReactElement {
   const [collapseTouched, setCollapseTouched] = useState(false);
   const [spinning, setSpinning] = useState(false);
   const spinTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isDesktop = useMediaQuery("(min-width: 578px)");
+  const isDesktop = useIsDesktop();
   const isTablet = useMediaQuery("(min-width: 578px) and (max-width: 1023px)");
   const queryClient = useQueryClient();
 
@@ -132,13 +133,16 @@ export function AppShell(): React.ReactElement {
           <main
             className={
               isDesktop
-                ? // Content is capped at 1440px and centred on wide screens;
-                  // padding tightens to 16px on tablet, 20px laptop+.
-                  "mx-auto min-w-0 w-full max-w-[90rem] flex-1 overflow-y-auto p-4 lap:p-5"
+                ? "min-w-0 w-full flex-1 overflow-y-auto p-4 lap:p-5"
                 : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom"
             }
           >
-            <Outlet />
+            {/* The 1440px cap sits inside the scroller, so the scrollbar stays
+                at the window edge and the side gutters still scroll on wide
+                screens. Padding tightens to 16px on tablet, 20px laptop+. */}
+            <div className="mx-auto h-full w-full max-w-[90rem]">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>

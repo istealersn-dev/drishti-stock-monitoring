@@ -5,7 +5,7 @@ import { GttCard } from "../components/gtt/gttCard";
 import { GttTable } from "../components/gtt/gttTable";
 import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
-import { useMediaQuery } from "../hooks/useMediaQuery";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fetchGttOrders } from "../lib/api";
 
 /**
@@ -15,7 +15,7 @@ import { fetchGttOrders } from "../lib/api";
  * @returns Gtt page element
  */
 export function Gtt(): React.ReactElement {
-  const isDesktop = useMediaQuery("(min-width: 578px)");
+  const isDesktop = useIsDesktop();
 
   const {
     data: orders = [],
