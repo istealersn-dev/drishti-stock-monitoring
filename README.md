@@ -16,32 +16,32 @@ Drishti runs entirely on a Mac Mini M4 Pro. It monitors an Upstox portfolio, man
 
 ## Autonomy model
 
-| Action | Mode | Mechanism |
-|---|---|---|
-| SL breach on existing holding | **Auto** | GTT exit placed immediately, Slack notified after |
-| New buy instruction | **Approval required** | Slack interactive card — approve / reject |
-| Entry GTT after approval | **Auto** | Placed on approve tap |
-| T1 price hit | **Alert only** | Slack ping, user decides |
-| T2 price hit | **Alert only** | Slack ping, user decides |
-| Existing GTT modify / cancel | **Auto** (LLM-driven) | Slack notified after |
-| Daily digest | **Auto** | 09:15 and 15:30 IST |
+| Action                        | Mode                  | Mechanism                                         |
+| ----------------------------- | --------------------- | ------------------------------------------------- |
+| SL breach on existing holding | **Auto**              | GTT exit placed immediately, Slack notified after |
+| New buy instruction           | **Approval required** | Slack interactive card — approve / reject         |
+| Entry GTT after approval      | **Auto**              | Placed on approve tap                             |
+| T1 price hit                  | **Alert only**        | Slack ping, user decides                          |
+| T2 price hit                  | **Alert only**        | Slack ping, user decides                          |
+| Existing GTT modify / cancel  | **Auto** (LLM-driven) | Slack notified after                              |
+| Daily digest                  | **Auto**              | 09:15 and 15:30 IST                               |
 
 ---
 
 ## Stack
 
-| Layer | Tech |
-|---|---|
-| Runtime | Node.js 22 LTS, TypeScript 5.8 strict |
-| Agent | LangGraph.js, LM Studio (local LLM via OpenAI-compatible API) |
-| LLM | `google/gemma-4-26b-a4b-qat` — QAT 4-bit, ~15 GB, MLX-accelerated |
-| Broker API | Upstox v3 (GTT orders, portfolio, margins) |
-| Alerts | Slack Bolt (Socket Mode) — alerts + interactive approval cards |
-| API server | Fastify 5 |
-| Database | SQLite via Drizzle ORM — single file, no external dependencies |
-| UI | React 19, TanStack Router, TanStack Query, Tailwind CSS 4 |
-| UI hosting | Cloudflare Pages |
-| Monorepo | pnpm workspaces |
+| Layer      | Tech                                                              |
+| ---------- | ----------------------------------------------------------------- |
+| Runtime    | Node.js 22 LTS, TypeScript 5.8 strict                             |
+| Agent      | LangGraph.js, LM Studio (local LLM via OpenAI-compatible API)     |
+| LLM        | `google/gemma-4-26b-a4b-qat` — QAT 4-bit, ~15 GB, MLX-accelerated |
+| Broker API | Upstox v3 (GTT orders, portfolio, margins)                        |
+| Alerts     | Slack Bolt (Socket Mode) — alerts + interactive approval cards    |
+| API server | Fastify 5                                                         |
+| Database   | SQLite via Drizzle ORM — single file, no external dependencies    |
+| UI         | React 19, TanStack Router, TanStack Query, Tailwind CSS 4         |
+| UI hosting | Cloudflare Pages                                                  |
+| Monorepo   | pnpm workspaces                                                   |
 
 ---
 
@@ -136,21 +136,21 @@ pnpm dev:ui
 
 ### Environment variables
 
-| Variable | Description |
-|---|---|
-| `LM_STUDIO_BASE_URL` | LM Studio server URL (default: `http://localhost:1234`) |
-| `LM_MODEL` | Model ID loaded in LM Studio |
-| `UPSTOX_API_KEY` | Upstox app API key |
-| `UPSTOX_API_SECRET` | Upstox app API secret |
-| `UPSTOX_ACCESS_TOKEN` | OAuth access token (refresh daily) |
-| `SLACK_BOT_TOKEN` | Slack bot OAuth token (`xoxb-…`) |
-| `SLACK_APP_TOKEN` | Slack app-level token for Socket Mode (`xapp-…`) |
-| `SLACK_SIGNING_SECRET` | Slack signing secret |
-| `SLACK_ALERT_CHANNEL_ID` | Channel ID for alerts and approval cards |
-| `SLACK_COMMAND_CHANNEL_ID` | Channel ID for `!` commands |
-| `DRISHTI_DRY_RUN` | `true` skips all Upstox write calls — logs instead |
-| `DRISHTI_ACCESS_KEY` | Secret key for UI → API authentication |
-| `AGENT_API_PORT` | REST API port (default: `4000`) |
+| Variable                   | Description                                             |
+| -------------------------- | ------------------------------------------------------- |
+| `LM_STUDIO_BASE_URL`       | LM Studio server URL (default: `http://localhost:1234`) |
+| `LM_MODEL`                 | Model ID loaded in LM Studio                            |
+| `UPSTOX_API_KEY`           | Upstox app API key                                      |
+| `UPSTOX_API_SECRET`        | Upstox app API secret                                   |
+| `UPSTOX_ACCESS_TOKEN`      | OAuth access token (refresh daily)                      |
+| `SLACK_BOT_TOKEN`          | Slack bot OAuth token (`xoxb-…`)                        |
+| `SLACK_APP_TOKEN`          | Slack app-level token for Socket Mode (`xapp-…`)        |
+| `SLACK_SIGNING_SECRET`     | Slack signing secret                                    |
+| `SLACK_ALERT_CHANNEL_ID`   | Channel ID for alerts and approval cards                |
+| `SLACK_COMMAND_CHANNEL_ID` | Channel ID for `!` commands                             |
+| `DRISHTI_DRY_RUN`          | `true` skips all Upstox write calls — logs instead      |
+| `DRISHTI_ACCESS_KEY`       | Secret key for UI → API authentication                  |
+| `AGENT_API_PORT`           | REST API port (default: `4000`)                         |
 
 See `env.example` for the full list.
 
@@ -173,7 +173,7 @@ pnpm agent:dry    # Start agent with DRISHTI_DRY_RUN=true
 
 ## UI deployment (Cloudflare Pages)
 
-The React dashboard is hosted on Cloudflare Pages. The agent API runs locally and is **never** exposed publicly — the UI authenticates via `X-Access-Key` header.
+The React dashboard is hosted on Cloudflare Pages. The agent API binds to loopback on the Mac Mini and is reachable from the internet only through a Cloudflare Tunnel. The tunnel hostname is public, so the access key is the API's boundary: the UI sends it in the `X-Access-Key` header, keys are compared in constant time, and repeated failures lock that client out for 15 minutes. Use a long random `DRISHTI_ACCESS_KEY`.
 
 Set `VITE_API_BASE_URL` as a build-time environment variable in the CF Pages dashboard (e.g. `https://drishti.yourdomain.dev`) before deploying. The Vite dev proxy (`/api → localhost:4000`) is used for local development.
 
@@ -186,7 +186,3 @@ Set `VITE_API_BASE_URL` as a build-time environment variable in the CF Pages das
 - **`DRISHTI_DRY_RUN` is checked at the call site** for every Upstox write — not at startup.
 - **Local LLM only.** No calls to OpenAI, Anthropic, or any cloud AI API.
 - **SQLite only.** No Postgres, Redis, or external data store.
-
----
-
-*Private repository — not for distribution.*
