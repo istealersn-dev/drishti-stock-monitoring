@@ -25,18 +25,24 @@ export function NeedsAttentionList({
   holdings,
   slMap,
 }: NeedsAttentionListProperties): React.ReactElement {
-  // flatMap so `sl` is proven defined for each surviving entry.
+  // flatMap so `sl` and its distance are proven defined for each survivor.
   const atRisk = holdings
     .flatMap((holding) => {
       const sl = slMap.get(holding.trading_symbol);
-      if (sl === undefined) return [];
+      const distanceToSl = distanceToSlPercentage(holding, sl);
+      if (sl === undefined || distanceToSl === undefined) return [];
       const status = resolveHoldingStatus(holding, slMap);
       if (status.variant === "pos") return [];
-      return [{ holding, sl, status }];
+      return [{ holding, sl, distanceToSl, status }];
     })
     .sort(
-      (a, b) => HOLDING_SEVERITY_RANK[a.status.variant] - HOLDING_SEVERITY_RANK[b.status.variant],
+      (a, b) =>
+        HOLDING_SEVERITY_RANK[a.status.variant] - HOLDING_SEVERITY_RANK[b.status.variant] ||
+        a.distanceToSl - b.distanceToSl,
     );
+  const noStopLossCount = holdings.filter(
+    (holding) => holding.quantity > 0 && !slMap.has(holding.trading_symbol),
+  ).length;
 
   return (
     <section className="flex flex-col gap-2.5">
@@ -51,15 +57,25 @@ export function NeedsAttentionList({
         </div>
       ) : atRisk.length === 0 ? (
         <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">
-          <StatusDot variant="pos" label="All positions safe" pulse={false} />
+          <StatusDot
+            variant={noStopLossCount > 0 ? "warn" : "pos"}
+            label={noStopLossCount > 0 ? "None near a stop-loss" : "All positions safe"}
+            pulse={false}
+          />
           <div>
-            <p className="text-body-sm font-medium text-fg">All positions safe</p>
-            <p className="text-caption text-fg-muted">No holdings near their stop-loss.</p>
+            <p className="text-body-sm font-medium text-fg">
+              {noStopLossCount > 0 ? "None near a stop-loss" : "All positions safe"}
+            </p>
+            <p className="text-caption text-fg-muted">
+              {noStopLossCount > 0
+                ? `${noStopLossCount} of ${holdings.length} have no active stop-loss GTT.`
+                : "No holdings near their stop-loss."}
+            </p>
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {atRisk.map(({ holding, sl, status }) => (
+          {atRisk.map(({ holding, sl, distanceToSl, status }) => (
             <NeedsAttentionCard
               key={`${holding.isin}-${holding.product}`}
               symbol={holding.trading_symbol}
@@ -68,7 +84,7 @@ export function NeedsAttentionList({
               ltp={holding.last_price}
               pnlPercentage={pnlPercentage(holding)}
               sl={sl}
-              distanceToSlPercentage={distanceToSlPercentage(holding, sl) ?? 0}
+              distanceToSlPercentage={distanceToSl}
             />
           ))}
         </div>

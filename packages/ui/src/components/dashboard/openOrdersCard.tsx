@@ -7,6 +7,9 @@ import { formatPrice } from "../../lib/holdingFormat";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
 
+// The header links to the full list, so this stays the height of its neighbour.
+const VISIBLE_ORDER_LIMIT = 5;
+
 type OpenOrdersCardProperties = {
   orders: GttOrder[];
 };
@@ -34,7 +37,7 @@ export function OpenOrdersCard({ orders }: OpenOrdersCardProperties): React.Reac
         <p className="py-8 text-center text-caption text-fg-faint">No open orders</p>
       ) : (
         <ul>
-          {orders.map((order) => (
+          {orders.slice(0, VISIBLE_ORDER_LIMIT).map((order) => (
             <li
               key={order.id}
               className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5 last:border-b-0"

@@ -4,7 +4,7 @@ import type React from "react";
 import { useState } from "react";
 
 import type { Holding } from "../../lib/api";
-import { PLACEHOLDER, formatSignedInr } from "../../lib/format";
+import { PLACEHOLDER, formatPriceOrDash, formatSignedInr } from "../../lib/format";
 import {
   distanceToSlPercentage,
   formatPrice,
@@ -24,7 +24,7 @@ import { StatusDot } from "../ui/statusDot";
 // minmax(0, …) stops a long value from widening its own row's track, which
 // would shift that row's columns out from under the headers.
 const ROW_GRID =
-  "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.1fr)]";
+  "grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1.1fr)]";
 
 const DEFAULT_ROW_LIMIT = 5;
 
@@ -116,7 +116,7 @@ function PositionRow({
           {pct.toFixed(2)}%
         </span>
         <span className="text-right font-mono text-caption text-fg-muted">
-          {sl !== undefined ? formatPrice(sl) : PLACEHOLDER}
+          {formatPriceOrDash(sl ?? null)}
         </span>
         <span
           className={`${STATUS_CELL} flex items-center justify-end gap-1.5 bg-surface group-hover:bg-surface-hover`}
@@ -128,7 +128,7 @@ function PositionRow({
 
       {expanded && (
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 bg-surface-2 px-9 py-3.5 nav:grid-cols-5">
-          <Detail term="SL threshold" value={sl !== undefined ? formatPrice(sl) : PLACEHOLDER} />
+          <Detail term="SL threshold" value={formatPriceOrDash(sl ?? null)} />
           <Detail term="Target price" value={PLACEHOLDER} />
           <Detail
             term="Distance to SL"
@@ -184,6 +184,9 @@ export function PositionsSnapshot({
     };
   });
   const atRiskCount = positions.filter(({ status }) => status.variant !== "pos").length;
+  const noStopLossCount = positions.filter(
+    ({ holding, sl }) => sl === undefined && holding.quantity > 0,
+  ).length;
   // Severity always wins, with the P&L sort or distance to SL inside it, and
   // every at-risk row shows regardless of the limit: Needs attention is
   // mobile-only, so this is desktop's only list of them.
@@ -200,6 +203,7 @@ export function PositionsSnapshot({
         <div className="flex items-center gap-2">
           <span className="text-body-sm font-semibold text-fg">Positions snapshot</span>
           {atRiskCount > 0 && <Badge variant="warn">{atRiskCount} at risk</Badge>}
+          {noStopLossCount > 0 && <Badge variant="neutral">{noStopLossCount} no SL</Badge>}
         </div>
         <Link
           to="/holdings"
@@ -216,7 +220,7 @@ export function PositionsSnapshot({
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="min-w-[48rem]">
+          <div className="min-w-[56rem]">
             <div
               className={`grid ${ROW_GRID} items-center gap-2 border-b border-border bg-surface-2 px-3 py-2 text-micro uppercase tracking-wide text-fg-faint`}
             >

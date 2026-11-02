@@ -22,10 +22,10 @@ export function formatInr(amount: number): string {
  * back to an em-dash for unset values (e.g. an instruction with no upper
  * entry bound).
  * @param price - the price to format, or null if unset
- * @returns formatted price string, or "—" if null
+ * @returns formatted price string, or PLACEHOLDER if null
  */
 export function formatPriceOrDash(price: number | null): string {
-  if (price === null) return "—";
+  if (price === null) return PLACEHOLDER;
   return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 

@@ -37,13 +37,14 @@ export function pnlPercentage(holding: Holding): number {
  * How far a holding's LTP sits above its stop-loss, as a percentage of the SL.
  * @param holding - the holding
  * @param sl - the stop-loss trigger, if one is set
- * @returns the distance percent, or undefined with no usable stop-loss
+ * @returns the distance percent, or undefined with no usable stop-loss or a
+ *   closed-out holding, whose last price no longer means anything
  */
 export function distanceToSlPercentage(
   holding: Holding,
   sl: number | undefined,
 ): number | undefined {
-  return sl ? ((holding.last_price - sl) / sl) * 100 : undefined;
+  return sl && holding.quantity > 0 ? ((holding.last_price - sl) / sl) * 100 : undefined;
 }
 
 /**
