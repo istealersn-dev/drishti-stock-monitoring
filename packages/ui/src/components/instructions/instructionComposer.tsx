@@ -51,7 +51,7 @@ export function InstructionComposer({
           onSubmit();
         }}
       >
-        <div className="flex items-stretch gap-2.5">
+        <div className="flex items-start gap-2.5">
           <div className="flex-1">
             <Input
               id="instruction-text"
@@ -60,6 +60,7 @@ export function InstructionComposer({
               value={value}
               onChange={onChange}
               placeholder="Ramco Systems Buy 560-580 SL 520 Tgt 680 800+"
+              error={submitError}
               autoComplete="off"
             />
           </div>
@@ -88,9 +89,11 @@ export function InstructionComposer({
           ))}
         </div>
       </form>
-
-      {submitError !== null && <p className="text-caption text-neg">{submitError}</p>}
-      {submitSuccess !== null && <p className="text-caption text-pos">{submitSuccess}</p>}
+      {submitSuccess !== null && (
+        <p role="status" className="text-caption text-pos">
+          {submitSuccess}
+        </p>
+      )}
     </Card>
   );
 }

@@ -1,6 +1,7 @@
 import type React from "react";
 
 import type { Holding } from "../../lib/api";
+import { formatPriceOrDash } from "../../lib/format";
 import {
   formatPnl,
   formatPrice,
@@ -15,6 +16,8 @@ import { useHoldingGttForm } from "./useHoldingGttForm";
 
 type HoldingCardProperties = {
   holding: Holding;
+  currentSl: number | undefined;
+  currentTarget: number | undefined;
 };
 
 /**
@@ -24,11 +27,18 @@ type HoldingCardProperties = {
  * Shares `useHoldingGttForm` with the desktop table so the two presentations
  * can't drift in behavior.
  * @param props.holding - the holding to render
+ * @param props.currentSl - the stored stop-loss, shown as the SL input's hint
+ * @param props.currentTarget - the stored target, shown as the target input's hint
  * @returns Holding card element
  */
-export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElement {
+export function HoldingCard({
+  holding,
+  currentSl,
+  currentTarget,
+}: HoldingCardProperties): React.ReactElement {
   const { sl, setSl, target, setTarget, saveError, isPending, handleSaveThreshold } =
     useHoldingGttForm(holding.trading_symbol);
+  const errorId = `${holding.trading_symbol}-${holding.product}-save-error`;
   const ltpColor = holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
   const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
   const cost = holding.quantity * holding.average_price;
@@ -70,7 +80,9 @@ export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElem
             type="text"
             inputMode="decimal"
             value={sl}
-            placeholder="—"
+            placeholder={formatPriceOrDash(currentSl ?? null)}
+            aria-invalid={saveError !== null}
+            aria-describedby={saveError !== null ? errorId : undefined}
             onChange={(event) => {
               setSl(event.target.value);
             }}
@@ -84,7 +96,9 @@ export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElem
             type="text"
             inputMode="decimal"
             value={target}
-            placeholder="—"
+            placeholder={formatPriceOrDash(currentTarget ?? null)}
+            aria-invalid={saveError !== null}
+            aria-describedby={saveError !== null ? errorId : undefined}
             onChange={(event) => {
               setTarget(event.target.value);
             }}
@@ -94,7 +108,11 @@ export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElem
         </label>
       </div>
 
-      {saveError !== null && <p className="text-caption text-neg">{saveError}</p>}
+      {saveError !== null && (
+        <p id={errorId} role="alert" className="text-caption text-neg">
+          {saveError}
+        </p>
+      )}
 
       <Button variant="secondary" onClick={handleSaveThreshold} disabled={isPending}>
         {isPending ? "Saving…" : "Save SL threshold"}

@@ -156,7 +156,11 @@ export function AgentControls({
         </div>
       </label>
 
-      {isError && <p className="text-caption text-neg">Failed to save settings</p>}
+      {isError && (
+        <p role="alert" className="text-caption text-neg">
+          Failed to save settings
+        </p>
+      )}
       {isSuccess && <p className="text-caption text-pos">Settings saved</p>}
 
       <Button variant="primary" disabled={isPending} onClick={onSave}>

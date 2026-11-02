@@ -5,6 +5,11 @@ import { clearKey, getStoredKey } from "./auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
+const ErrorBodySchema = z.object({
+  error: z.string().optional().catch(undefined),
+  code: z.string().optional().catch(undefined),
+});
+
 async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
   const key = getStoredKey();
   // Only set Content-Type when there's actually a body — Fastify's default JSON body
@@ -34,11 +39,10 @@ async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestIni
     let detail = "";
     let code: string | undefined;
     try {
-      const body: unknown = await response.json();
-      if (typeof body === "object" && body !== null) {
-        const record = body as Record<string, unknown>;
-        if (typeof record["error"] === "string") detail = `: ${record["error"]}`;
-        if (typeof record["code"] === "string") code = record["code"];
+      const body = ErrorBodySchema.safeParse(await response.json());
+      if (body.success) {
+        if (body.data.error !== undefined) detail = `: ${body.data.error}`;
+        code = body.data.code;
       }
     } catch {
       // non-JSON body (e.g. nginx 502 HTML) — detail/code stay empty
@@ -55,13 +59,21 @@ async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestIni
  * @returns Resolves on success, throws on invalid key
  */
 export async function loginWithKey(key: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+  } catch {
+    throw new Error("Cannot reach Drishti API. Is the agent running?");
+  }
   if (response.status === 401) {
-    throw new Error("Invalid access key");
+    throw new Error("Invalid access key. Check and try again.");
+  }
+  if (response.status === 429) {
+    throw new Error("Too many failed attempts. Try again in 15 minutes.");
   }
   if (!response.ok) {
     throw new Error(`Cannot reach Drishti API (${response.status})`);
@@ -95,6 +107,15 @@ export const HoldingSchema = z.object({
   instrument_token: z.string(),
 });
 export type Holding = z.infer<typeof HoldingSchema>;
+
+export const HoldingConfigSchema = z.object({
+  symbol: z.string(),
+  slThreshold: z.number(),
+  targetOne: z.number().nullable(),
+  targetTwo: z.number().nullable(),
+  targetTwoOpen: z.boolean().nullable(),
+});
+export type HoldingConfig = z.infer<typeof HoldingConfigSchema>;
 
 export const GttOrderSchema = z.object({
   id: z.string(),
@@ -191,6 +212,18 @@ export async function fetchRuns(): Promise<AgentRun[]> {
 export async function fetchHoldings(): Promise<{ holdings: Holding[]; cachedAt: string | null }> {
   const response = await apiFetch("/api/holdings", HoldingsResponseSchema);
   return { holdings: response.data, cachedAt: response.cachedAt };
+}
+
+/**
+ * Fetch the active stop-loss and target config for each holding.
+ * @returns Config rows from stock_config
+ */
+export async function fetchHoldingConfigs(): Promise<HoldingConfig[]> {
+  const response = await apiFetch(
+    "/api/holdings/config",
+    z.object({ ok: z.boolean(), data: z.array(HoldingConfigSchema) }),
+  );
+  return response.data;
 }
 
 /**
@@ -302,15 +335,15 @@ export async function updateApprovalAmount(id: string, amountInr: number): Promi
 
 /**
  * Update SL threshold and targets for a holding in stock_config.
- * Pass null for targetOne/targetTwo to clear a previously set value.
+ * Omit targetOne/targetTwo to keep the stored value, or pass null to clear it.
  * Creates the row if it does not yet exist.
  * @param symbol - Upstox trading symbol
- * @param patch - SL threshold (required) and targets (null = clear, number = set)
+ * @param patch - SL threshold (required) and targets (omit = keep, null = clear)
  * @returns Resolves on success, throws on HTTP error
  */
 export async function updateHoldingConfig(
   symbol: string,
-  patch: { slThreshold: number; targetOne: number | null; targetTwo: number | null },
+  patch: { slThreshold: number; targetOne?: number | null; targetTwo?: number | null },
 ): Promise<void> {
   await apiFetch(
     `/api/holdings/${encodeURIComponent(symbol)}/config`,

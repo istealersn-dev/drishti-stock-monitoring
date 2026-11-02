@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 
 import cors from "@fastify/cors";
 import { desc, eq } from "drizzle-orm";
-import Fastify from "fastify";
+import Fastify, { type FastifyRequest } from "fastify";
 import { z } from "zod";
 
 import {
@@ -57,6 +57,10 @@ import { BrokerError } from "../shared/errors.js";
 import { HTTP_UNAUTHORIZED } from "../shared/httpStatus.js";
 import { logger } from "../shared/logger.js";
 
+import { createAuthThrottle, isValidAccessKey } from "./api.auth.js";
+
+// Loopback only: the Cloudflare tunnel connects over localhost.
+const API_BIND_HOST = "127.0.0.1";
 const API_RUNS_LIMIT = 20;
 const API_LOGS_LIMIT = 100;
 
@@ -132,6 +136,31 @@ export function queryGttOrders(status?: string): unknown[] {
     return db.select().from(gttOrders).where(eq(gttOrders.status, status)).all();
   }
   return db.select().from(gttOrders).orderBy(desc(gttOrders.createdAt)).all();
+}
+
+/**
+ * Query the active per-holding stop-loss and target config: the rows the breach
+ * and target detectors act on. A zero threshold means no stop-loss was given.
+ * @returns Active stock_config rows
+ */
+export function queryHoldingConfigs(): {
+  symbol: string;
+  slThreshold: number;
+  targetOne: number | null;
+  targetTwo: number | null;
+  targetTwoOpen: boolean | null;
+}[] {
+  return db
+    .select({
+      symbol: stockConfig.symbol,
+      slThreshold: stockConfig.slThreshold,
+      targetOne: stockConfig.targetOne,
+      targetTwo: stockConfig.targetTwo,
+      targetTwoOpen: stockConfig.targetTwoOpen,
+    })
+    .from(stockConfig)
+    .where(eq(stockConfig.isActive, true))
+    .all();
 }
 
 /**
@@ -226,9 +255,21 @@ export function queryApprovals(): unknown[] {
 
 const HoldingConfigBodySchema = z.object({
   slThreshold: z.number().positive(),
-  targetOne: z.number().positive().nullable(),
-  targetTwo: z.number().positive().nullable(),
+  targetOne: z.number().positive().nullable().optional(),
+  targetTwo: z.number().positive().nullable().optional(),
 });
+
+/**
+ * Identify the caller for auth throttling. Everything outside this machine
+ * arrives through the Cloudflare tunnel, which sets this header itself, and the
+ * server only binds to loopback, so the header can't be forged from outside.
+ * @param request - The incoming request
+ * @returns The caller's address
+ */
+function clientAddress(request: FastifyRequest): string {
+  const forwarded = request.headers["cf-connecting-ip"];
+  return typeof forwarded === "string" ? forwarded : request.ip;
+}
 
 /**
  * Build and return the configured Fastify app (without starting the server).
@@ -244,22 +285,44 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
     allowedHeaders: ["Content-Type", "X-Access-Key"],
   });
 
+  const authThrottle = createAuthThrottle();
+
   // Auth hook: all /api/* except /api/auth/login requires X-Access-Key
   app.addHook("preHandler", async (request, reply) => {
     if (request.url === "/api/auth/login") return;
+    const client = clientAddress(request);
+    const retryAfter = authThrottle.retryAfterSeconds(client);
+    if (retryAfter > 0) {
+      return reply
+        .status(429)
+        .header("Retry-After", retryAfter)
+        .send({ ok: false, error: "Too many failed attempts" });
+    }
     const key = request.headers["x-access-key"];
-    if (key !== env.DRISHTI_ACCESS_KEY) {
+    if (!isValidAccessKey(key, env.DRISHTI_ACCESS_KEY)) {
+      // No key isn't a guess: a logged-out tab's polling shouldn't lock you out.
+      if (key !== undefined) authThrottle.recordFailure(client);
       return reply.status(401).send({ ok: false, error: "Unauthorized" });
     }
+    authThrottle.clear(client);
   });
 
   // ── Public ─────────────────────────────────────────────────────────────────
 
   app.post<{ Body: Record<string, unknown> }>("/api/auth/login", async (request, reply) => {
-    const key = typeof request.body["key"] === "string" ? request.body["key"] : "";
-    if (key !== env.DRISHTI_ACCESS_KEY) {
+    const client = clientAddress(request);
+    const retryAfter = authThrottle.retryAfterSeconds(client);
+    if (retryAfter > 0) {
+      return reply
+        .status(429)
+        .header("Retry-After", retryAfter)
+        .send({ ok: false, error: "Too many failed attempts" });
+    }
+    if (!isValidAccessKey(request.body["key"], env.DRISHTI_ACCESS_KEY)) {
+      authThrottle.recordFailure(client);
       return reply.status(401).send({ ok: false, error: "Invalid access key" });
     }
+    authThrottle.clear(client);
     return reply.send({ ok: true });
   });
 
@@ -272,6 +335,10 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   app.get("/api/holdings", async (_request, reply) => {
     const { holdings, cachedAt } = getCachedHoldings();
     return reply.send({ ok: true, data: holdings.map(toUiHolding), cachedAt });
+  });
+
+  app.get("/api/holdings/config", async (_request, reply) => {
+    return reply.send({ ok: true, data: queryHoldingConfigs() });
   });
 
   app.get<{ Querystring: { status?: string } }>("/api/gtt", async (request, reply) => {
@@ -542,7 +609,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
 
   /**
    * Update SL threshold and targets for a holding in stock_config.
-   * Send null for targetOne/targetTwo to clear a previously set value.
+   * Send null for targetOne/targetTwo to clear a value; omit one to keep it.
    * Creates the row if it does not yet exist.
    * @param request - Fastify request with symbol param and HoldingConfigBody
    * @param reply - Fastify reply
@@ -562,6 +629,10 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
       }
 
       const { slThreshold, targetOne, targetTwo } = parsed.data;
+      const targets = {
+        ...(targetOne !== undefined && { targetOne }),
+        ...(targetTwo !== undefined && { targetTwo }),
+      };
       const now = new Date().toISOString();
 
       try {
@@ -569,12 +640,12 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
 
         if (existing) {
           db.update(stockConfig)
-            .set({ slThreshold, targetOne, targetTwo, updatedAt: now })
+            .set({ slThreshold, ...targets, updatedAt: now })
             .where(eq(stockConfig.symbol, symbol))
             .run();
         } else {
           db.insert(stockConfig)
-            .values({ symbol, slThreshold, targetOne, targetTwo, updatedAt: now })
+            .values({ symbol, slThreshold, ...targets, updatedAt: now })
             .run();
         }
 
@@ -749,6 +820,6 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
  */
 export async function startApiServer(): Promise<void> {
   const app = await buildApiApp();
-  await app.listen({ port: env.AGENT_API_PORT, host: "0.0.0.0" });
+  await app.listen({ port: env.AGENT_API_PORT, host: API_BIND_HOST });
   logger.info("REST API server started", { port: env.AGENT_API_PORT });
 }

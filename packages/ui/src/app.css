@@ -27,7 +27,7 @@ body {
   height: 9px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2f2f2f;
+  background: var(--color-scrollbar);
   border-radius: 6px;
 }
 ::-webkit-scrollbar-track {
@@ -50,9 +50,9 @@ body {
   --color-bg-chrome: #0d0d0c;
   --color-surface: #161513;
   --color-surface-2: #131210;
-  --color-surface-3: #121110;
-  --color-surface-input: #151412;
   --color-surface-hover: #1b1a17;
+  --color-scrollbar: #2f2f2f;
+  --color-scrim: rgb(10 10 10 / 0.7);
 
   /* borders */
   --color-border: #242320;
@@ -65,8 +65,8 @@ body {
   --color-fg-soft: #e6e2d8;
   --color-fg-muted: #9a9a9a;
   --color-fg-dim: #8a8a8a;
-  --color-fg-faint: #6a6a6a;
-  --color-fg-ghost: #4a463e;
+  --color-fg-faint: #858585; /* lightest that keeps 4.5:1 on surface-hover (WCAG AA) */
+  --color-fg-ghost: #4a463e; /* decorative icons only: fails AA as text */
 
   /* brand (gold) */
   --color-gold: #c8a24a;
@@ -174,8 +174,19 @@ body {
   /* brand mark glyph only (Logo component) — not a general-purpose UI font */
   --font-tamil: "Noto Sans Tamil", sans-serif;
 
-  /* the single shell breakpoint, plus login's secondary split (Design.md §5) */
+  /* stacking order, lowest first */
+  --z-index-chrome: 30;
+  --z-index-header: 40;
+  --z-index-overlay: 40;
+  --z-index-modal: 50;
+  --z-index-toast: 60;
+
+  /* Responsive breakpoints (Drishti.dc.html): mobile <578 (mobile shell) ·
+     tablet 578–1023 (desktop shell, collapsed sidebar, condensed grids) ·
+     laptop 1024+ (full grids). `nav` (760) keeps the header market ticker. */
+  --breakpoint-tab: 578px;
   --breakpoint-nav: 760px;
+  --breakpoint-lap: 1024px;
   --breakpoint-login-split: 820px;
 
   /* shell dimensions (Design.md §5) — named so components reference tokens,
@@ -198,7 +209,6 @@ body {
   --animate-pulse: pulse 2.4s ease-in-out infinite;
   --animate-spin: spin 0.65s linear infinite;
   --animate-fade: fade 0.2s ease-out;
-  --animate-heartbeat: heartbeat 1.8s ease-in-out infinite;
   /* brand mark's gold sheen (Drishti Landing.dc.html's logo shimmer) */
   --animate-sheen: sheen 4.6s linear infinite;
 }
@@ -285,33 +295,12 @@ body {
   }
 }
 
-@keyframes heartbeat {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  14% {
-    transform: scale(1.18);
-  }
-  28% {
-    transform: scale(1);
-  }
-  42% {
-    transform: scale(1.18);
-  }
-  70% {
-    transform: scale(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   /* Design.md §4/§7: freeze ambient wave/breathe, keep instant state changes (pulse/spin/fade
-     are status/loading feedback, not ambient decoration, so they're left running). The mobile
-     nav's heartbeat is ambient branding, not state feedback, so it freezes here too. */
+     are status/loading feedback, not ambient decoration, so they're left running). */
   .animate-wave-x,
   .animate-wave-y,
   .animate-breathe,
-  .animate-heartbeat,
   .animate-sheen {
     animation: none !important;
   }

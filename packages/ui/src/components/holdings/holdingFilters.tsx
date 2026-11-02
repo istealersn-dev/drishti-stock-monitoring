@@ -1,11 +1,8 @@
 import { Search } from "lucide-react";
 import type React from "react";
 
+import { HOLDING_FILTERS, type ProductFilter } from "../../lib/routeSearch";
 import { Tabs } from "../ui/tabs";
-
-export type ProductFilter = "ALL" | "MTF" | "CNC" | "BREACH" | "WATCH";
-
-export const FILTER_TABS: ProductFilter[] = ["ALL", "MTF", "CNC", "BREACH", "WATCH"];
 
 // Drishti.dc.html's filter tabs are title-case ("All", "Breach", "Watch") except
 // the two product acronyms — the filter's own identifier stays uppercase for
@@ -19,7 +16,7 @@ const FILTER_TAB_LABEL: Record<ProductFilter, string> = {
 };
 
 function isProductFilter(value: string): value is ProductFilter {
-  return FILTER_TABS.some((tab) => tab === value);
+  return HOLDING_FILTERS.some((tab) => tab === value);
 }
 
 type HoldingFiltersProperties = {
@@ -74,7 +71,7 @@ export function HoldingFilters({
         }}
       >
         <Tabs.List scrollable>
-          {FILTER_TABS.map((tab) => (
+          {HOLDING_FILTERS.map((tab) => (
             <Tabs.Trigger key={tab} value={tab}>
               {FILTER_TAB_LABEL[tab]}
             </Tabs.Trigger>

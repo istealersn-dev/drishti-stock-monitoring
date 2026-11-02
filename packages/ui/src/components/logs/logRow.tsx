@@ -82,7 +82,7 @@ export function LogRow({ log }: LogRowProperties): React.ReactElement {
             </p>
           )}
           {log.error !== null && (
-            <div className="rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg">
+            <div className="rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg-soft">
               {log.error}
             </div>
           )}

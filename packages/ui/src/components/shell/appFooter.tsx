@@ -54,30 +54,34 @@ export function AppFooter({
   return (
     <footer className="flex h-footer flex-none items-center justify-between gap-3 border-t border-border bg-bg-chrome px-4">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="font-mono text-micro text-fg-faint">
+        {/* Below laptop width only status, portfolio value and refresh stay,
+            so the Dry Run pill always has room. */}
+        <span className="hidden font-mono text-micro text-fg-faint lap:inline">
           © {new Date().getFullYear()} Drishti दृष्टि · v{APP_VERSION}
         </span>
-        <span aria-hidden="true" className="h-3.5 w-px bg-border-strong" />
+        <span aria-hidden="true" className="hidden h-3.5 w-px bg-border-strong lap:inline" />
         <span className="inline-flex items-center gap-1.5">
           <StatusDot variant={health.variant} label={`Agent status: ${health.label}`} />
-          <span className="text-caption font-medium text-fg-soft">{health.label}</span>
+          <span className="hidden text-caption font-medium text-fg-soft lap:inline">
+            {health.label}
+          </span>
         </span>
         <Badge variant={statusPill.variant}>{statusPill.label}</Badge>
         {pendingCount > 0 && <Badge variant="info">{pendingCount} pending</Badge>}
       </div>
 
       <div className="flex flex-none items-center gap-3">
-        <span className="inline-flex items-baseline gap-1.5">
+        <span className="hidden items-baseline gap-1.5 lap:inline-flex">
           <span className="text-micro uppercase tracking-wide text-fg-faint">User</span>
           <span className="font-mono text-micro font-bold text-fg-soft">admin</span>
         </span>
-        <span aria-hidden="true" className="h-3.5 w-px bg-border-strong" />
+        <span aria-hidden="true" className="hidden h-3.5 w-px bg-border-strong lap:inline" />
         <span className="inline-flex items-baseline gap-1.5">
           <span className="text-micro uppercase tracking-wide text-fg-faint">Portfolio</span>
           <span className="font-mono text-micro font-bold text-fg-soft">{portfolioValueLabel}</span>
         </span>
-        <span aria-hidden="true" className="h-3.5 w-px bg-border-strong" />
-        <span className="inline-flex items-baseline gap-1.5">
+        <span aria-hidden="true" className="hidden h-3.5 w-px bg-border-strong lap:inline" />
+        <span className="hidden items-baseline gap-1.5 lap:inline-flex">
           <span className="text-micro uppercase tracking-wide text-fg-faint">Last poll</span>
           <span className="font-mono text-micro font-bold text-fg-muted">{lastPollLabel}</span>
         </span>

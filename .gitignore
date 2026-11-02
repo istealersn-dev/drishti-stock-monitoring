@@ -27,3 +27,8 @@ packages/token-refresh/logs/*
 
 # Design reference project (pulled from claude.ai design project, read-only reference)
 docs/Drishti portfolio dashboard/*
+docs/Drishti portfolio dashboard.zip
+
+# Personal portfolio documents and local plans: this repo is public
+docs/*.pdf
+REFACTOR.md

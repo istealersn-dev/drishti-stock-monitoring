@@ -24,6 +24,38 @@ export function sumHoldingsValue(holdings: Holding[]): number {
 }
 
 /**
+ * Profit or loss as a percentage of cost, guarding a zero cost.
+ * @param pnl - profit or loss in rupees
+ * @param cost - the cost basis
+ * @returns the percentage, or 0 when there's no cost basis
+ */
+export function percentOfCost(pnl: number, cost: number): number {
+  return cost > 0 ? (pnl / cost) * 100 : 0;
+}
+
+/**
+ * A holding's unrealised P&L as a percentage of cost, guarding a zero cost.
+ * @param holding - the holding
+ * @returns P&L percent, or 0 when there's no cost basis
+ */
+export function pnlPercentage(holding: Holding): number {
+  return percentOfCost(holding.pnl, holding.quantity * holding.average_price);
+}
+
+/**
+ * How far a holding's LTP sits above its stop-loss, as a percentage of the SL.
+ * @param holding - the holding
+ * @param sl - the stop-loss trigger, if one is set
+ * @returns the distance percent, or undefined with no usable stop-loss
+ */
+export function distanceToSlPercentage(
+  holding: Holding,
+  sl: number | undefined,
+): number | undefined {
+  return sl ? ((holding.last_price - sl) / sl) * 100 : undefined;
+}
+
+/**
  * Formats an unrealised P&L as a signed rupee amount plus a percent-of-cost
  * suffix, e.g. "+₹32,160 (+114.5%)".
  * @param pnl - unrealised profit/loss in rupees
@@ -31,7 +63,7 @@ export function sumHoldingsValue(holdings: Holding[]): number {
  * @returns formatted P&L string
  */
 export function formatPnl(pnl: number, cost: number): string {
-  const percentage = cost > 0 ? (pnl / cost) * 100 : 0;
+  const percentage = percentOfCost(pnl, cost);
   const sign = pnl >= 0 ? "+" : "−";
   const absoluteAmount = Math.abs(pnl).toLocaleString("en-IN", { maximumFractionDigits: 0 });
   return `${sign}₹${absoluteAmount} (${percentage >= 0 ? "+" : ""}${percentage.toFixed(1)}%)`;

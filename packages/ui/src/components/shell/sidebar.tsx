@@ -1,8 +1,6 @@
 import { useRouterState } from "@tanstack/react-router";
-import { ChevronLeft, LogOut } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import type React from "react";
-
-import { useLogout } from "../../lib/auth";
 
 import { Logo } from "./logo";
 import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isNavItemActive } from "./navItems";
@@ -20,7 +18,7 @@ type SidebarProperties = {
  * shell replaces this entirely with `AppHeaderMobile` + `MobileTabBar`
  * (bottom tab bar, not a slide-out drawer), per Design.md's mobile shell
  * spec.
- * @param props.pendingApprovals - count of pending buy approvals for the Instructions badge
+ * @param props.pendingApprovals - count of pending buy approvals for the Approvals badge
  * @param props.collapsed - whether the sidebar is collapsed to icon-only
  * @param props.onToggle - toggles the collapsed state
  * @returns Sidebar element
@@ -32,7 +30,6 @@ export function Sidebar({
 }: SidebarProperties): React.ReactElement {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
-  const handleLogout = useLogout();
 
   return (
     <aside
@@ -72,7 +69,7 @@ export function Sidebar({
         aria-label="Primary"
         className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 py-2"
       >
-        {MAIN_NAV_ITEMS.map((item) => (
+        {MAIN_NAV_ITEMS.filter((item) => !item.secondary).map((item) => (
           <NavLink
             key={item.path}
             item={item}
@@ -90,15 +87,6 @@ export function Sidebar({
           isActive={isNavItemActive(SETTINGS_NAV_ITEM, currentPath)}
           hasBadge={false}
         />
-        <button
-          type="button"
-          onClick={handleLogout}
-          title={collapsed ? "Log out" : undefined}
-          className={`flex h-9 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-body-sm text-neg transition-colors hover:bg-neg-tint hover:text-neg-soft ${collapsed ? "justify-center" : ""}`}
-        >
-          <LogOut aria-hidden="true" className="h-5 w-5 flex-none" />
-          <span className={collapsed ? "sr-only" : "flex-1 truncate text-left"}>Log out</span>
-        </button>
       </div>
     </aside>
   );

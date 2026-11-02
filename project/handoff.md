@@ -26,7 +26,7 @@ Read `Design.md` first — it is the source of truth for every token, state and 
 - No `style={{…}}` anywhere. No `#hex` or `12px` literals in `.tsx` — only Tailwind classes bound to `@theme` tokens.
 - Minimise `position: relative/absolute`. Layout with **flexbox / grid / `gap`**. Absolute positioning is allowed only for genuinely overlaid UI: status-dot glow, dropdown/popover (Radix owns these), the decorative ambient layer (`aria-hidden`), and the ask-screen canvas. Everything currently using `position` for spacing must be refactored to flow layout.
 - Semantic HTML first (§6).
-- Mobile-first: author base styles for `< 760px`, layer desktop at the `md`/custom `nav` breakpoint.
+- Mobile-first: author base styles for `< 578px`, layer the desktop shell at `tab` (578px) and full grids at `lap` (1024px).
 
 ---
 
@@ -43,8 +43,6 @@ Define all Design.md tokens once in `app.css`:
   --color-bg-chrome: #0d0d0c;
   --color-surface: #161513;
   --color-surface-2: #131210;
-  --color-surface-3: #121110;
-  --color-surface-input: #151412;
   --color-surface-hover: #1b1a17;
   /* borders */
   --color-border: #242320;
@@ -78,7 +76,9 @@ Define all Design.md tokens once in `app.css`:
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --breakpoint-nav: 760px; /* the single shell breakpoint */
+  --breakpoint-tab: 578px; /* mobile shell below this */
+  --breakpoint-nav: 760px; /* header ticker and full tables */
+  --breakpoint-lap: 1024px; /* full grids */
 }
 
 @keyframes wave-x { from { transform: translateX(-28px) } to { transform: translateX(28px) } }
@@ -199,7 +199,7 @@ No layout achieved via `position` where flex/grid + `gap` works. The footer pins
 
 1. Scaffold: Vite + React 19 + Tailwind v4 `@theme` + TanStack Router/Query + Prisma + Zod.
 2. `components/ui/*` primitives against the tokens (Storybook optional). Verify all states from Design.md §6.
-3. AppShell + Sidebar + MobileTabBar + AppFooter, responsive at `760px`. Confirm footer pins & sidebar collapses.
+3. AppShell + Sidebar + MobileTabBar + AppFooter, responsive at `578px`. Confirm footer pins & sidebar collapses.
 4. Ask-Drishti (hero, composer, suggestions, conversation, AmbientWave, streaming).
 5. Dashboard → Holdings → GTT → Instructions → Logs (table⇄card responsive pairs, TanStack Query wiring).
 6. Settings (nested routes: Brokers, Agent, Model access, Danger) with Zod forms + confirm dialogs.

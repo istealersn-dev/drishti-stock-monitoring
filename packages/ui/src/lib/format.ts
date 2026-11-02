@@ -1,5 +1,8 @@
 const ONE_LAKH = 100_000;
 
+/** Shown wherever a value has no data source yet. */
+export const PLACEHOLDER = "—";
+
 /**
  * Formats a rupee amount, abbreviating to lakhs above ₹1L (e.g. "₹4.2L"),
  * otherwise a plain grouped rupee figure (e.g. "₹32,160").
@@ -19,10 +22,10 @@ export function formatInr(amount: number): string {
  * back to an em-dash for unset values (e.g. an instruction with no upper
  * entry bound).
  * @param price - the price to format, or null if unset
- * @returns formatted price string, or "—" if null
+ * @returns formatted price string, or PLACEHOLDER if null
  */
 export function formatPriceOrDash(price: number | null): string {
-  if (price === null) return "—";
+  if (price === null) return PLACEHOLDER;
   return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
@@ -47,4 +50,13 @@ export function formatLogTime(iso: string): string {
     second: "2-digit",
     hour12: false,
   });
+}
+
+/**
+ * Formats a rupee amount with an explicit sign, e.g. "+₹4.2L" or "−₹32,160".
+ * @param amount - the rupee amount
+ * @returns signed, abbreviated rupee string
+ */
+export function formatSignedInr(amount: number): string {
+  return `${amount >= 0 ? "+" : "−"}${formatInr(amount)}`;
 }

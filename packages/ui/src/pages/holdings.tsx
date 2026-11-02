@@ -1,15 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
+import { getRouteApi } from "@tanstack/react-router";
 import type React from "react";
 import { useState } from "react";
 
 import { HoldingCard } from "../components/holdings/holdingCard";
-import { type ProductFilter, HoldingFilters } from "../components/holdings/holdingFilters";
+import { HoldingFilters } from "../components/holdings/holdingFilters";
 import { HoldingsTable } from "../components/holdings/holdingsTable";
 import { PageHeader } from "../components/shell/pageHeader";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
-import { useMediaQuery } from "../hooks/useMediaQuery";
-import { type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
-import { buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
+import { useHasTableRoom } from "../hooks/useHasTableRoom";
+import { type Holding, fetchGttOrders, fetchHoldingConfigs, fetchHoldings } from "../lib/api";
+import { buildSlMap, buildTargetMap, resolveHoldingStatus } from "../lib/holdingStatus";
+import type { ProductFilter } from "../lib/routeSearch";
+
+const route = getRouteApi("/layout/holdings");
 
 function applyFilter(
   holdings: Holding[],
@@ -38,29 +43,45 @@ function applyFilter(
 /**
  * Holdings (handoff.md §4) — a filterable list of positions with inline
  * SL/target-setting. Renders `HoldingsTable` (desktop) or a stack of
- * `HoldingCard` (mobile) via `useMediaQuery`, sharing the same filtered
+ * `HoldingCard` (mobile) via `useHasTableRoom`, sharing the same filtered
  * holdings and `useHoldingGttForm` row logic either way.
  * @returns Holdings page element
  */
 export function Holdings(): React.ReactElement {
-  const [filter, setFilter] = useState<ProductFilter>("ALL");
+  const { filter = "ALL" } = route.useSearch();
+  const navigate = route.useNavigate();
   const [search, setSearch] = useState("");
-  const isDesktop = useMediaQuery("(min-width: 760px)");
+  const hasTableRoom = useHasTableRoom();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["holdings"],
     queryFn: fetchHoldings,
   });
-  const { data: gttOrders = [] } = useQuery({
+  const {
+    data: gttOrders = [],
+    isLoading: gttLoading,
+    isError: gttError,
+  } = useQuery({
     queryKey: ["gtt", "active"],
     queryFn: () => fetchGttOrders("active"),
   });
 
+  const {
+    data: holdingConfigs = [],
+    isLoading: configLoading,
+    isError: configError,
+  } = useQuery({
+    queryKey: ["holding-config"],
+    queryFn: fetchHoldingConfigs,
+  });
+
   const holdings = data?.holdings ?? [];
-  const slMap = buildSlMap(gttOrders);
+  const slMap = buildSlMap(gttOrders, holdingConfigs);
+  const targetMap = buildTargetMap(holdingConfigs);
   const visible = applyFilter(holdings, filter, search, slMap);
 
-  if (isLoading) {
+  // Statuses wait for stop-losses, or ?filter=BREACH reads as empty on reload.
+  if (isLoading || gttLoading || configLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Spinner />
@@ -68,12 +89,9 @@ export function Holdings(): React.ReactElement {
     );
   }
 
-  if (isError) {
-    return (
-      <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-        Failed to load holdings. Is the agent running?
-      </div>
-    );
+  // A failed background refetch keeps its data, and any SL being typed here.
+  if (isError && data === undefined) {
+    return <ErrorNotice>Failed to load holdings. Is the agent running?</ErrorNotice>;
   }
 
   return (
@@ -82,11 +100,23 @@ export function Holdings(): React.ReactElement {
         title="Holdings"
         subtitle="All positions, with inline stop-loss and target editing."
       />
+      {isError && (
+        <ErrorNotice compact>
+          Couldn&apos;t refresh holdings, so these prices may be out of date.
+        </ErrorNotice>
+      )}
+      {(gttError || configError) && (
+        <p role="alert" className="text-caption text-neg">
+          Couldn&apos;t load stop-losses, so Breach and Watch may be missing holdings.
+        </p>
+      )}
       <HoldingFilters
         search={search}
         onSearchChange={setSearch}
         filter={filter}
-        onFilterChange={setFilter}
+        onFilterChange={(next) => {
+          void navigate({ search: { filter: next }, replace: true });
+        }}
       />
 
       {visible.length === 0 ? (
@@ -96,12 +126,17 @@ export function Holdings(): React.ReactElement {
             {search ? "Try a different search." : "Holdings appear once data is synced."}
           </p>
         </div>
-      ) : isDesktop ? (
-        <HoldingsTable holdings={visible} />
+      ) : hasTableRoom ? (
+        <HoldingsTable holdings={visible} slMap={slMap} targetMap={targetMap} />
       ) : (
         <div className="flex flex-col gap-2.5">
           {visible.map((holding) => (
-            <HoldingCard key={`${holding.isin}-${holding.product}`} holding={holding} />
+            <HoldingCard
+              key={`${holding.isin}-${holding.product}`}
+              holding={holding}
+              currentSl={slMap.get(holding.trading_symbol)}
+              currentTarget={targetMap.get(holding.trading_symbol)}
+            />
           ))}
         </div>
       )}

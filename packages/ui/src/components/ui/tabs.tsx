@@ -34,7 +34,7 @@ function TabsList({
 }: TabsListProperties): React.ReactElement {
   return (
     <TabsPrimitive.List
-      className={`inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-3 p-1 ${scrollable ? "max-w-full overflow-x-auto" : ""} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-2 p-1 ${scrollable ? "max-w-full overflow-x-auto" : ""} ${className}`}
     >
       {children}
     </TabsPrimitive.List>

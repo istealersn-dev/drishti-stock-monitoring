@@ -1,17 +1,24 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Outlet } from "@tanstack/react-router";
+import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import type React from "react";
 
+import { useIsDesktop } from "../../hooks/useIsDesktop";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { fetchApprovals, fetchHoldings, fetchRuns, fetchSettings } from "../../lib/api";
+import { filterPendingApprovals } from "../../lib/approvals";
 import { formatInr } from "../../lib/format";
 import { sumHoldingsValue } from "../../lib/holdingFormat";
+import { tokens } from "../../tokens/tokens";
 
 import { AppFooter } from "./appFooter";
 import { AppHeaderMobile } from "./appHeaderMobile";
+import { AppTopHeader } from "./appTopHeader";
 import { MobileTabBar } from "./mobileTabBar";
+import { pageTitle } from "./pageTitle";
 import { Sidebar } from "./sidebar";
+
+const TABLET_QUERY = `(min-width: ${tokens.breakpoint.tab}px) and (max-width: ${tokens.breakpoint.lap - 1}px)`;
 
 /** Format an ISO timestamp to HH:MM:SS in local time, or "--:--:--" if null. */
 function formatPollTime(iso: string | null): string {
@@ -27,17 +34,33 @@ function formatPollTime(iso: string | null): string {
 /**
  * Root layout shell (handoff.md §3-4) — picks the desktop shell (`Sidebar` +
  * `AppFooter`) or mobile shell (`AppHeaderMobile` + `MobileTabBar`) by
- * `useMediaQuery('(min-width: 760px)')` rather than duplicating pages; both
+ * `useIsDesktop()` rather than duplicating pages; both
  * render the same routed `<Outlet/>` content. Fetches settings, approvals,
  * and runs to drive the status/pending/last-poll meta shared by both shells.
  * @returns App shell layout element
  */
 export function AppShell(): React.ReactElement {
-  const [collapsed, setCollapsed] = useState(false);
+  // The user's explicit choice, null until they toggle the sidebar. Until
+  // then it collapses on tablet widths (Drishti.dc.html: 578–1023).
+  const [collapseOverride, setCollapseOverride] = useState<boolean | null>(null);
   const [spinning, setSpinning] = useState(false);
+  // resolvedLocation, not location: that changes when a load starts, which for
+  // a lazy route is before its content exists to focus.
+  const pathname = useRouterState({ select: (state) => state.resolvedLocation?.pathname });
+  const mainReference = useRef<HTMLElement>(null);
+  const isFirstRoute = useRef(true);
   const spinTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isDesktop = useMediaQuery("(min-width: 760px)");
+  const isDesktop = useIsDesktop();
+  const isTablet = useMediaQuery(TABLET_QUERY);
   const queryClient = useQueryClient();
+
+  const sidebarCollapsed = collapseOverride ?? isTablet;
+
+  // A choice made at one width shouldn't pin the sidebar at another (e.g.
+  // after rotating a tablet).
+  useEffect(() => {
+    setCollapseOverride(null);
+  }, [isTablet]);
 
   const { data: settings, isError: settingsError } = useQuery({
     queryKey: ["settings"],
@@ -65,9 +88,24 @@ export function AppShell(): React.ReactElement {
     };
   }, []);
 
+  // A client-side route change is silent to assistive tech, so name the page
+  // and move focus to its content, the way a full page load would.
+  useEffect(() => {
+    if (pathname === undefined) return;
+    document.title = pageTitle(pathname);
+    if (isFirstRoute.current) {
+      isFirstRoute.current = false;
+      return;
+    }
+    const main = mainReference.current;
+    if (main === null) return;
+    main.scrollTop = 0;
+    main.focus({ preventScroll: true });
+  }, [pathname]);
+
   const dryRun = settings?.dryRun ?? false;
   const paused = settings?.pauseAgent ?? false;
-  const pendingCount = approvals.filter((approval) => approval.status === "pending").length;
+  const pendingCount = filterPendingApprovals(approvals).length;
   const lastPollAt = runs[0]?.startedAt ?? null;
   const portfolioValue = sumHoldingsValue(holdingData?.holdings ?? []);
 
@@ -88,11 +126,21 @@ export function AppShell(): React.ReactElement {
   // A single return with conditional siblings around one `<main><Outlet/></main>`
   // — not two separate `if (!isDesktop) return <A/>; return <B/>;` branches —
   // so `<Outlet/>` stays at the same position in the tree when `isDesktop`
-  // flips (e.g. resizing across 760px). Two full return branches would each
+  // flips (e.g. resizing across 578px). Two full return branches would each
   // mount their own `<main><Outlet/></main>`, and React would unmount/remount
   // the routed page on every breakpoint crossing, wiping its local state.
   return (
     <div className="flex h-dvh flex-col bg-bg-base">
+      <a
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault();
+          mainReference.current?.focus();
+        }}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-toast focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2 focus:text-body-sm focus:text-fg"
+      >
+        Skip to content
+      </a>
       {!isDesktop && (
         <AppHeaderMobile
           dryRun={dryRun}
@@ -107,21 +155,35 @@ export function AppShell(): React.ReactElement {
         {isDesktop && (
           <Sidebar
             pendingApprovals={pendingCount}
-            collapsed={collapsed}
+            collapsed={sidebarCollapsed}
             onToggle={() => {
-              setCollapsed((previous) => !previous);
+              setCollapseOverride(!sidebarCollapsed);
             }}
           />
         )}
-        <main
-          className={
-            isDesktop
-              ? "min-w-0 flex-1 overflow-y-auto p-5"
-              : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom"
-          }
-        >
-          <Outlet />
-        </main>
+        {/* Right column: the desktop top header (updated design) sits above the
+            scrollable main, beside the full-height sidebar. The wrapper renders
+            on every breakpoint so <main><Outlet/></main> keeps its tree
+            position when isDesktop flips (see the single-return note above). */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {isDesktop && <AppTopHeader />}
+          <main
+            id="main-content"
+            ref={mainReference}
+            tabIndex={-1}
+            className={
+              isDesktop
+                ? // Padding tightens to 16px on tablet, 20px laptop+. Past 1440px
+                  // the side padding grows to cap the content, so the scroller
+                  // stays full width: its scrollbar sits at the window edge and
+                  // the gutters still scroll.
+                  "min-w-0 w-full flex-1 overflow-y-auto p-4 outline-none lap:px-[max(1.25rem,calc((100%-90rem)/2))] lap:py-5"
+                : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom outline-none"
+            }
+          >
+            <Outlet />
+          </main>
+        </div>
       </div>
       {isDesktop && (
         <AppFooter

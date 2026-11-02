@@ -15,30 +15,40 @@ export type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   pendingBadge?: boolean;
+  /** Position in the mobile tab bar; items without one aren't tabs. */
+  mobileTabOrder?: number;
+  /** No mobile tab of its own, so it joins the mobile account menu. */
+  mobileMenu?: boolean;
+  /** Tighter label for the mobile tab bar, where the full one won't fit. */
+  shortLabel?: string;
+  // Secondary routes live in the account menu on both shells (updated design
+  // moved Agent Logs out of the sidebar; Watchlist/Health have no sidebar or
+  // tab-bar slot in the reference) so nothing becomes unreachable.
+  secondary?: boolean;
 };
 
 // Single source of truth for every route's nav metadata (icon, label,
-// pending-badge eligibility) — desktop Sidebar and the mobile "Others" sheet
-// both derive their item lists from this so a route can't go missing from
-// one surface while staying present on the other. Order matches
-// Drishti.dc.html's sidebar exactly (Ask Drishti first) — Watchlist/Health
-// have no counterpart in the reference (they predate this design pass) so
-// they're slotted after Agent Logs, before Ask Drishti.
+// pending-badge eligibility) — the desktop Sidebar, the account menu, and the
+// mobile tab bar all derive their item lists from this so a route can't go
+// missing from one surface while staying present on another. Primary
+// order matches Drishti.dc.html's sidebar exactly (Ask Drishti, Dashboard,
+// Approvals, Holdings, GTT Orders); secondary items follow.
 export const MAIN_NAV_ITEMS: NavItem[] = [
-  { path: "/ask", label: "Ask Drishti", icon: MessageSquare },
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/holdings", label: "Holdings", icon: Table2 },
-  { path: "/instructions", label: "Instructions", icon: Send, pendingBadge: true },
-  { path: "/gtt", label: "GTT Orders", icon: Layers },
-  { path: "/logs", label: "Agent Logs", icon: History },
-  { path: "/watchlist", label: "Watchlist", icon: Eye },
-  { path: "/health", label: "Health", icon: Activity },
+  { path: "/ask", label: "Ask Drishti", icon: MessageSquare, mobileMenu: true },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, mobileTabOrder: 0 },
+  { path: "/instructions", label: "Approvals", icon: Send, pendingBadge: true, mobileTabOrder: 2 },
+  { path: "/holdings", label: "Holdings", icon: Table2, mobileTabOrder: 1 },
+  { path: "/gtt", label: "GTT Orders", shortLabel: "GTT", icon: Layers, mobileTabOrder: 3 },
+  { path: "/logs", label: "Agent Logs", icon: History, secondary: true },
+  { path: "/watchlist", label: "Watchlist", icon: Eye, secondary: true },
+  { path: "/health", label: "Health", icon: Activity, secondary: true },
 ];
 
 export const SETTINGS_NAV_ITEM: NavItem = {
   path: "/settings",
   label: "Settings",
   icon: SettingsIcon,
+  mobileTabOrder: 4,
 };
 
 /**

@@ -12,7 +12,7 @@ type BadgeProperties = {
 
 const VARIANT_CLASS: Record<BadgeVariant, string> = {
   pos: "bg-pos-tint text-pos border-pos-ring",
-  neg: "bg-neg-tint text-neg border-neg-ring",
+  neg: "bg-neg-tint text-neg-soft border-neg-ring",
   warn: "bg-warn-tint text-warn border-warn-ring",
   info: "bg-info-tint text-info border-info-ring",
   neutral: "bg-surface-2 text-fg-muted border-border-strong",

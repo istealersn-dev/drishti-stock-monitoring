@@ -49,12 +49,6 @@ const COLOR_GROUPS: ColorGroup[] = [
       { label: "bg-chrome", hex: tokens.color.bgChrome, swatchClassName: "bg-bg-chrome" },
       { label: "surface", hex: tokens.color.surface, swatchClassName: "bg-surface" },
       { label: "surface-2", hex: tokens.color.surface2, swatchClassName: "bg-surface-2" },
-      { label: "surface-3", hex: tokens.color.surface3, swatchClassName: "bg-surface-3" },
-      {
-        label: "surface-input",
-        hex: tokens.color.surfaceInput,
-        swatchClassName: "bg-surface-input",
-      },
       {
         label: "surface-hover",
         hex: tokens.color.surfaceHover,
@@ -157,7 +151,9 @@ const MOTION_SAMPLES = [
 ];
 
 const BREAKPOINTS = [
-  { label: "nav", value: tokens.breakpoint.nav, note: "single desktop/mobile shell split" },
+  { label: "tab", value: tokens.breakpoint.tab, note: "desktop/mobile shell split" },
+  { label: "nav", value: tokens.breakpoint.nav, note: "header market ticker" },
+  { label: "lap", value: tokens.breakpoint.lap, note: "full grids, expanded sidebar" },
   {
     label: "loginSplit",
     value: tokens.breakpoint.loginSplit,

@@ -5,6 +5,7 @@ import { StatCard } from "../components/dashboard/statCard";
 import { PageHeader } from "../components/shell/pageHeader";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { Table } from "../components/ui/table";
 import { type Underperformer, fetchHealth } from "../lib/api";
@@ -55,11 +56,7 @@ export function Health(): React.ReactElement {
   }
 
   if (isError || data == null) {
-    return (
-      <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-        Failed to load portfolio health. Is the agent running?
-      </div>
-    );
+    return <ErrorNotice>Failed to load portfolio health. Is the agent running?</ErrorNotice>;
   }
 
   return (

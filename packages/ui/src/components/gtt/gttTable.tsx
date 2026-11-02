@@ -1,8 +1,8 @@
 import type React from "react";
 
 import type { GttOrder } from "../../lib/api";
-import { formatDate } from "../../lib/format";
-import { gttStatusVariant, gttTypeVariant } from "../../lib/gttFormat";
+import { PLACEHOLDER, formatDate } from "../../lib/format";
+import { gttStatusVariant, gttTypeLabel, gttTypeVariant } from "../../lib/gttFormat";
 import { formatPrice } from "../../lib/holdingFormat";
 import { Badge } from "../ui/badge";
 import { Table } from "../ui/table";
@@ -14,13 +14,13 @@ type GttRowProperties = {
 };
 
 function GttRow({ order }: GttRowProperties): React.ReactElement {
-  const approvalShort = order.approvalId != null ? order.approvalId.slice(0, 8) : "—";
+  const approvalShort = order.approvalId != null ? order.approvalId.slice(0, 8) : PLACEHOLDER;
 
   return (
     <Table.Row>
       <Table.Cell className="font-mono uppercase">{order.symbol}</Table.Cell>
       <Table.Cell>
-        <Badge variant={gttTypeVariant(order.type)}>{order.type.toUpperCase()}</Badge>
+        <Badge variant={gttTypeVariant(order.type)}>{gttTypeLabel(order.type)}</Badge>
       </Table.Cell>
       <Table.Cell numeric>{formatPrice(order.triggerPrice)}</Table.Cell>
       <Table.Cell numeric>{formatPrice(order.limitPrice)}</Table.Cell>

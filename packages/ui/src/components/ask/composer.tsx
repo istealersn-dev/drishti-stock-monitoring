@@ -63,7 +63,7 @@ export function Composer({
         event.preventDefault();
         onSubmit();
       }}
-      className={`${isHero ? "" : "sticky bottom-0 "}rounded-2xl border border-border-strong bg-surface-3 p-3.5 shadow-card transition-colors focus-within:border-border-focus`}
+      className={`${isHero ? "" : "sticky bottom-0 "}rounded-2xl border border-border-strong bg-surface-2 p-3.5 shadow-card transition-colors focus-within:border-border-focus`}
     >
       <label htmlFor="ask-composer-input" className="sr-only">
         Ask Drishti

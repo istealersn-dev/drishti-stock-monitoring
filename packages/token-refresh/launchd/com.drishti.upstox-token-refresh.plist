@@ -12,7 +12,7 @@
 		<string>src/runDailyRefresh.ts</string>
 	</array>
 	<key>WorkingDirectory</key>
-	<string>/Users/stanleynadar/Documents/Engineering/drishti-stock-monitoring/packages/token-refresh</string>
+	<string>/path/to/drishti-stock-monitoring/packages/token-refresh</string>
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>
@@ -26,9 +26,9 @@
 		<integer>15</integer>
 	</dict>
 	<key>StandardOutPath</key>
-	<string>/Users/stanleynadar/Documents/Engineering/drishti-stock-monitoring/packages/token-refresh/logs/token-refresh.log</string>
+	<string>/path/to/drishti-stock-monitoring/packages/token-refresh/logs/token-refresh.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/stanleynadar/Documents/Engineering/drishti-stock-monitoring/packages/token-refresh/logs/token-refresh.log</string>
+	<string>/path/to/drishti-stock-monitoring/packages/token-refresh/logs/token-refresh.log</string>
 	<key>RunAtLoad</key>
 	<false/>
 </dict>

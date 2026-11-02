@@ -1,9 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, Lock } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Logo } from "../components/shell/logo";
+import { APP_NAME } from "../components/shell/pageTitle";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Switch } from "../components/ui/switch";
@@ -28,6 +29,8 @@ const DOT_CLASS: Record<(typeof FEATURES)[number]["variant"], string> = {
   warn: "bg-warn",
 };
 
+const LOGIN_ERROR_ID = "login-error";
+
 /**
  * Access key gate (Design.md §5 — 820px split: side-by-side marketing panel
  * + form above 820px, form only below, 50:50 split per
@@ -38,6 +41,10 @@ const DOT_CLASS: Record<(typeof FEATURES)[number]["variant"], string> = {
  */
 export function Login(): React.ReactElement {
   const navigate = useNavigate();
+  useEffect(() => {
+    document.title = `Log in · ${APP_NAME}`;
+  }, []);
+
   const [key, setKey] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,8 +60,8 @@ export function Login(): React.ReactElement {
       await loginWithKey(trimmed);
       storeKey(trimmed, remember);
       await navigate({ to: "/" });
-    } catch {
-      setError("Invalid access key. Check and try again.");
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "Login failed. Try again.");
     } finally {
       setLoading(false);
     }
@@ -102,10 +109,10 @@ export function Login(): React.ReactElement {
           </div>
           <div className="mb-4 h-px bg-border-strong" />
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="font-mono text-caption text-fg-ghost">
+            <span className="font-mono text-caption text-fg-faint">
               © 2026 Drishti दृष्टि · All rights reserved
             </span>
-            <span className="text-caption text-fg-ghost">Private deployment · single operator</span>
+            <span className="text-caption text-fg-faint">Private deployment · single operator</span>
           </div>
         </div>
       </div>
@@ -125,6 +132,7 @@ export function Login(): React.ReactElement {
               type="password"
               value={key}
               onChange={setKey}
+              externalErrorId={error !== null ? LOGIN_ERROR_ID : null}
               placeholder="••••••••••••"
               autoComplete="current-password"
               autoFocus
@@ -141,7 +149,11 @@ export function Login(): React.ReactElement {
             </div>
 
             {error !== null && (
-              <div className="flex items-center gap-2 rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg animate-fade">
+              <div
+                id={LOGIN_ERROR_ID}
+                role="alert"
+                className="flex items-center gap-2 rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg-soft animate-fade"
+              >
                 <AlertCircle aria-hidden="true" className="h-4 w-4 flex-none" />
                 {error}
               </div>

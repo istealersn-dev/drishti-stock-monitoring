@@ -28,8 +28,6 @@ All colors are dark-theme. Names map 1:1 to Tailwind `@theme` custom properties 
 | `bg-chrome` | `#0d0d0c` | Sidebar, top header, footer |
 | `surface` | `#161513` | Cards, panels |
 | `surface-2` | `#131210` | Inset fields, sub-cards, chips |
-| `surface-3` | `#121110` | Suggestion tiles, list rows |
-| `surface-input` | `#151412` | Icon buttons, inputs |
 | `surface-hover` | `#1b1a17` | Nav / row hover |
 
 ### Borders
@@ -47,8 +45,8 @@ All colors are dark-theme. Names map 1:1 to Tailwind `@theme` custom properties 
 | `fg-soft` | `#e6e2d8` | Data values |
 | `fg-muted` | `#9a9a9a` | Secondary labels |
 | `fg-dim` | `#8f8d86` / `#8a8a8a` | Tertiary / helper |
-| `fg-faint` | `#6a6a6a` | Timestamps, disclaimers |
-| `fg-ghost` | `#4a463e` | Breadcrumb chevrons, disabled |
+| `fg-faint` | `#858585` | Timestamps, disclaimers (lightest that keeps 4.5:1 on `surface-hover`) |
+| `fg-ghost` | `#4a463e` | Decorative icons only (fails AA as text) |
 
 ### Brand (gold)
 | Token | Hex | Use |
@@ -124,16 +122,16 @@ Minimum body size on any screen: **11px** (mono meta) / **12.5px** (prose).
 
 ## 5. Layout & responsive
 
-**Breakpoints:** single hard split at **760px**. `< 760` = mobile shell, `≥ 760` = desktop shell. Login uses a secondary split at **820px** (side-by-side → stacked).
+**Breakpoints:** `< 578` = mobile shell. `578–1023` = tablet: desktop shell, sidebar collapsed by default, condensed grids. `≥ 1024` = laptop: full grids, content capped at 1440px. `760` only decides when the header market ticker and full tables have room. Login uses a secondary split at **820px** (side-by-side → stacked).
 
-### Desktop shell (≥ 760)
+### Desktop shell (≥ 578)
 - Outer: `flex-col`, `h-screen`. Row (sidebar + main) is `flex-1 min-h-0`; footer is `flex-none` — footer pins to viewport bottom.
-- **Sidebar:** 240px, collapses to 64px. Header row 53px (logo mark always visible; wordmark + collapse chevron only when expanded; collapsed → logo centered and itself toggles expand). Nav `flex-1`; settings/logout pinned bottom.
+- **Sidebar:** 240px, collapses to 64px. Header row 53px (logo mark always visible; wordmark + collapse chevron only when expanded; collapsed → logo centered and itself toggles expand). Nav `flex-1`; Settings pinned bottom. Log out lives in the account menu, behind a confirmation dialog.
 - **Main:** `flex-1 min-h-0`, single scroll container (`overflow-y-auto`).
 - **Footer:** 38px, meta left / session right. Key–value pairs: label = value size (9.5px), value **bold**.
 
-### Mobile shell (< 760)
-- Sticky top header 50px (blurred), fixed bottom tab-bar 62px (6 tabs: Dashboard, Holdings, Instr, GTT, Logs, Settings), main scrolls between with `padding-bottom: 80px`.
+### Mobile shell (< 578)
+- Sticky top header 50px (blurred), fixed bottom tab-bar 62px (5 tabs: Dashboard, Holdings, Approvals, GTT, Settings; secondary routes are in the header's account menu), main scrolls between with `padding-bottom: 80px`.
 - Every desktop table becomes a **stack of cards** (holdings, GTT). Dashboard stats → 2-col grid. Filter rows → horizontal scroll chips.
 - Ask-Drishti: hero + composer + suggestion grid; conversation view has breadcrumb (`Ask Drishti › Conversation`) + New chat.
 

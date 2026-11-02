@@ -10,18 +10,12 @@ import { SuggestionGrid } from "../components/ask/suggestionGrid";
 import { Logo } from "../components/shell/logo";
 import { Breadcrumb } from "../components/ui/breadcrumb";
 import { Button } from "../components/ui/button";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { askAdvisor, fetchAdvisoryConversations } from "../lib/api";
+import { timeOfDayGreeting } from "../lib/timeOfDayGreeting";
 
 type View = "hero" | "conversation";
-
-/** Local-time greeting matching Drishti.dc.html's `greeting` state (morning/afternoon/evening). */
-function timeOfDayGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning.";
-  if (hour < 17) return "Good afternoon.";
-  return "Good evening.";
-}
 
 /**
  * Ask Drishti (Design.md §5) — empty-state hero (headline, suggestion grid,
@@ -166,19 +160,13 @@ export function Ask(): React.ReactElement {
             <Spinner />
           </div>
         ) : isError ? (
-          <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-            Failed to load conversation. Is the agent running?
-          </div>
+          <ErrorNotice>Failed to load conversation. Is the agent running?</ErrorNotice>
         ) : (
           <MessageList messages={sessionMessages} pending={isPendingForSession} />
         )}
       </div>
 
-      {askError !== null && (
-        <div className="rounded-lg border border-neg-ring bg-neg-tint px-3 py-2 text-body-sm text-neg animate-fade">
-          {askError}
-        </div>
-      )}
+      {askError !== null && <ErrorNotice compact>{askError}</ErrorNotice>}
 
       <Composer
         value={question}

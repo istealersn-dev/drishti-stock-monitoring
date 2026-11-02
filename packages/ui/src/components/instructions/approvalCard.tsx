@@ -2,7 +2,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 
 import type { Approval, ParsedInstruction } from "../../lib/api";
-import { formatPriceOrDash } from "../../lib/format";
+import { PLACEHOLDER, formatPriceOrDash } from "../../lib/format";
 import { Badge, type BadgeVariant } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -76,7 +76,7 @@ function estimateOrderValue(parsed: ParsedInstruction | null, suggestedQty: numb
 
 function formatTarget(parsed: ParsedInstruction, index: number): string {
   const target = parsed.targets[index];
-  if (target === undefined) return "—";
+  if (target === undefined) return PLACEHOLDER;
   return `${formatPriceOrDash(target.price)}${target.isOpenEnded ? "+" : ""}`;
 }
 
@@ -227,7 +227,11 @@ export function ApprovalCard({
         Approval <span className="font-mono">{approval.id.slice(0, 8)}</span>
       </div>
 
-      {actionError !== null && <p className="text-caption text-neg">{actionError}</p>}
+      {actionError !== null && (
+        <p role="alert" className="text-caption text-neg">
+          {actionError}
+        </p>
+      )}
 
       <div className="flex gap-2.5">
         <Button
