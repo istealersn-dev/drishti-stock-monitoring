@@ -62,3 +62,12 @@ export function timeOfDayGreeting(): string {
   if (hour < 17) return "Good afternoon.";
   return "Good evening.";
 }
+
+/**
+ * Formats a rupee amount with an explicit sign, e.g. "+₹4.2L" or "−₹32,160".
+ * @param amount - the rupee amount
+ * @returns signed, abbreviated rupee string
+ */
+export function formatSignedInr(amount: number): string {
+  return `${amount >= 0 ? "+" : "−"}${formatInr(amount)}`;
+}

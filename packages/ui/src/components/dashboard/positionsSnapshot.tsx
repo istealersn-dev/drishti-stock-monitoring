@@ -4,7 +4,7 @@ import type React from "react";
 import { useState } from "react";
 
 import type { Holding } from "../../lib/api";
-import { PLACEHOLDER, formatInr } from "../../lib/format";
+import { PLACEHOLDER, formatSignedInr } from "../../lib/format";
 import {
   distanceToSlPercentage,
   formatPrice,
@@ -45,8 +45,6 @@ const SORT_LABEL: Record<SortDirection, string> = {
 type PositionsSnapshotProperties = {
   holdings: Holding[];
   slMap: Map<string, number>;
-  /** How many rows to show before the "View all" link; at-risk rows always show. */
-  limit?: number;
 };
 
 /**
@@ -111,8 +109,7 @@ function PositionRow({
           {formatPrice(holding.last_price)}
         </span>
         <span className={`text-right font-mono text-body-sm ${pnlColor}`}>
-          {holding.pnl >= 0 ? "+" : "−"}
-          {formatInr(Math.abs(holding.pnl))}
+          {formatSignedInr(holding.pnl)}
         </span>
         <span className={`text-right font-mono text-caption ${pnlColor}`}>
           {pct >= 0 ? "+" : ""}
@@ -167,13 +164,11 @@ function Detail({ term, value }: { term: string; value: string }): React.ReactEl
  * the sort. Sector and target are placeholders until their data sources exist.
  * @param props.holdings - Current holdings
  * @param props.slMap - Symbol -> stop-loss threshold, for status + SL columns
- * @param props.limit - Rows before the "View all" link, unless more are at risk
  * @returns Positions snapshot card
  */
 export function PositionsSnapshot({
   holdings,
   slMap,
-  limit = DEFAULT_ROW_LIMIT,
 }: PositionsSnapshotProperties): React.ReactElement {
   const [sortDirection, setSortDirection] = useState<SortDirection>("none");
   const positions = holdings.map((holding) => {
@@ -190,14 +185,14 @@ export function PositionsSnapshot({
   });
   const atRiskCount = positions.filter(({ status }) => status.variant !== "pos").length;
   // Severity always wins, with the P&L sort or distance to SL inside it, and
-  // every at-risk row shows regardless of `limit`: Needs attention is
+  // every at-risk row shows regardless of the limit: Needs attention is
   // mobile-only, so this is desktop's only list of them.
   const sorted = [...positions].sort((a, b) => {
     if (a.severity !== b.severity) return a.severity - b.severity;
     if (sortDirection === "none") return a.distanceToSl - b.distanceToSl;
     return sortDirection === "desc" ? b.pnlPct - a.pnlPct : a.pnlPct - b.pnlPct;
   });
-  const rows = sorted.slice(0, Math.max(limit, atRiskCount));
+  const rows = sorted.slice(0, Math.max(DEFAULT_ROW_LIMIT, atRiskCount));
 
   return (
     <Card className="flex flex-col gap-0 overflow-hidden !p-0">

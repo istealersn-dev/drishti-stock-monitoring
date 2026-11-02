@@ -26,7 +26,7 @@ export function OpenOrdersCard({ orders }: OpenOrdersCardProperties): React.Reac
           to="/gtt"
           className="font-mono text-caption text-gold transition-colors hover:text-gold-bright"
         >
-          {orders.length} live ›
+          {orders.length} active ›
         </Link>
       </div>
 

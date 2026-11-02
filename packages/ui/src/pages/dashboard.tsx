@@ -4,19 +4,18 @@ import { ArrowRight, Bell } from "lucide-react";
 import type React from "react";
 
 import { MarketIndexCards } from "../components/dashboard/marketIndexCards";
-import { NeedsAttentionCard } from "../components/dashboard/needsAttentionCard";
+import { NeedsAttentionList } from "../components/dashboard/needsAttentionList";
 import { OpenOrdersCard } from "../components/dashboard/openOrdersCard";
 import { PortfolioTrendCard } from "../components/dashboard/portfolioTrendCard";
 import { PositionsSnapshot } from "../components/dashboard/positionsSnapshot";
 import { StatCard } from "../components/dashboard/statCard";
 import { TodaysActivityCard } from "../components/dashboard/todaysActivityCard";
 import { Spinner } from "../components/ui/spinner";
-import { StatusDot } from "../components/ui/statusDot";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
-import { PLACEHOLDER, formatInr, timeOfDayGreeting } from "../lib/format";
-import { distanceToSlPercentage, pnlPercentage, sumHoldingsValue } from "../lib/holdingFormat";
-import { HOLDING_SEVERITY_RANK, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
+import { PLACEHOLDER, formatInr, formatSignedInr, timeOfDayGreeting } from "../lib/format";
+import { sumHoldingsValue } from "../lib/holdingFormat";
+import { buildSlMap } from "../lib/holdingStatus";
 
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
@@ -71,21 +70,6 @@ export function Dashboard(): React.ReactElement {
   const slMap = buildSlMap(gttOrders);
   const pendingApprovals = approvals.filter((approval) => approval.status === "pending").length;
 
-  // Holdings at or within 5% of their stop-loss, breach-first — the mobile
-  // dashboard's focus (desktop's positions snapshot leads with the same
-  // holdings). flatMap so `sl` is proven defined for each surviving entry.
-  const needsAttention = holdings
-    .flatMap((holding) => {
-      const sl = slMap.get(holding.trading_symbol);
-      if (sl === undefined) return [];
-      const status = resolveHoldingStatus(holding, slMap);
-      if (status.variant === "pos") return [];
-      return [{ holding, sl, status }];
-    })
-    .sort(
-      (a, b) => HOLDING_SEVERITY_RANK[a.status.variant] - HOLDING_SEVERITY_RANK[b.status.variant],
-    );
-
   if (isError) {
     return (
       <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
@@ -123,7 +107,7 @@ export function Dashboard(): React.ReactElement {
 
       <MarketIndexCards />
 
-      {approvalsError && (
+      {approvalsError && approvals.length === 0 && (
         <div className="rounded-xl border border-neg-ring bg-neg-tint px-4 py-3 text-body-sm text-neg">
           Couldn&apos;t check for pending approvals.{" "}
           <Link to="/instructions" className="underline">
@@ -171,15 +155,13 @@ export function Dashboard(): React.ReactElement {
           accent={totalPnl >= 0 ? "pos" : "neg"}
           value={
             <span className={totalPnl >= 0 ? "text-pos" : "text-neg"}>
-              {totalPnl >= 0 ? "+" : "−"}
-              {formatInr(Math.abs(totalPnl))}
+              {formatSignedInr(totalPnl)}
             </span>
           }
           sub={
             <>
               <span className={dayPnl >= 0 ? "text-pos" : "text-neg"}>
-                {dayPnl >= 0 ? "+" : "−"}
-                {formatInr(Math.abs(dayPnl))}
+                {formatSignedInr(dayPnl)}
               </span>{" "}
               today · MTM
             </>
@@ -208,45 +190,7 @@ export function Dashboard(): React.ReactElement {
       {isDesktop ? (
         <PositionsSnapshot holdings={holdings} slMap={slMap} />
       ) : (
-        <section className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <h2 className="text-title font-semibold text-fg">Needs attention</h2>
-            <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
-              {needsAttention.length}
-            </span>
-          </div>
-          {holdings.length === 0 ? (
-            <div className="rounded-xl border border-border-strong bg-surface-2 p-4">
-              <p className="text-body-sm font-medium text-fg-muted">No positions</p>
-              <p className="text-caption text-fg-faint">Holdings appear once data is synced.</p>
-            </div>
-          ) : needsAttention.length === 0 ? (
-            <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">
-              <StatusDot variant="pos" label="All positions safe" pulse={false} />
-              <div>
-                <p className="text-body-sm font-medium text-fg">All positions safe</p>
-                <p className="text-caption text-fg-muted">No holdings near their stop-loss.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2.5">
-              {needsAttention.map(({ holding, sl, status }) => {
-                return (
-                  <NeedsAttentionCard
-                    key={`${holding.isin}-${holding.product}`}
-                    symbol={holding.trading_symbol}
-                    statusLabel={status.label}
-                    variant={status.variant === "neg" ? "danger" : "warning"}
-                    ltp={holding.last_price}
-                    pnlPercentage={pnlPercentage(holding)}
-                    sl={sl}
-                    distanceToSlPercentage={distanceToSlPercentage(holding, sl) ?? 0}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </section>
+        <NeedsAttentionList holdings={holdings} slMap={slMap} />
       )}
 
       <PortfolioTrendCard />
