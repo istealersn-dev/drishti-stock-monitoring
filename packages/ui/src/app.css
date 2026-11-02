@@ -85,9 +85,7 @@ body {
     #e2c584 62%,
     #8a6a24 92%
   );
-  --shadow-ring-glow-gold:
-    0 0 0 1px rgb(200 162 74 / 0.45),
-    0 4px 16px rgb(200 162 74 / 0.28);
+  --shadow-ring-glow-gold: 0 0 0 1px rgb(200 162 74 / 0.45), 0 4px 16px rgb(200 162 74 / 0.28);
   --pattern-dot-gold-strong: radial-gradient(
     circle,
     color-mix(in srgb, var(--color-gold) 78%, transparent) 1.9px,
@@ -99,8 +97,16 @@ body {
     transparent 1.8px
   );
   --glow-gold-corners:
-    radial-gradient(85% 75% at 100% 0%, color-mix(in srgb, var(--color-gold) 22%, transparent), transparent 56%),
-    radial-gradient(80% 70% at 6% 96%, color-mix(in srgb, var(--color-gold) 16%, transparent), transparent 62%);
+    radial-gradient(
+      85% 75% at 100% 0%,
+      color-mix(in srgb, var(--color-gold) 22%, transparent),
+      transparent 56%
+    ),
+    radial-gradient(
+      80% 70% at 6% 96%,
+      color-mix(in srgb, var(--color-gold) 16%, transparent),
+      transparent 62%
+    );
 
   /* semantic */
   --color-pos: #22c55e;
@@ -203,7 +209,6 @@ body {
   --animate-pulse: pulse 2.4s ease-in-out infinite;
   --animate-spin: spin 0.65s linear infinite;
   --animate-fade: fade 0.2s ease-out;
-  --animate-heartbeat: heartbeat 1.8s ease-in-out infinite;
   /* brand mark's gold sheen (Drishti Landing.dc.html's logo shimmer) */
   --animate-sheen: sheen 4.6s linear infinite;
 }
@@ -215,7 +220,12 @@ body {
 .pattern-dot-gold-strong {
   background-image: var(--pattern-dot-gold-strong);
   background-size: 17px 17px;
-  -webkit-mask-image: radial-gradient(92% 72% at 100% 0%, #000 0%, rgb(0 0 0 / 0.75) 30%, transparent 60%);
+  -webkit-mask-image: radial-gradient(
+    92% 72% at 100% 0%,
+    #000 0%,
+    rgb(0 0 0 / 0.75) 30%,
+    transparent 60%
+  );
   mask-image: radial-gradient(92% 72% at 100% 0%, #000 0%, rgb(0 0 0 / 0.75) 30%, transparent 60%);
 }
 
@@ -290,33 +300,12 @@ body {
   }
 }
 
-@keyframes heartbeat {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  14% {
-    transform: scale(1.18);
-  }
-  28% {
-    transform: scale(1);
-  }
-  42% {
-    transform: scale(1.18);
-  }
-  70% {
-    transform: scale(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   /* Design.md §4/§7: freeze ambient wave/breathe, keep instant state changes (pulse/spin/fade
-     are status/loading feedback, not ambient decoration, so they're left running). The mobile
-     nav's heartbeat is ambient branding, not state feedback, so it freezes here too. */
+     are status/loading feedback, not ambient decoration, so they're left running). */
   .animate-wave-x,
   .animate-wave-y,
   .animate-breathe,
-  .animate-heartbeat,
   .animate-sheen {
     animation: none !important;
   }

@@ -28,7 +28,7 @@ function formatPollTime(iso: string | null): string {
 /**
  * Root layout shell (handoff.md §3-4) — picks the desktop shell (`Sidebar` +
  * `AppFooter`) or mobile shell (`AppHeaderMobile` + `MobileTabBar`) by
- * `useMediaQuery('(min-width: 760px)')` rather than duplicating pages; both
+ * `useMediaQuery('(min-width: 578px)')` rather than duplicating pages; both
  * render the same routed `<Outlet/>` content. Fetches settings, approvals,
  * and runs to drive the status/pending/last-poll meta shared by both shells.
  * @returns App shell layout element
@@ -97,7 +97,7 @@ export function AppShell(): React.ReactElement {
   // A single return with conditional siblings around one `<main><Outlet/></main>`
   // — not two separate `if (!isDesktop) return <A/>; return <B/>;` branches —
   // so `<Outlet/>` stays at the same position in the tree when `isDesktop`
-  // flips (e.g. resizing across 760px). Two full return branches would each
+  // flips (e.g. resizing across 578px). Two full return branches would each
   // mount their own `<main><Outlet/></main>`, and React would unmount/remount
   // the routed page on every breakpoint crossing, wiping its local state.
   return (

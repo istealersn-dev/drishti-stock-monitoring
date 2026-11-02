@@ -2,10 +2,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type React from "react";
 
-// Shared with MobileTabBar's bottom sheet (a second, differently-shaped
-// Radix Dialog consumer) so the two surfaces can't drift on the overlay's
-// scrim color/fade treatment.
-export const DIALOG_OVERLAY_CLASS_NAME =
+const DIALOG_OVERLAY_CLASS_NAME =
   "fixed inset-0 z-40 bg-[color:rgb(10_10_10_/_0.7)] data-[state=open]:animate-fade";
 
 type DialogRootProperties = {
