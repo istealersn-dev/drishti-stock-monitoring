@@ -27,7 +27,6 @@ function MenuButton({ item }: { item: AccountMenuItem }): React.ReactElement {
   return (
     <button
       type="button"
-      role="menuitem"
       onClick={item.onSelect}
       className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-body font-medium transition-colors ${
         item.danger ? "text-neg-soft hover:bg-neg-tint" : "text-fg-soft hover:bg-surface-hover"
@@ -46,8 +45,9 @@ type AccountMenuProperties = {
 
 /**
  * Account trigger + dropdown shared by the desktop and mobile headers. Holds
- * the secondary routes, Settings, and Log out (behind a confirmation); closes
- * on outside click or Esc.
+ * the secondary routes, Settings, and Log out (behind a confirmation). A
+ * disclosure of plain buttons, so Tab moves through it natively; closes on
+ * outside click, Esc, or focus leaving it.
  * @param props.compact - render the avatar-only trigger
  * @returns Account menu element
  */
@@ -56,14 +56,19 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
   const [open, setOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const containerReference = useRef<HTMLDivElement>(null);
+  const triggerReference = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerReference.current?.focus();
     };
     const onPointer = (event: MouseEvent): void => {
-      if (!containerReference.current?.contains(event.target as Node)) setOpen(false);
+      if (!(event.target instanceof Node) || !containerReference.current?.contains(event.target)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onPointer);
@@ -104,13 +109,22 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
   ];
 
   return (
-    <div ref={containerReference} className="relative ml-auto flex-none">
+    <div
+      ref={containerReference}
+      className="relative ml-auto flex-none"
+      onBlur={(event) => {
+        // A null relatedTarget is a click, which the pointer handler covers;
+        // closing here too would unmount the row before its click lands.
+        const next = event.relatedTarget;
+        if (next instanceof Node && !event.currentTarget.contains(next)) setOpen(false);
+      }}
+    >
       <button
+        ref={triggerReference}
         type="button"
         onClick={(): void => {
           setOpen((previous) => !previous);
         }}
-        aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
         className={
@@ -135,10 +149,7 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
       </button>
 
       {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 overflow-hidden rounded-3xl border border-border-strong bg-surface-input shadow-card"
-        >
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 overflow-hidden rounded-3xl border border-border-strong bg-surface-input shadow-card">
           <div className="flex items-center gap-2.5 border-b border-border px-4 py-3.5">
             <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-[image:var(--gradient-gold)] font-mono text-subtitle font-bold text-bg-base">
               {ACCOUNT.initial}
