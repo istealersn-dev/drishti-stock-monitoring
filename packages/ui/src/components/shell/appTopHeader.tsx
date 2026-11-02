@@ -1,43 +1,27 @@
 import type React from "react";
 
+import { MARKET_INDEX_NAMES } from "../../lib/marketIndices";
+
 import { AccountMenu } from "./accountMenu";
 
-type IndexDirection = "up" | "down" | "flat";
-type MarketIndex = { name: string; value: string; change: string; direction: IndexDirection };
-
-// Placeholder until a market-indices endpoint exists — renders the ticker
-// structure with em-dashes so the header is complete now and only the data
-// needs wiring later. Swap this for a query when /api/indices lands.
-const PLACEHOLDER_INDICES: MarketIndex[] = [
-  { name: "NIFTY 50", value: "—", change: "—", direction: "flat" },
-  { name: "SENSEX", value: "—", change: "—", direction: "flat" },
-];
-
-const DIRECTION_TEXT: Record<IndexDirection, string> = {
-  up: "text-pos",
-  down: "text-neg",
-  flat: "text-fg-dim",
-};
-
-const DIRECTION_ARROW: Record<IndexDirection, string> = { up: "▲", down: "▼", flat: "·" };
+const TICKER_INDEX_COUNT = 2;
+const PLACEHOLDER = "—";
 
 /**
- * Market indices ticker for the desktop header's left side.
- * @param props.indices - Index rows to display
+ * Market indices ticker for the desktop header's left side. Renders em-dashes
+ * until an indices endpoint exists.
  * @returns Ticker element
  */
-function MarketTicker({ indices }: { indices: MarketIndex[] }): React.ReactElement {
+function MarketTicker(): React.ReactElement {
   return (
     <div className="hidden min-w-0 flex-nowrap items-center gap-4 overflow-hidden nav:flex">
       <span className="flex-none font-mono text-eyebrow uppercase text-fg-faint">Markets</span>
-      {indices.map((index) => (
-        <div key={index.name} className="flex flex-none items-center gap-2">
-          <span className="whitespace-nowrap text-caption text-fg-dim">{index.name}</span>
-          <span className="font-mono text-body-sm font-semibold text-fg-soft">{index.value}</span>
-          <span
-            className={`whitespace-nowrap font-mono text-caption ${DIRECTION_TEXT[index.direction]}`}
-          >
-            {DIRECTION_ARROW[index.direction]} {index.change}
+      {MARKET_INDEX_NAMES.slice(0, TICKER_INDEX_COUNT).map((name) => (
+        <div key={name} className="flex flex-none items-center gap-2">
+          <span className="whitespace-nowrap text-caption text-fg-dim">{name}</span>
+          <span className="font-mono text-body-sm font-semibold text-fg-soft">{PLACEHOLDER}</span>
+          <span className="whitespace-nowrap font-mono text-caption text-fg-dim">
+            · {PLACEHOLDER}
           </span>
         </div>
       ))}
@@ -55,7 +39,7 @@ function MarketTicker({ indices }: { indices: MarketIndex[] }): React.ReactEleme
 export function AppTopHeader(): React.ReactElement {
   return (
     <header className="flex h-shell-header flex-none items-center justify-between gap-4 border-b border-border bg-bg-chrome px-5">
-      <MarketTicker indices={PLACEHOLDER_INDICES} />
+      <MarketTicker />
       <AccountMenu />
     </header>
   );

@@ -1,12 +1,9 @@
 import type React from "react";
 
+import { MARKET_INDEX_NAMES } from "../../lib/marketIndices";
 import { Card } from "../ui/card";
 
 const PLACEHOLDER = "—";
-
-// Same set the desktop header ticker shows. Placeholder until a market-indices
-// endpoint exists — swap for a query when /api/indices lands.
-const PLACEHOLDER_INDICES = ["NIFTY 50", "SENSEX", "BANK NIFTY", "INDIA VIX"];
 
 /**
  * Market index cards (updated design) — a row of index tiles above the KPI
@@ -16,7 +13,7 @@ const PLACEHOLDER_INDICES = ["NIFTY 50", "SENSEX", "BANK NIFTY", "INDIA VIX"];
 export function MarketIndexCards(): React.ReactElement {
   return (
     <div className="grid grid-cols-2 gap-3 lap:grid-cols-4">
-      {PLACEHOLDER_INDICES.map((name) => (
+      {MARKET_INDEX_NAMES.map((name) => (
         <Card key={name} className="flex items-center justify-between gap-2 !py-2.5">
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="truncate text-caption text-fg-dim">{name}</span>
