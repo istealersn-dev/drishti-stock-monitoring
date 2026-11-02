@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 import cors from "@fastify/cors";
-import { and, desc, eq, gt } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import Fastify, { type FastifyRequest } from "fastify";
 import { z } from "zod";
 
@@ -139,10 +139,9 @@ export function queryGttOrders(status?: string): unknown[] {
 }
 
 /**
- * Query the active per-holding stop-loss and target config: the same rows the
- * breach detector acts on. A zero threshold means no stop-loss was given, so
- * those rows are left out rather than read as a price.
- * @returns Active stock_config rows with a real stop-loss
+ * Query the active per-holding stop-loss and target config: the rows the breach
+ * and target detectors act on. A zero threshold means no stop-loss was given.
+ * @returns Active stock_config rows
  */
 export function queryHoldingConfigs(): {
   symbol: string;
@@ -160,7 +159,7 @@ export function queryHoldingConfigs(): {
       targetTwoOpen: stockConfig.targetTwoOpen,
     })
     .from(stockConfig)
-    .where(and(eq(stockConfig.isActive, true), gt(stockConfig.slThreshold, 0)))
+    .where(eq(stockConfig.isActive, true))
     .all();
 }
 
@@ -256,8 +255,8 @@ export function queryApprovals(): unknown[] {
 
 const HoldingConfigBodySchema = z.object({
   slThreshold: z.number().positive(),
-  targetOne: z.number().positive().nullable(),
-  targetTwo: z.number().positive().nullable(),
+  targetOne: z.number().positive().nullable().optional(),
+  targetTwo: z.number().positive().nullable().optional(),
 });
 
 /**
@@ -299,8 +298,10 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
         .header("Retry-After", retryAfter)
         .send({ ok: false, error: "Too many failed attempts" });
     }
-    if (!isValidAccessKey(request.headers["x-access-key"], env.DRISHTI_ACCESS_KEY)) {
-      authThrottle.recordFailure(client);
+    const key = request.headers["x-access-key"];
+    if (!isValidAccessKey(key, env.DRISHTI_ACCESS_KEY)) {
+      // No key isn't a guess: a logged-out tab's polling shouldn't lock you out.
+      if (key !== undefined) authThrottle.recordFailure(client);
       return reply.status(401).send({ ok: false, error: "Unauthorized" });
     }
     authThrottle.clear(client);
@@ -608,7 +609,7 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
 
   /**
    * Update SL threshold and targets for a holding in stock_config.
-   * Send null for targetOne/targetTwo to clear a previously set value.
+   * Send null for targetOne/targetTwo to clear a value; omit one to keep it.
    * Creates the row if it does not yet exist.
    * @param request - Fastify request with symbol param and HoldingConfigBody
    * @param reply - Fastify reply
@@ -628,6 +629,10 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
       }
 
       const { slThreshold, targetOne, targetTwo } = parsed.data;
+      const targets = {
+        ...(targetOne !== undefined && { targetOne }),
+        ...(targetTwo !== undefined && { targetTwo }),
+      };
       const now = new Date().toISOString();
 
       try {
@@ -635,12 +640,12 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
 
         if (existing) {
           db.update(stockConfig)
-            .set({ slThreshold, targetOne, targetTwo, updatedAt: now })
+            .set({ slThreshold, ...targets, updatedAt: now })
             .where(eq(stockConfig.symbol, symbol))
             .run();
         } else {
           db.insert(stockConfig)
-            .values({ symbol, slThreshold, targetOne, targetTwo, updatedAt: now })
+            .values({ symbol, slThreshold, ...targets, updatedAt: now })
             .run();
         }
 

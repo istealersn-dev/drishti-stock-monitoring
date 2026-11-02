@@ -405,10 +405,55 @@ describe("auth lockout", () => {
     expect(response.statusCode).toBe(429);
   });
 
+  it("doesn't count requests with no key", async () => {
+    const app = await buildApiApp();
+    const headers = { "cf-connecting-ip": "198.51.100.3" };
+    for (let attempt = 0; attempt < LOCKOUT_FAILURES + 1; attempt += 1) {
+      const response = await app.inject({ method: "GET", url: "/api/holdings", headers });
+      expect(response.statusCode).toBe(401);
+    }
+  });
+
   it("leaves other clients alone", async () => {
     const app = await buildApiApp();
     for (let attempt = 0; attempt < LOCKOUT_FAILURES; attempt += 1) await login(app, "wrong");
     expect((await login(app, "test-key", "198.51.100.2")).statusCode).toBe(200);
+  });
+});
+
+describe("PUT /api/holdings/:symbol/config", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const save = async (payload: Record<string, unknown>): Promise<ReturnType<typeof vi.fn>> => {
+    const set = vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({ run: vi.fn() }),
+    });
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ get: vi.fn().mockReturnValue({ symbol: "INFY" }) }),
+      }),
+    });
+    mockDbUpdate.mockReturnValue({ set });
+    const app = await buildApiApp();
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/holdings/INFY/config",
+      headers: { "x-access-key": "test-key" },
+      payload,
+    });
+    expect(response.statusCode).toBe(200);
+    return set;
+  };
+
+  it("keeps stored targets when they're omitted", async () => {
+    const set = await save({ slThreshold: 95 });
+    expect(set.mock.calls[0]?.[0]).not.toHaveProperty("targetOne");
+    expect(set.mock.calls[0]?.[0]).not.toHaveProperty("targetTwo");
+  });
+
+  it("clears a target sent as null", async () => {
+    const set = await save({ slThreshold: 95, targetOne: null });
+    expect(set.mock.calls[0]?.[0]).toMatchObject({ targetOne: null });
   });
 });
 

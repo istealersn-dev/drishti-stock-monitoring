@@ -335,15 +335,15 @@ export async function updateApprovalAmount(id: string, amountInr: number): Promi
 
 /**
  * Update SL threshold and targets for a holding in stock_config.
- * Pass null for targetOne/targetTwo to clear a previously set value.
+ * Omit targetOne/targetTwo to keep the stored value, or pass null to clear it.
  * Creates the row if it does not yet exist.
  * @param symbol - Upstox trading symbol
- * @param patch - SL threshold (required) and targets (null = clear, number = set)
+ * @param patch - SL threshold (required) and targets (omit = keep, null = clear)
  * @returns Resolves on success, throws on HTTP error
  */
 export async function updateHoldingConfig(
   symbol: string,
-  patch: { slThreshold: number; targetOne: number | null; targetTwo: number | null },
+  patch: { slThreshold: number; targetOne?: number | null; targetTwo?: number | null },
 ): Promise<void> {
   await apiFetch(
     `/api/holdings/${encodeURIComponent(symbol)}/config`,

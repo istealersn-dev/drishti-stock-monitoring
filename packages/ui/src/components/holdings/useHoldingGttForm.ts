@@ -37,11 +37,8 @@ export function useHoldingGttForm(symbol: string): HoldingGttForm {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: (patch: {
-      slThreshold: number;
-      targetOne: number | null;
-      targetTwo: number | null;
-    }) => updateHoldingConfig(symbol, patch),
+    mutationFn: (patch: { slThreshold: number; targetOne?: number }) =>
+      updateHoldingConfig(symbol, patch),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["gtt"] });
       void queryClient.invalidateQueries({ queryKey: ["holding-config"] });
@@ -61,16 +58,20 @@ export function useHoldingGttForm(symbol: string): HoldingGttForm {
       return;
     }
 
-    let targetNumber: number | null = null;
-    if (target.trim()) {
-      targetNumber = parsePriceInput(target);
-      if (targetNumber === null || targetNumber <= 0) {
-        setSaveError("Enter a valid target price, or leave it blank");
-        return;
-      }
+    // A blank target keeps the stored one, as does targetTwo, which this form
+    // doesn't edit: an SL change must never erase target alerts.
+    if (!target.trim()) {
+      mutation.mutate({ slThreshold: slNumber });
+      return;
     }
 
-    mutation.mutate({ slThreshold: slNumber, targetOne: targetNumber, targetTwo: null });
+    const targetNumber = parsePriceInput(target);
+    if (targetNumber === null || targetNumber <= 0) {
+      setSaveError("Enter a valid target price, or leave it blank");
+      return;
+    }
+
+    mutation.mutate({ slThreshold: slNumber, targetOne: targetNumber });
   };
 
   return {
