@@ -6,7 +6,12 @@ import { useState } from "react";
 import type { Holding } from "../../lib/api";
 import { formatInr } from "../../lib/format";
 import { formatPrice, ltpDirectionArrow } from "../../lib/holdingFormat";
-import { type HoldingStatus, resolveHoldingStatus } from "../../lib/holdingStatus";
+import {
+  HOLDING_SEVERITY_RANK,
+  type HoldingStatus,
+  resolveHoldingStatus,
+} from "../../lib/holdingStatus";
+import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
 import { StatusDot } from "../ui/statusDot";
 
@@ -158,20 +163,27 @@ export function PositionsSnapshot({
   limit = 5,
 }: PositionsSnapshotProperties): React.ReactElement {
   const [sortDirection, setSortDirection] = useState<SortDirection>("none");
-  const sorted =
-    sortDirection === "none"
-      ? holdings
-      : [...holdings].sort((a, b) =>
-          sortDirection === "desc"
-            ? pnlPercentage(b) - pnlPercentage(a)
-            : pnlPercentage(a) - pnlPercentage(b),
-        );
+  const severity = (holding: Holding): number =>
+    HOLDING_SEVERITY_RANK[resolveHoldingStatus(holding, slMap).variant];
+  const atRiskCount = holdings.filter(
+    (holding) => resolveHoldingStatus(holding, slMap).variant !== "pos",
+  ).length;
+  // The default order leads with at-risk holdings: only `limit` rows show and
+  // Needs attention is mobile-only, so a breach must not fall below the cut.
+  const sorted = [...holdings].sort((a, b) => {
+    if (sortDirection === "desc") return pnlPercentage(b) - pnlPercentage(a);
+    if (sortDirection === "asc") return pnlPercentage(a) - pnlPercentage(b);
+    return severity(a) - severity(b);
+  });
   const rows = sorted.slice(0, limit);
 
   return (
     <Card className="flex flex-col gap-0 overflow-hidden !p-0">
       <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-        <span className="text-body-sm font-semibold text-fg">Positions snapshot</span>
+        <div className="flex items-center gap-2">
+          <span className="text-body-sm font-semibold text-fg">Positions snapshot</span>
+          {atRiskCount > 0 && <Badge variant="warn">{atRiskCount} at risk</Badge>}
+        </div>
         <Link
           to="/holdings"
           className="font-mono text-caption text-gold transition-colors hover:text-gold-bright"
@@ -180,46 +192,45 @@ export function PositionsSnapshot({
         </Link>
       </div>
 
-      {rows.length > 0 && (
-        <div
-          className={`grid ${ROW_GRID} items-center gap-2 border-b border-border bg-surface-2 px-3 py-2 text-micro uppercase tracking-wide text-fg-faint`}
-        >
-          <span className="pl-5">Symbol</span>
-          <span>Sector</span>
-          <span className="text-right">Qty</span>
-          <span className="text-right">Avg</span>
-          <span className="text-right">LTP</span>
-          <span className="text-right">P&L ₹</span>
-          <button
-            type="button"
-            onClick={() => {
-              setSortDirection((previous) => NEXT_SORT[previous]);
-            }}
-            aria-label={`P&L %, ${SORT_LABEL[sortDirection]}. Change sort`}
-            className="flex cursor-pointer items-center justify-end gap-1 uppercase transition-colors hover:text-gold-bright"
-          >
-            P&L %<span aria-hidden="true">{SORT_ARROW[sortDirection]}</span>
-          </button>
-          <span className="text-right">SL</span>
-          <span className="text-right">Status</span>
-        </div>
-      )}
-
       {rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1.5 py-10">
           <p className="text-body-sm font-medium text-fg-muted">No positions</p>
           <p className="text-caption text-fg-faint">Holdings appear once data is synced.</p>
         </div>
       ) : (
-        <div>
-          {rows.map((holding) => (
-            <PositionRow
-              key={`${holding.isin}-${holding.product}`}
-              holding={holding}
-              status={resolveHoldingStatus(holding, slMap)}
-              sl={slMap.get(holding.trading_symbol)}
-            />
-          ))}
+        <div className="overflow-x-auto">
+          <div className="min-w-[48rem]">
+            <div
+              className={`grid ${ROW_GRID} items-center gap-2 border-b border-border bg-surface-2 px-3 py-2 text-micro uppercase tracking-wide text-fg-faint`}
+            >
+              <span className="pl-5">Symbol</span>
+              <span>Sector</span>
+              <span className="text-right">Qty</span>
+              <span className="text-right">Avg</span>
+              <span className="text-right">LTP</span>
+              <span className="text-right">P&L ₹</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSortDirection((previous) => NEXT_SORT[previous]);
+                }}
+                aria-label={`P&L %, ${SORT_LABEL[sortDirection]}. Change sort`}
+                className="flex cursor-pointer items-center justify-end gap-1 uppercase transition-colors hover:text-gold-bright"
+              >
+                P&L %<span aria-hidden="true">{SORT_ARROW[sortDirection]}</span>
+              </button>
+              <span className="text-right">SL</span>
+              <span className="text-right">Status</span>
+            </div>
+            {rows.map((holding) => (
+              <PositionRow
+                key={`${holding.isin}-${holding.product}`}
+                holding={holding}
+                status={resolveHoldingStatus(holding, slMap)}
+                sl={slMap.get(holding.trading_symbol)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </Card>

@@ -12,17 +12,13 @@ import { StatCard } from "../components/dashboard/statCard";
 import { TodaysActivityCard } from "../components/dashboard/todaysActivityCard";
 import { Spinner } from "../components/ui/spinner";
 import { StatusDot } from "../components/ui/statusDot";
-import { useMediaQuery } from "../hooks/useMediaQuery";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
 import { formatInr } from "../lib/format";
 import { sumHoldingsValue } from "../lib/holdingFormat";
-import { type HoldingStatus, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
+import { HOLDING_SEVERITY_RANK, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
 const PLACEHOLDER = "—";
-
-// Breach (neg) sorts before near-SL (warn); pos is filtered out before sorting
-// but kept so the map stays exhaustive over the status union.
-const SEVERITY_RANK: Record<HoldingStatus["variant"], number> = { neg: 0, warn: 1, pos: 2 };
 
 /**
  * Time-of-day greeting for the dashboard header, matching the updated design's
@@ -46,7 +42,7 @@ function greeting(): string {
  * @returns Dashboard page element
  */
 export function Dashboard(): React.ReactElement {
-  const isDesktop = useMediaQuery("(min-width: 578px)");
+  const isDesktop = useIsDesktop();
   const {
     data: holdingData,
     isLoading: holdingsLoading,
@@ -65,7 +61,7 @@ export function Dashboard(): React.ReactElement {
     queryFn: () => fetchGttOrders("active"),
   });
 
-  const { data: approvals = [] } = useQuery({
+  const { data: approvals = [], isError: approvalsError } = useQuery({
     queryKey: ["approvals"],
     queryFn: fetchApprovals,
   });
@@ -78,12 +74,13 @@ export function Dashboard(): React.ReactElement {
   const totalCost = holdings.reduce((sum, h) => sum + h.quantity * h.average_price, 0);
   const totalPnl = holdings.reduce((sum, h) => sum + h.pnl, 0);
   const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+  const dayPnl = holdings.reduce((sum, h) => sum + h.day_change * h.quantity, 0);
   const slMap = buildSlMap(gttOrders);
   const pendingApprovals = approvals.filter((approval) => approval.status === "pending").length;
 
   // Holdings at or within 5% of their stop-loss, breach-first — the mobile
-  // dashboard's focus (desktop conveys the same via the positions Status
-  // column). flatMap so `sl` is proven defined for each surviving entry.
+  // dashboard's focus (desktop's positions snapshot leads with the same
+  // holdings). flatMap so `sl` is proven defined for each surviving entry.
   const needsAttention = holdings
     .flatMap((holding) => {
       const sl = slMap.get(holding.trading_symbol);
@@ -92,7 +89,9 @@ export function Dashboard(): React.ReactElement {
       if (status.variant === "pos") return [];
       return [{ holding, sl, status }];
     })
-    .sort((a, b) => SEVERITY_RANK[a.status.variant] - SEVERITY_RANK[b.status.variant]);
+    .sort(
+      (a, b) => HOLDING_SEVERITY_RANK[a.status.variant] - HOLDING_SEVERITY_RANK[b.status.variant],
+    );
 
   if (isError) {
     return (
@@ -130,6 +129,15 @@ export function Dashboard(): React.ReactElement {
       </div>
 
       <MarketIndexCards />
+
+      {approvalsError && (
+        <div className="rounded-xl border border-neg-ring bg-neg-tint px-4 py-3 text-body-sm text-neg">
+          Couldn&apos;t check for pending approvals.{" "}
+          <Link to="/instructions" className="underline">
+            Open Approvals
+          </Link>
+        </div>
+      )}
 
       {pendingApprovals > 0 && (
         <Link
@@ -174,7 +182,15 @@ export function Dashboard(): React.ReactElement {
               {formatInr(Math.abs(totalPnl))}
             </span>
           }
-          sub={isDesktop ? "open positions · MTM" : "open · MTM"}
+          sub={
+            <>
+              <span className={dayPnl >= 0 ? "text-pos" : "text-neg"}>
+                {dayPnl >= 0 ? "+" : "−"}
+                {formatInr(Math.abs(dayPnl))}
+              </span>{" "}
+              today · MTM
+            </>
+          }
         />
         <StatCard
           label={isDesktop ? "Realised P&L today" : "Realised today"}

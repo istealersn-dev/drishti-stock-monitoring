@@ -7,6 +7,13 @@ export type HoldingStatus = {
   label: string;
 };
 
+/** Sort rank by SL status: breach first, then watch, then safe. */
+export const HOLDING_SEVERITY_RANK: Record<HoldingStatus["variant"], number> = {
+  neg: 0,
+  warn: 1,
+  pos: 2,
+};
+
 /**
  * Resolves a holding's SL proximity status against its GTT stop-loss trigger
  * — a direct port of Drishti.dc.html's `statusOf()` (same 5% band, same
