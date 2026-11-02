@@ -9,7 +9,6 @@ import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
 import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
-import { selectOpenHoldings } from "../lib/holdingFormat";
 import { buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
 function applyFilter(
@@ -52,12 +51,12 @@ export function Holdings(): React.ReactElement {
     queryKey: ["holdings"],
     queryFn: fetchHoldings,
   });
-  const { data: gttOrders = [] } = useQuery({
+  const { data: gttOrders = [], isError: gttError } = useQuery({
     queryKey: ["gtt", "active"],
     queryFn: () => fetchGttOrders("active"),
   });
 
-  const holdings = selectOpenHoldings(data?.holdings ?? []);
+  const holdings = data?.holdings ?? [];
   const slMap = buildSlMap(gttOrders);
   const visible = applyFilter(holdings, filter, search, slMap);
 
@@ -69,7 +68,8 @@ export function Holdings(): React.ReactElement {
     );
   }
 
-  if (isError) {
+  // A failed background refetch keeps its data, and any SL being typed here.
+  if (isError && data === undefined) {
     return (
       <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
         Failed to load holdings. Is the agent running?
@@ -83,6 +83,11 @@ export function Holdings(): React.ReactElement {
         title="Holdings"
         subtitle="All positions, with inline stop-loss and target editing."
       />
+      {gttError && (
+        <p className="text-caption text-neg">
+          Couldn&apos;t load GTTs, so Breach and Watch may be missing holdings.
+        </p>
+      )}
       <HoldingFilters
         search={search}
         onSearchChange={setSearch}

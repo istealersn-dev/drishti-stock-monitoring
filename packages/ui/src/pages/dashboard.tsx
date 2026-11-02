@@ -16,7 +16,7 @@ import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
 import { filterPendingApprovals } from "../lib/approvals";
 import { PLACEHOLDER, formatInr, formatSignedInr } from "../lib/format";
-import { percentOfCost, selectOpenHoldings, sumHoldingsValue } from "../lib/holdingFormat";
+import { percentOfCost, sumHoldingsValue } from "../lib/holdingFormat";
 import { buildSlMap } from "../lib/holdingStatus";
 import { timeOfDayGreeting } from "../lib/timeOfDayGreeting";
 
@@ -58,7 +58,7 @@ export function Dashboard(): React.ReactElement {
     queryFn: fetchApprovals,
   });
 
-  const holdings = selectOpenHoldings(holdingData?.holdings ?? []);
+  const holdings = holdingData?.holdings ?? [];
   const gttOrders = gttData ?? [];
   const isLoading = holdingsLoading || gttLoading;
   const isError = holdingsError || gttError;
@@ -124,8 +124,11 @@ export function Dashboard(): React.ReactElement {
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Spinner />
+      <div className="flex flex-col gap-4">
+        {approvalNotices}
+        <div className="flex h-64 items-center justify-center">
+          <Spinner />
+        </div>
       </div>
     );
   }

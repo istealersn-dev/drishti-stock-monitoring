@@ -17,11 +17,7 @@ import { fetchGttOrders } from "../lib/api";
 export function Gtt(): React.ReactElement {
   const hasTableRoom = useHasTableRoom();
 
-  const {
-    data: orders = [],
-    isLoading,
-    isError,
-  } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["gtt"],
     queryFn: () => fetchGttOrders(),
   });
@@ -34,7 +30,8 @@ export function Gtt(): React.ReactElement {
     );
   }
 
-  if (isError) {
+  // A failed background refetch keeps its data, which beats a blank page.
+  if (isError && data === undefined) {
     return (
       <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
         Failed to load GTT orders. Is the agent running?
@@ -42,6 +39,7 @@ export function Gtt(): React.ReactElement {
     );
   }
 
+  const orders = data ?? [];
   const active = orders.filter((order) => order.status === "active");
   const rest = orders.filter((order) => order.status !== "active");
   const sorted = [...active, ...rest];
