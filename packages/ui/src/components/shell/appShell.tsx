@@ -49,6 +49,12 @@ export function AppShell(): React.ReactElement {
 
   const sidebarCollapsed = collapseOverride ?? isTablet;
 
+  // A choice made at one width shouldn't pin the sidebar at another (e.g.
+  // after rotating a tablet).
+  useEffect(() => {
+    setCollapseOverride(null);
+  }, [isTablet]);
+
   const { data: settings, isError: settingsError } = useQuery({
     queryKey: ["settings"],
     queryFn: fetchSettings,
