@@ -8,7 +8,7 @@ import { type ApprovalSource, ApprovalSegments } from "../components/instruction
 import { InstructionComposer } from "../components/instructions/instructionComposer";
 import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
-import { useMediaQuery } from "../hooks/useMediaQuery";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 import {
   type Approval,
   approveInstruction,
@@ -39,7 +39,7 @@ export function Instructions(): React.ReactElement {
   const [pendingRejectIds, setPendingRejectIds] = useState<ReadonlySet<string>>(new Set());
   const [pendingAmountIds, setPendingAmountIds] = useState<ReadonlySet<string>>(new Set());
   const [segment, setSegment] = useState<ApprovalSource>("you");
-  const isDesktop = useMediaQuery("(min-width: 578px)");
+  const isDesktop = useIsDesktop();
   const queryClient = useQueryClient();
 
   const {
@@ -170,6 +170,9 @@ export function Instructions(): React.ReactElement {
   };
 
   const pendingApprovals = approvals.filter((approval) => approval.status === "pending");
+  // A 0 while loading or after a failed fetch would read as "nothing to do".
+  const approvalsKnown = !isLoading && !(approvalsError && approvals.length === 0);
+  const pendingCount = approvalsKnown ? pendingApprovals.length : null;
 
   return (
     <div className="flex max-w-[65rem] flex-col gap-4">
@@ -185,7 +188,7 @@ export function Instructions(): React.ReactElement {
       <ApprovalSegments
         active={segment}
         drishtiCount={AGENT_PROPOSAL_COUNT}
-        youCount={pendingApprovals.length}
+        youCount={pendingCount}
         onSelect={setSegment}
       />
 
@@ -194,7 +197,9 @@ export function Instructions(): React.ReactElement {
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-pos-tint">
             <Check aria-hidden="true" className="h-5 w-5 text-pos" />
           </span>
-          <p className="mt-1 text-body-sm font-medium text-fg">You&apos;re all caught up</p>
+          <p className="mt-1 text-body-sm font-medium text-fg">
+            {pendingCount === 0 ? "You're all caught up" : "No proposals from Drishti"}
+          </p>
           <p className="text-caption text-fg-faint">
             {isDesktop
               ? "The agent will surface new proposals here as conditions change."
@@ -218,9 +223,11 @@ export function Instructions(): React.ReactElement {
 
           <div className="flex items-center gap-2">
             <h2 className="text-body-sm font-semibold text-fg">Pending approvals</h2>
-            <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
-              {pendingApprovals.length}
-            </span>
+            {pendingCount !== null && (
+              <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
+                {pendingCount}
+              </span>
+            )}
           </div>
 
           {approvalsError && approvals.length === 0 ? (

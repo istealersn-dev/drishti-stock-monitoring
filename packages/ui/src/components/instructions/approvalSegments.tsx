@@ -7,12 +7,12 @@ type ApprovalSegmentsProperties = {
   active: ApprovalSource;
   /** Pending agent proposals, shown on the "From Drishti" tab. */
   drishtiCount: number;
-  /** Pending buy instructions, shown on the "From you" tab. */
-  youCount: number;
+  /** Pending buy instructions, shown on the "From you" tab; null until known. */
+  youCount: number | null;
   onSelect: (source: ApprovalSource) => void;
 };
 
-type Segment = { id: ApprovalSource; label: string; count: number; activeClass: string };
+type Segment = { id: ApprovalSource; label: string; count: number | null; activeClass: string };
 
 /**
  * Segmented control for the Approvals screen (updated design) — splits
@@ -62,9 +62,11 @@ export function ApprovalSegments({
             }`}
           >
             {segment.label}
-            <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro">
-              {segment.count}
-            </span>
+            {segment.count !== null && (
+              <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro">
+                {segment.count}
+              </span>
+            )}
           </button>
         );
       })}
