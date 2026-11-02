@@ -10,6 +10,9 @@ import { MAIN_NAV_ITEMS, type NavItem, SETTINGS_NAV_ITEM } from "./navItems";
 // account chip is a fixed label — matching the desktop footer's "admin".
 const ACCOUNT = { name: "admin", role: "Portfolio owner", initial: "A" } as const;
 
+// Ask has no mobile tab, so it joins the mobile menu alongside the logo link.
+const ASK_PATH = "/ask";
+
 type AccountMenuItem = {
   label: string;
   icon: typeof LogOut;
@@ -91,7 +94,9 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
   });
 
   const routeItems = [
-    ...MAIN_NAV_ITEMS.filter((item) => item.secondary).map(navToMenuItem),
+    ...MAIN_NAV_ITEMS.filter((item) => item.secondary || (compact && item.path === ASK_PATH)).map(
+      navToMenuItem,
+    ),
     navToMenuItem(SETTINGS_NAV_ITEM),
   ];
   const logoutItem: AccountMenuItem = {
