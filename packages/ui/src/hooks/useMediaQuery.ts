@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 /**
  * Tracks whether a media query currently matches (handoff.md §3 — pick
  * shell/desktop-vs-mobile components by this, not by duplicating screens).
- * @param query - a media query string, e.g. "(min-width: 760px)"
+ * @param query - a media query string, e.g. "(min-width: 1024px)"
  * @returns whether the query currently matches
  */
 export function useMediaQuery(query: string): boolean {

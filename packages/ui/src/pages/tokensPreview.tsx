@@ -157,7 +157,9 @@ const MOTION_SAMPLES = [
 ];
 
 const BREAKPOINTS = [
-  { label: "nav", value: tokens.breakpoint.nav, note: "single desktop/mobile shell split" },
+  { label: "tab", value: tokens.breakpoint.tab, note: "desktop/mobile shell split" },
+  { label: "nav", value: tokens.breakpoint.nav, note: "header market ticker" },
+  { label: "lap", value: tokens.breakpoint.lap, note: "full grids, expanded sidebar" },
   {
     label: "loginSplit",
     value: tokens.breakpoint.loginSplit,

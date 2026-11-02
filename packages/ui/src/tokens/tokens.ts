@@ -66,7 +66,9 @@ export const tokens = {
     fadeMs: 200,
   },
   breakpoint: {
+    tab: 578,
     nav: 760,
+    lap: 1024,
     loginSplit: 820,
   },
 } as const;

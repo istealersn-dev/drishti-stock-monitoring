@@ -1,7 +1,8 @@
+import { tokens } from "../tokens/tokens";
+
 import { useMediaQuery } from "./useMediaQuery";
 
-/** Matches `--breakpoint-tab` in app.css: the desktop shell starts here. */
-const DESKTOP_SHELL_QUERY = "(min-width: 578px)";
+const DESKTOP_SHELL_QUERY = `(min-width: ${tokens.breakpoint.tab}px)`;
 
 /**
  * Whether the desktop shell is showing, so pages and the shell can't disagree

@@ -8,12 +8,15 @@ import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { fetchApprovals, fetchHoldings, fetchRuns, fetchSettings } from "../../lib/api";
 import { formatInr } from "../../lib/format";
 import { sumHoldingsValue } from "../../lib/holdingFormat";
+import { tokens } from "../../tokens/tokens";
 
 import { AppFooter } from "./appFooter";
 import { AppHeaderMobile } from "./appHeaderMobile";
 import { AppTopHeader } from "./appTopHeader";
 import { MobileTabBar } from "./mobileTabBar";
 import { Sidebar } from "./sidebar";
+
+const TABLET_QUERY = `(min-width: ${tokens.breakpoint.tab}px) and (max-width: ${tokens.breakpoint.lap - 1}px)`;
 
 /** Format an ISO timestamp to HH:MM:SS in local time, or "--:--:--" if null. */
 function formatPollTime(iso: string | null): string {
@@ -35,19 +38,16 @@ function formatPollTime(iso: string | null): string {
  * @returns App shell layout element
  */
 export function AppShell(): React.ReactElement {
-  const [collapsed, setCollapsed] = useState(false);
-  // Whether the user has manually toggled the sidebar. Until they do, the
-  // sidebar auto-collapses on tablet widths (Drishti.dc.html: 578–1023).
-  const [collapseTouched, setCollapseTouched] = useState(false);
+  // The user's explicit choice, null until they toggle the sidebar. Until
+  // then it collapses on tablet widths (Drishti.dc.html: 578–1023).
+  const [collapseOverride, setCollapseOverride] = useState<boolean | null>(null);
   const [spinning, setSpinning] = useState(false);
   const spinTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDesktop = useIsDesktop();
-  const isTablet = useMediaQuery("(min-width: 578px) and (max-width: 1023px)");
+  const isTablet = useMediaQuery(TABLET_QUERY);
   const queryClient = useQueryClient();
 
-  // Tablet defaults to a collapsed sidebar until the user says otherwise;
-  // laptop+ respects their explicit choice.
-  const sidebarCollapsed = isTablet && !collapseTouched ? true : collapsed;
+  const sidebarCollapsed = collapseOverride ?? isTablet;
 
   const { data: settings, isError: settingsError } = useQuery({
     queryKey: ["settings"],
@@ -119,8 +119,7 @@ export function AppShell(): React.ReactElement {
             pendingApprovals={pendingCount}
             collapsed={sidebarCollapsed}
             onToggle={() => {
-              setCollapsed(!sidebarCollapsed);
-              setCollapseTouched(true);
+              setCollapseOverride(!sidebarCollapsed);
             }}
           />
         )}
@@ -133,16 +132,15 @@ export function AppShell(): React.ReactElement {
           <main
             className={
               isDesktop
-                ? "min-w-0 w-full flex-1 overflow-y-auto p-4 lap:p-5"
+                ? // Padding tightens to 16px on tablet, 20px laptop+. Past 1440px
+                  // the side padding grows to cap the content, so the scroller
+                  // stays full width: its scrollbar sits at the window edge and
+                  // the gutters still scroll.
+                  "min-w-0 w-full flex-1 overflow-y-auto p-4 lap:px-[max(1.25rem,calc((100%-90rem)/2))] lap:py-5"
                 : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom"
             }
           >
-            {/* The 1440px cap sits inside the scroller, so the scrollbar stays
-                at the window edge and the side gutters still scroll on wide
-                screens. Padding tightens to 16px on tablet, 20px laptop+. */}
-            <div className="mx-auto h-full w-full max-w-[90rem]">
-              <Outlet />
-            </div>
+            <Outlet />
           </main>
         </div>
       </div>

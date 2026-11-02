@@ -54,7 +54,7 @@ function MarketTicker({ indices }: { indices: MarketIndex[] }): React.ReactEleme
  */
 export function AppTopHeader(): React.ReactElement {
   return (
-    <header className="flex h-desktop-header flex-none items-center justify-between gap-4 border-b border-border bg-bg-chrome px-5">
+    <header className="flex h-shell-header flex-none items-center justify-between gap-4 border-b border-border bg-bg-chrome px-5">
       <MarketTicker indices={PLACEHOLDER_INDICES} />
       <AccountMenu />
     </header>
