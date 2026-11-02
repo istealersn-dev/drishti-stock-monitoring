@@ -2,7 +2,7 @@ import type React from "react";
 
 import type { GttOrder } from "../../lib/api";
 import { formatDate } from "../../lib/format";
-import { gttStatusVariant, gttTypeVariant } from "../../lib/gttFormat";
+import { gttStatusVariant, gttTypeLabel, gttTypeVariant } from "../../lib/gttFormat";
 import { formatPrice } from "../../lib/holdingFormat";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
@@ -31,7 +31,7 @@ export function GttCard({ order }: GttCardProperties): React.ReactElement {
           <span className="font-mono text-body font-semibold uppercase text-fg">
             {order.symbol}
           </span>
-          <Badge variant={gttTypeVariant(order.type)}>{order.type.toUpperCase()}</Badge>
+          <Badge variant={gttTypeVariant(order.type)}>{gttTypeLabel(order.type)}</Badge>
         </div>
         <Badge variant={gttStatusVariant(order.status)} dot>
           {order.status}

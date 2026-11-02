@@ -1,6 +1,7 @@
 import type React from "react";
 
 import type { GttOrder } from "../../lib/api";
+import { gttTypeLabel } from "../../lib/gttFormat";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 
@@ -32,7 +33,7 @@ export function GttCancelDialog({ order }: GttCancelDialogProperties): React.Rea
       </Dialog.Trigger>
       <Dialog.Content
         title="Cancel this GTT order?"
-        description={`This will cancel the ${order.type.toUpperCase()} order for ${order.symbol}. This cannot be undone.`}
+        description={`This will cancel the ${gttTypeLabel(order.type)} order for ${order.symbol}. This cannot be undone.`}
         tone="destructive"
       >
         {errorMessage !== null && <p className="text-caption text-neg">{errorMessage}</p>}
