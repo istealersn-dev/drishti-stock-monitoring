@@ -33,6 +33,7 @@ vi.mock("../db/schema.js", () => ({
   agentRuns: {},
   agentLogs: {},
   gttOrders: {},
+  stockConfig: {},
   pendingApprovals: {},
   agentSettings: {},
   brokerConnections: { brokerId: "broker_id" },
@@ -64,6 +65,7 @@ import {
   healthErrorCode,
   queryRuns,
   queryGttOrders,
+  queryHoldingConfigs,
   queryLogs,
   querySettings,
   queryApprovals,
@@ -365,6 +367,53 @@ describe("DELETE /api/gtt/:id", () => {
     expect(mockCancelGTT).not.toHaveBeenCalled();
     expect(updateRun).toHaveBeenCalledOnce();
     expect(response.statusCode).toBe(200);
+  });
+});
+
+describe("queryHoldingConfigs", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns stock_config rows through the active filter", () => {
+    const row = {
+      symbol: "INFY",
+      slThreshold: 90,
+      targetOne: 120,
+      targetTwo: null,
+      targetTwoOpen: false,
+    };
+    const chain = makeChain([row]);
+    mockDbSelect.mockImplementation(chain);
+    expect(queryHoldingConfigs()).toEqual([row]);
+    expect(chain().from().where).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("GET /api/holdings/config", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("rejects a request with no access key", async () => {
+    const app = await buildApiApp();
+    const response = await app.inject({ method: "GET", url: "/api/holdings/config" });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("returns the config rows", async () => {
+    const row = {
+      symbol: "INFY",
+      slThreshold: 90,
+      targetOne: null,
+      targetTwo: null,
+      targetTwoOpen: false,
+    };
+    mockDbSelect.mockImplementation(makeChain([row]));
+    const app = await buildApiApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/holdings/config",
+      headers: { "x-access-key": "test-key" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ ok: true, data: [row] });
   });
 });
 

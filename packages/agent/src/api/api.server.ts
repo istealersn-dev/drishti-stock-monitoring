@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 import cors from "@fastify/cors";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import Fastify from "fastify";
 import { z } from "zod";
 
@@ -132,6 +132,32 @@ export function queryGttOrders(status?: string): unknown[] {
     return db.select().from(gttOrders).where(eq(gttOrders.status, status)).all();
   }
   return db.select().from(gttOrders).orderBy(desc(gttOrders.createdAt)).all();
+}
+
+/**
+ * Query the active per-holding stop-loss and target config: the same rows the
+ * breach detector acts on. A zero threshold means no stop-loss was given, so
+ * those rows are left out rather than read as a price.
+ * @returns Active stock_config rows with a real stop-loss
+ */
+export function queryHoldingConfigs(): {
+  symbol: string;
+  slThreshold: number;
+  targetOne: number | null;
+  targetTwo: number | null;
+  targetTwoOpen: boolean | null;
+}[] {
+  return db
+    .select({
+      symbol: stockConfig.symbol,
+      slThreshold: stockConfig.slThreshold,
+      targetOne: stockConfig.targetOne,
+      targetTwo: stockConfig.targetTwo,
+      targetTwoOpen: stockConfig.targetTwoOpen,
+    })
+    .from(stockConfig)
+    .where(and(eq(stockConfig.isActive, true), gt(stockConfig.slThreshold, 0)))
+    .all();
 }
 
 /**
@@ -272,6 +298,10 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
   app.get("/api/holdings", async (_request, reply) => {
     const { holdings, cachedAt } = getCachedHoldings();
     return reply.send({ ok: true, data: holdings.map(toUiHolding), cachedAt });
+  });
+
+  app.get("/api/holdings/config", async (_request, reply) => {
+    return reply.send({ ok: true, data: queryHoldingConfigs() });
   });
 
   app.get<{ Querystring: { status?: string } }>("/api/gtt", async (request, reply) => {
