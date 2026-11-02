@@ -66,6 +66,8 @@ function EntryRow({ entry, onRemove, removing }: EntryRowProperties): React.Reac
   );
 }
 
+const FORM_ERROR_ID = "watchlist-form-error";
+
 /**
  * Watchlist page (Phase 7) — add form, 200-DMA proximity alerts, and a
  * removable watchlist table.
@@ -158,6 +160,7 @@ export function Watchlist(): React.ReactElement {
           <div className="w-44">
             <Input
               id="watchlist-symbol"
+              externalErrorId={formError !== null ? FORM_ERROR_ID : null}
               label="Symbol"
               value={symbol}
               onChange={(value) => {
@@ -171,6 +174,7 @@ export function Watchlist(): React.ReactElement {
           <div className="w-52">
             <Input
               id="watchlist-display-name"
+              externalErrorId={formError !== null ? FORM_ERROR_ID : null}
               label="Display name"
               value={displayName}
               onChange={(value) => {
@@ -184,6 +188,7 @@ export function Watchlist(): React.ReactElement {
           <div className="min-w-52 flex-1">
             <Input
               id="watchlist-notes"
+              externalErrorId={formError !== null ? FORM_ERROR_ID : null}
               label="Notes"
               value={notes}
               onChange={setNotes}
@@ -200,7 +205,7 @@ export function Watchlist(): React.ReactElement {
           </Button>
         </form>
         {formError !== null && (
-          <p role="alert" className="text-caption text-neg">
+          <p id={FORM_ERROR_ID} role="alert" className="text-caption text-neg">
             {formError}
           </p>
         )}

@@ -4,6 +4,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 
 import { Logo } from "../components/shell/logo";
+import { APP_NAME } from "../components/shell/pageTitle";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Switch } from "../components/ui/switch";
@@ -28,6 +29,8 @@ const DOT_CLASS: Record<(typeof FEATURES)[number]["variant"], string> = {
   warn: "bg-warn",
 };
 
+const LOGIN_ERROR_ID = "login-error";
+
 /**
  * Access key gate (Design.md §5 — 820px split: side-by-side marketing panel
  * + form above 820px, form only below, 50:50 split per
@@ -39,7 +42,7 @@ const DOT_CLASS: Record<(typeof FEATURES)[number]["variant"], string> = {
 export function Login(): React.ReactElement {
   const navigate = useNavigate();
   useEffect(() => {
-    document.title = "Log in · Drishti";
+    document.title = `Log in · ${APP_NAME}`;
   }, []);
 
   const [key, setKey] = useState("");
@@ -129,6 +132,7 @@ export function Login(): React.ReactElement {
               type="password"
               value={key}
               onChange={setKey}
+              externalErrorId={error !== null ? LOGIN_ERROR_ID : null}
               placeholder="••••••••••••"
               autoComplete="current-password"
               autoFocus
@@ -146,6 +150,7 @@ export function Login(): React.ReactElement {
 
             {error !== null && (
               <div
+                id={LOGIN_ERROR_ID}
                 role="alert"
                 className="flex items-center gap-2 rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg-soft animate-fade"
               >

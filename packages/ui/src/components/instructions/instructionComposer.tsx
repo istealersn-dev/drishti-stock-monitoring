@@ -51,7 +51,7 @@ export function InstructionComposer({
           onSubmit();
         }}
       >
-        <div className="flex items-stretch gap-2.5">
+        <div className="flex items-start gap-2.5">
           <div className="flex-1">
             <Input
               id="instruction-text"

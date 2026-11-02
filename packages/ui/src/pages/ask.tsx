@@ -166,11 +166,7 @@ export function Ask(): React.ReactElement {
         )}
       </div>
 
-      {askError !== null && (
-        <div className="rounded-lg border border-neg-ring bg-neg-tint px-3 py-2 text-body-sm text-neg-soft animate-fade">
-          {askError}
-        </div>
-      )}
+      {askError !== null && <ErrorNotice compact>{askError}</ErrorNotice>}
 
       <Composer
         value={question}

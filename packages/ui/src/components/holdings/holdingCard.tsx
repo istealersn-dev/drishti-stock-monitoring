@@ -101,7 +101,7 @@ export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElem
       </div>
 
       {saveError !== null && (
-        <p role="alert" className="text-caption text-neg">
+        <p id={errorId} role="alert" className="text-caption text-neg">
           {saveError}
         </p>
       )}

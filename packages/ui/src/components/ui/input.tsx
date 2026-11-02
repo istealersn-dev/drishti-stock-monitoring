@@ -16,6 +16,8 @@ type InputProperties = {
   autoFocus?: boolean;
   /** Validation message, linked to the field for assistive tech. */
   error?: string | null;
+  /** Id of an error rendered elsewhere, for forms with one shared message. */
+  externalErrorId?: string | null;
   className?: string;
 };
 
@@ -38,6 +40,7 @@ type InputProperties = {
  * @param props.autoComplete - native autocomplete hint (e.g. "current-password")
  * @param props.autoFocus - focus the field on mount
  * @param props.error - validation message shown under the field
+ * @param props.externalErrorId - id of a shared error shown outside the field
  * @param props.className - additional classes on the input element
  * @returns Labelled input element
  */
@@ -54,12 +57,13 @@ export function Input({
   autoComplete,
   autoFocus = false,
   error = null,
+  externalErrorId = null,
   className = "",
 }: InputProperties): React.ReactElement {
   const [revealed, setRevealed] = useState(false);
   const isPassword = type === "password";
   const fieldType = isPassword && revealed ? "text" : type;
-  const errorId = `${id}-error`;
+  const errorId = externalErrorId ?? (error !== null ? `${id}-error` : null);
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -77,8 +81,8 @@ export function Input({
           disabled={disabled}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
-          aria-invalid={error !== null}
-          aria-describedby={error !== null ? errorId : undefined}
+          aria-invalid={errorId !== null}
+          aria-describedby={errorId ?? undefined}
           onChange={(event): void => onChange(event.target.value)}
           className={`h-10 min-w-0 flex-1 bg-transparent px-3 text-body text-fg outline-none placeholder:text-fg-faint disabled:cursor-not-allowed disabled:text-fg-faint ${numeric ? "text-center font-mono tabular-nums" : ""}`}
         />
@@ -99,7 +103,7 @@ export function Input({
         )}
       </div>
       {error !== null && (
-        <p id={errorId} role="alert" className="text-caption text-neg">
+        <p id={`${id}-error`} role="alert" className="text-caption text-neg">
           {error}
         </p>
       )}
