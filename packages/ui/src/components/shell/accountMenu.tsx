@@ -4,7 +4,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { LogoutDialog } from "./logoutDialog";
-import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM } from "./navItems";
+import { MAIN_NAV_ITEMS, type NavItem, SETTINGS_NAV_ITEM } from "./navItems";
 
 // Single-broker app with no per-user identity (access-key auth), so the
 // account chip is a fixed label — matching the desktop footer's "admin".
@@ -65,27 +65,23 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
       setOpen(false);
       triggerReference.current?.focus();
     };
-    const onPointer = (event: MouseEvent): void => {
+    const onPointer = (event: PointerEvent): void => {
       if (!(event.target instanceof Node) || !containerReference.current?.contains(event.target)) {
         setOpen(false);
       }
     };
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("pointerdown", onPointer);
     return (): void => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("pointerdown", onPointer);
     };
   }, [open]);
 
   // Secondary routes (Agent Logs, Watchlist, Health) live here rather than in
   // the streamlined sidebar or tab bar, plus Settings — all sourced from the
   // shared nav metadata so a route can't silently fall off every surface.
-  const navToMenuItem = (route: {
-    label: string;
-    icon: typeof LogOut;
-    path: string;
-  }): AccountMenuItem => ({
+  const navToMenuItem = (route: NavItem): AccountMenuItem => ({
     label: route.label,
     icon: route.icon,
     onSelect: (): void => {
@@ -94,19 +90,19 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
     },
   });
 
-  const items: AccountMenuItem[] = [
+  const routeItems = [
     ...MAIN_NAV_ITEMS.filter((item) => item.secondary).map(navToMenuItem),
     navToMenuItem(SETTINGS_NAV_ITEM),
-    {
-      label: "Log out",
-      icon: LogOut,
-      danger: true,
-      onSelect: (): void => {
-        setOpen(false);
-        setLogoutOpen(true);
-      },
-    },
   ];
+  const logoutItem: AccountMenuItem = {
+    label: "Log out",
+    icon: LogOut,
+    danger: true,
+    onSelect: (): void => {
+      setOpen(false);
+      setLogoutOpen(true);
+    },
+  };
 
   return (
     <div
@@ -160,23 +156,24 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
             </div>
           </div>
           <div className="p-1.5">
-            {items
-              .filter((item) => !item.danger)
-              .map((item) => (
-                <MenuButton key={item.label} item={item} />
-              ))}
+            {routeItems.map((item) => (
+              <MenuButton key={item.label} item={item} />
+            ))}
           </div>
           <div className="border-t border-border p-1.5">
-            {items
-              .filter((item) => item.danger)
-              .map((item) => (
-                <MenuButton key={item.label} item={item} />
-              ))}
+            <MenuButton item={logoutItem} />
           </div>
         </div>
       )}
 
-      <LogoutDialog open={logoutOpen} onOpenChange={setLogoutOpen} />
+      <LogoutDialog
+        open={logoutOpen}
+        onOpenChange={setLogoutOpen}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          triggerReference.current?.focus();
+        }}
+      />
     </div>
   );
 }
