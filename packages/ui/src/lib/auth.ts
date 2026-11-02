@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 const STORAGE_KEY = "drishti:key";
@@ -41,14 +42,17 @@ export function isAuthenticated(): boolean {
 
 /**
  * Logout action behind `LogoutDialog`, the one confirmation every account menu
- * goes through, keeping the sequence — clear the key, redirect to /login — in
- * one place if it ever needs a third step.
+ * goes through, keeping the sequence — clear the key and cache, redirect to /login — in
+ * one place. Dropping the query cache keeps portfolio data out of memory once
+ * the session ends.
  * @returns a function that clears the stored key and navigates to /login
  */
 export function useLogout(): () => void {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   return (): void => {
     clearKey();
+    queryClient.clear();
     void navigate({ to: "/login" });
   };
 }

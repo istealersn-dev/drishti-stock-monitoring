@@ -5,6 +5,11 @@ import { clearKey, getStoredKey } from "./auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
+const ErrorBodySchema = z.object({
+  error: z.string().optional().catch(undefined),
+  code: z.string().optional().catch(undefined),
+});
+
 async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
   const key = getStoredKey();
   // Only set Content-Type when there's actually a body — Fastify's default JSON body
@@ -34,11 +39,10 @@ async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestIni
     let detail = "";
     let code: string | undefined;
     try {
-      const body: unknown = await response.json();
-      if (typeof body === "object" && body !== null) {
-        const record = body as Record<string, unknown>;
-        if (typeof record["error"] === "string") detail = `: ${record["error"]}`;
-        if (typeof record["code"] === "string") code = record["code"];
+      const body = ErrorBodySchema.safeParse(await response.json());
+      if (body.success) {
+        if (body.data.error !== undefined) detail = `: ${body.data.error}`;
+        code = body.data.code;
       }
     } catch {
       // non-JSON body (e.g. nginx 502 HTML) — detail/code stay empty
