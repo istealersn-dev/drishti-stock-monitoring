@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Outlet } from "@tanstack/react-router";
+import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import type React from "react";
 
@@ -9,6 +9,7 @@ import { fetchApprovals, fetchHoldings, fetchRuns, fetchSettings } from "../../l
 import { filterPendingApprovals } from "../../lib/approvals";
 import { formatInr } from "../../lib/format";
 import { sumHoldingsValue } from "../../lib/holdingFormat";
+import { pageTitle } from "../../lib/pageTitle";
 import { tokens } from "../../tokens/tokens";
 
 import { AppFooter } from "./appFooter";
@@ -43,6 +44,9 @@ export function AppShell(): React.ReactElement {
   // then it collapses on tablet widths (Drishti.dc.html: 578–1023).
   const [collapseOverride, setCollapseOverride] = useState<boolean | null>(null);
   const [spinning, setSpinning] = useState(false);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const mainReference = useRef<HTMLElement>(null);
+  const isFirstRoute = useRef(true);
   const spinTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDesktop = useIsDesktop();
   const isTablet = useMediaQuery(TABLET_QUERY);
@@ -82,6 +86,17 @@ export function AppShell(): React.ReactElement {
     };
   }, []);
 
+  // A client-side route change is silent to assistive tech, so name the page
+  // and move focus to its content, the way a full page load would.
+  useEffect(() => {
+    document.title = pageTitle(pathname);
+    if (isFirstRoute.current) {
+      isFirstRoute.current = false;
+      return;
+    }
+    mainReference.current?.focus({ preventScroll: true });
+  }, [pathname]);
+
   const dryRun = settings?.dryRun ?? false;
   const paused = settings?.pauseAgent ?? false;
   const pendingCount = filterPendingApprovals(approvals).length;
@@ -110,6 +125,16 @@ export function AppShell(): React.ReactElement {
   // the routed page on every breakpoint crossing, wiping its local state.
   return (
     <div className="flex h-dvh flex-col bg-bg-base">
+      <a
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault();
+          mainReference.current?.focus();
+        }}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-toast focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2 focus:text-body-sm focus:text-fg"
+      >
+        Skip to content
+      </a>
       {!isDesktop && (
         <AppHeaderMobile
           dryRun={dryRun}
@@ -137,14 +162,17 @@ export function AppShell(): React.ReactElement {
         <div className="flex min-w-0 flex-1 flex-col">
           {isDesktop && <AppTopHeader />}
           <main
+            id="main-content"
+            ref={mainReference}
+            tabIndex={-1}
             className={
               isDesktop
                 ? // Padding tightens to 16px on tablet, 20px laptop+. Past 1440px
                   // the side padding grows to cap the content, so the scroller
                   // stays full width: its scrollbar sits at the window edge and
                   // the gutters still scroll.
-                  "min-w-0 w-full flex-1 overflow-y-auto p-4 lap:px-[max(1.25rem,calc((100%-90rem)/2))] lap:py-5"
-                : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom"
+                  "min-w-0 w-full flex-1 overflow-y-auto p-4 outline-none lap:px-[max(1.25rem,calc((100%-90rem)/2))] lap:py-5"
+                : "min-h-0 flex-1 overflow-y-auto p-4 pb-mobile-main-bottom outline-none"
             }
           >
             <Outlet />

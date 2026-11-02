@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, Lock } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Logo } from "../components/shell/logo";
 import { Button } from "../components/ui/button";
@@ -38,6 +38,10 @@ const DOT_CLASS: Record<(typeof FEATURES)[number]["variant"], string> = {
  */
 export function Login(): React.ReactElement {
   const navigate = useNavigate();
+  useEffect(() => {
+    document.title = "Log in · Drishti";
+  }, []);
+
   const [key, setKey] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,10 +106,10 @@ export function Login(): React.ReactElement {
           </div>
           <div className="mb-4 h-px bg-border-strong" />
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="font-mono text-caption text-fg-ghost">
+            <span className="font-mono text-caption text-fg-faint">
               © 2026 Drishti दृष्टि · All rights reserved
             </span>
-            <span className="text-caption text-fg-ghost">Private deployment · single operator</span>
+            <span className="text-caption text-fg-faint">Private deployment · single operator</span>
           </div>
         </div>
       </div>
@@ -141,7 +145,10 @@ export function Login(): React.ReactElement {
             </div>
 
             {error !== null && (
-              <div className="flex items-center gap-2 rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg animate-fade">
+              <div
+                role="alert"
+                className="flex items-center gap-2 rounded-lg border border-neg-ring bg-neg-tint p-3 text-body-sm text-neg-soft animate-fade"
+              >
                 <AlertCircle aria-hidden="true" className="h-4 w-4 flex-none" />
                 {error}
               </div>
