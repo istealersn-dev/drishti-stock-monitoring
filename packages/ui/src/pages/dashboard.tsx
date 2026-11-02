@@ -14,9 +14,10 @@ import { Spinner } from "../components/ui/spinner";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
 import { filterPendingApprovals } from "../lib/approvals";
-import { PLACEHOLDER, formatInr, formatSignedInr, timeOfDayGreeting } from "../lib/format";
+import { PLACEHOLDER, formatInr, formatSignedInr } from "../lib/format";
 import { sumHoldingsValue } from "../lib/holdingFormat";
 import { buildSlMap } from "../lib/holdingStatus";
+import { timeOfDayGreeting } from "../lib/timeOfDayGreeting";
 
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
@@ -55,7 +56,9 @@ export function Dashboard(): React.ReactElement {
     queryFn: fetchApprovals,
   });
 
-  const holdings = holdingData?.holdings ?? [];
+  // Closed-out rows linger in the feed with no real exposure, so nothing here
+  // counts them.
+  const holdings = (holdingData?.holdings ?? []).filter((holding) => holding.quantity > 0);
   const isLoading = holdingsLoading || gttLoading;
   const isError = holdingsError || gttError;
 
@@ -108,9 +111,11 @@ export function Dashboard(): React.ReactElement {
 
       <MarketIndexCards />
 
-      {approvalsError && approvals.length === 0 && (
+      {approvalsError && (
         <div className="rounded-xl border border-neg-ring bg-neg-tint px-4 py-3 text-body-sm text-neg">
-          Couldn&apos;t check for pending approvals.{" "}
+          {approvals.length === 0
+            ? "Couldn't check for pending approvals. "
+            : "Couldn't refresh approvals, so this count may be out of date. "}
           <Link to="/instructions" className="underline">
             Open Approvals
           </Link>

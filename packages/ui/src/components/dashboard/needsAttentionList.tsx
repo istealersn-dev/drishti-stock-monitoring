@@ -40,9 +40,7 @@ export function NeedsAttentionList({
         HOLDING_SEVERITY_RANK[a.status.variant] - HOLDING_SEVERITY_RANK[b.status.variant] ||
         a.distanceToSl - b.distanceToSl,
     );
-  const noStopLossCount = holdings.filter(
-    (holding) => holding.quantity > 0 && !slMap.has(holding.trading_symbol),
-  ).length;
+  const noStopLossCount = holdings.filter((holding) => !slMap.has(holding.trading_symbol)).length;
 
   return (
     <section className="flex flex-col gap-2.5">
@@ -66,11 +64,7 @@ export function NeedsAttentionList({
             <p className="text-body-sm font-medium text-fg">
               {noStopLossCount > 0 ? "None near a stop-loss" : "All positions safe"}
             </p>
-            <p className="text-caption text-fg-muted">
-              {noStopLossCount > 0
-                ? `${noStopLossCount} of ${holdings.length} have no active stop-loss GTT.`
-                : "No holdings near their stop-loss."}
-            </p>
+            <p className="text-caption text-fg-muted">No holdings near their stop-loss.</p>
           </div>
         </div>
       ) : (
@@ -88,6 +82,11 @@ export function NeedsAttentionList({
             />
           ))}
         </div>
+      )}
+      {noStopLossCount > 0 && (
+        <p className="text-caption text-warn">
+          {noStopLossCount} of {holdings.length} have no active stop-loss GTT.
+        </p>
       )}
     </section>
   );

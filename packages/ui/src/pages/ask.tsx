@@ -12,7 +12,7 @@ import { Breadcrumb } from "../components/ui/breadcrumb";
 import { Button } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
 import { askAdvisor, fetchAdvisoryConversations } from "../lib/api";
-import { timeOfDayGreeting } from "../lib/format";
+import { timeOfDayGreeting } from "../lib/timeOfDayGreeting";
 
 type View = "hero" | "conversation";
 

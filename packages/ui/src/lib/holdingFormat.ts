@@ -23,28 +23,30 @@ export function sumHoldingsValue(holdings: Holding[]): number {
   return holdings.reduce((sum, h) => sum + h.quantity * h.last_price, 0);
 }
 
+function percentOfCost(pnl: number, cost: number): number {
+  return cost > 0 ? (pnl / cost) * 100 : 0;
+}
+
 /**
  * A holding's unrealised P&L as a percentage of cost, guarding a zero cost.
  * @param holding - the holding
  * @returns P&L percent, or 0 when there's no cost basis
  */
 export function pnlPercentage(holding: Holding): number {
-  const cost = holding.quantity * holding.average_price;
-  return cost > 0 ? (holding.pnl / cost) * 100 : 0;
+  return percentOfCost(holding.pnl, holding.quantity * holding.average_price);
 }
 
 /**
  * How far a holding's LTP sits above its stop-loss, as a percentage of the SL.
  * @param holding - the holding
  * @param sl - the stop-loss trigger, if one is set
- * @returns the distance percent, or undefined with no usable stop-loss or a
- *   closed-out holding, whose last price no longer means anything
+ * @returns the distance percent, or undefined with no usable stop-loss
  */
 export function distanceToSlPercentage(
   holding: Holding,
   sl: number | undefined,
 ): number | undefined {
-  return sl && holding.quantity > 0 ? ((holding.last_price - sl) / sl) * 100 : undefined;
+  return sl ? ((holding.last_price - sl) / sl) * 100 : undefined;
 }
 
 /**
@@ -55,7 +57,7 @@ export function distanceToSlPercentage(
  * @returns formatted P&L string
  */
 export function formatPnl(pnl: number, cost: number): string {
-  const percentage = cost > 0 ? (pnl / cost) * 100 : 0;
+  const percentage = percentOfCost(pnl, cost);
   const sign = pnl >= 0 ? "+" : "−";
   const absoluteAmount = Math.abs(pnl).toLocaleString("en-IN", { maximumFractionDigits: 0 });
   return `${sign}₹${absoluteAmount} (${percentage >= 0 ? "+" : ""}${percentage.toFixed(1)}%)`;

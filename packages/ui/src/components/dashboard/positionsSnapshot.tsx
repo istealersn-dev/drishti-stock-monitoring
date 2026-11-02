@@ -53,22 +53,28 @@ type PositionsSnapshotProperties = {
  * @param props.holding - The holding to render
  * @param props.status - Precomputed SL status for the holding
  * @param props.sl - Stop-loss threshold, or undefined when none is set
+ * @param props.pct - P&L as a percentage of cost
+ * @param props.distanceToSl - Percent above the stop-loss, if one is set
  * @returns Position row element
  */
 function PositionRow({
   holding,
   status,
   sl,
+  pct,
+  distanceToSl,
 }: {
   holding: Holding;
   status: HoldingStatus;
   sl: number | undefined;
+  pct: number;
+  distanceToSl: number | undefined;
 }): React.ReactElement {
   const [expanded, setExpanded] = useState(false);
   const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
   const ltpColor = holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
-  const pct = pnlPercentage(holding);
-  const distanceToSl = distanceToSlPercentage(holding, sl);
+  // Green "Safe" would overstate a holding nothing is protecting.
+  const statusLabel = sl === undefined ? "No SL" : status.label;
   const rowLabel = [
     holding.trading_symbol,
     `quantity ${holding.quantity}`,
@@ -76,7 +82,7 @@ function PositionRow({
     `last price ${formatPrice(holding.last_price)}`,
     `P&L ${pct.toFixed(2)}%`,
     `stop-loss ${sl !== undefined ? formatPrice(sl) : "not set"}`,
-    status.label,
+    statusLabel,
   ].join(", ");
 
   return (
@@ -121,13 +127,15 @@ function PositionRow({
         <span
           className={`${STATUS_CELL} flex items-center justify-end gap-1.5 bg-surface group-hover:bg-surface-hover`}
         >
-          <StatusDot variant={status.variant} label={status.label} pulse={false} />
-          <span className="text-caption text-fg-muted">{status.label}</span>
+          {sl !== undefined && (
+            <StatusDot variant={status.variant} label={status.label} pulse={false} />
+          )}
+          <span className="text-caption text-fg-muted">{statusLabel}</span>
         </span>
       </button>
 
       {expanded && (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 bg-surface-2 px-9 py-3.5 nav:grid-cols-5">
+        <dl className="sticky left-0 grid max-w-[calc(100vw-7rem)] grid-cols-2 gap-x-6 gap-y-2.5 bg-surface-2 px-9 py-3.5 lap:max-w-none lap:grid-cols-5">
           <Detail term="SL threshold" value={formatPriceOrDash(sl ?? null)} />
           <Detail term="Target price" value={PLACEHOLDER} />
           <Detail
@@ -180,19 +188,23 @@ export function PositionsSnapshot({
       sl,
       severity: HOLDING_SEVERITY_RANK[status.variant],
       pnlPct: pnlPercentage(holding),
-      distanceToSl: distanceToSlPercentage(holding, sl) ?? Number.POSITIVE_INFINITY,
+      distanceToSl: distanceToSlPercentage(holding, sl),
     };
   });
   const atRiskCount = positions.filter(({ status }) => status.variant !== "pos").length;
-  const noStopLossCount = positions.filter(
-    ({ holding, sl }) => sl === undefined && holding.quantity > 0,
-  ).length;
+  const noStopLossCount = positions.filter(({ sl }) => sl === undefined).length;
   // Severity always wins, with the P&L sort or distance to SL inside it, and
   // every at-risk row shows regardless of the limit: Needs attention is
   // mobile-only, so this is desktop's only list of them.
   const sorted = [...positions].sort((a, b) => {
     if (a.severity !== b.severity) return a.severity - b.severity;
-    if (sortDirection === "none") return a.distanceToSl - b.distanceToSl;
+    // Unset distances lead the safe rows: an unprotected holding shouldn't
+    // fall below the cut behind ones with a stop-loss.
+    if (sortDirection === "none") {
+      return (
+        (a.distanceToSl ?? Number.NEGATIVE_INFINITY) - (b.distanceToSl ?? Number.NEGATIVE_INFINITY)
+      );
+    }
     return sortDirection === "desc" ? b.pnlPct - a.pnlPct : a.pnlPct - b.pnlPct;
   });
   const rows = sorted.slice(0, Math.max(DEFAULT_ROW_LIMIT, atRiskCount));
@@ -243,12 +255,14 @@ export function PositionsSnapshot({
               <span className="text-right">SL</span>
               <span className={`${STATUS_CELL} bg-surface-2 text-right`}>Status</span>
             </div>
-            {rows.map(({ holding, status, sl }) => (
+            {rows.map(({ holding, status, sl, pnlPct, distanceToSl }) => (
               <PositionRow
                 key={`${holding.isin}-${holding.product}`}
                 holding={holding}
                 status={status}
                 sl={sl}
+                pct={pnlPct}
+                distanceToSl={distanceToSl}
               />
             ))}
           </div>

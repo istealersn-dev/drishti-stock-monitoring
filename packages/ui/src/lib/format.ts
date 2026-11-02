@@ -53,17 +53,6 @@ export function formatLogTime(iso: string): string {
 }
 
 /**
- * Local-time greeting matching Drishti.dc.html's `greeting` state.
- * @returns "Good morning.", "Good afternoon." or "Good evening."
- */
-export function timeOfDayGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning.";
-  if (hour < 17) return "Good afternoon.";
-  return "Good evening.";
-}
-
-/**
  * Formats a rupee amount with an explicit sign, e.g. "+₹4.2L" or "−₹32,160".
  * @param amount - the rupee amount
  * @returns signed, abbreviated rupee string

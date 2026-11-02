@@ -21,6 +21,8 @@ type OpenOrdersCardProperties = {
  * @returns Open orders card
  */
 export function OpenOrdersCard({ orders }: OpenOrdersCardProperties): React.ReactElement {
+  const newestFirst = [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
   return (
     <Card className="flex flex-col gap-0 overflow-hidden !p-0">
       <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
@@ -37,7 +39,7 @@ export function OpenOrdersCard({ orders }: OpenOrdersCardProperties): React.Reac
         <p className="py-8 text-center text-caption text-fg-faint">No open orders</p>
       ) : (
         <ul>
-          {orders.slice(0, VISIBLE_ORDER_LIMIT).map((order) => (
+          {newestFirst.slice(0, VISIBLE_ORDER_LIMIT).map((order) => (
             <li
               key={order.id}
               className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5 last:border-b-0"
