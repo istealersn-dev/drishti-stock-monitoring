@@ -63,11 +63,11 @@ describe("rankPositions", () => {
 
   it("never cuts an at-risk or no-GTT row", () => {
     const breaches = Array.from({ length: 4 }, (_, index) => holding(`B${index}`, 90));
-    const noGtt = Array.from({ length: 3 }, (_, index) => holding(`N${index}`, 200));
+    const noSl = Array.from({ length: 3 }, (_, index) => holding(`N${index}`, 200));
     const slMap = sl(...breaches.map((h): [string, number] => [h.trading_symbol, 100]));
-    const ranking = rankPositions([...breaches, ...noGtt], slMap, "none");
+    const ranking = rankPositions([...breaches, ...noSl], slMap, "none");
     expect(ranking.rows).toHaveLength(7);
     expect(ranking.atRiskCount).toBe(4);
-    expect(ranking.noGttCount).toBe(3);
+    expect(ranking.noSlCount).toBe(3);
   });
 });

@@ -14,11 +14,11 @@ import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { useIsDesktop } from "../hooks/useIsDesktop";
-import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
+import { fetchApprovals, fetchGttOrders, fetchHoldingConfigs, fetchHoldings } from "../lib/api";
 import { filterPendingApprovals } from "../lib/approvals";
 import { PLACEHOLDER, formatInr, formatSignedInr } from "../lib/format";
 import { percentOfCost, sumHoldingsValue } from "../lib/holdingFormat";
-import { buildSlMap } from "../lib/holdingStatus";
+import { buildSlMap, buildTargetMap } from "../lib/holdingStatus";
 import { timeOfDayGreeting } from "../lib/timeOfDayGreeting";
 
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
@@ -54,6 +54,15 @@ export function Dashboard(): React.ReactElement {
     queryFn: () => fetchGttOrders("active"),
   });
 
+  const {
+    data: holdingConfigs = [],
+    isLoading: configLoading,
+    isError: configError,
+  } = useQuery({
+    queryKey: ["holding-config"],
+    queryFn: fetchHoldingConfigs,
+  });
+
   const { data: approvals = [], isError: approvalsError } = useQuery({
     queryKey: ["approvals"],
     queryFn: fetchApprovals,
@@ -61,7 +70,7 @@ export function Dashboard(): React.ReactElement {
 
   const holdings = holdingData?.holdings ?? [];
   const gttOrders = gttData ?? [];
-  const isLoading = holdingsLoading || gttLoading;
+  const isLoading = holdingsLoading || gttLoading || configLoading;
   const isError = holdingsError || gttError;
 
   const totalValue = sumHoldingsValue(holdings);
@@ -73,7 +82,7 @@ export function Dashboard(): React.ReactElement {
     .filter((h) => h.product === "MTF")
     .reduce((sum, h) => sum + h.quantity * h.average_price, 0);
   const mtfBurnPerDay = (mtfValue * MTF_ANNUAL_INTEREST_RATE) / DAYS_IN_YEAR;
-  const slMap = buildSlMap(gttOrders);
+  const slMap = buildSlMap(gttOrders, holdingConfigs);
   const pendingApprovals = filterPendingApprovals(approvals).length;
 
   // Approvals have a timeout, so these stay up even if portfolio data fails.
@@ -161,6 +170,12 @@ export function Dashboard(): React.ReactElement {
         </ErrorNotice>
       )}
 
+      {configError && (
+        <ErrorNotice compact>
+          Couldn&apos;t load stop-losses, so Watch, Breach and No SL may be wrong.
+        </ErrorNotice>
+      )}
+
       <div className="grid grid-cols-2 gap-3.5 lap:grid-cols-4">
         <StatCard
           label={isDesktop ? "Total portfolio value" : "Portfolio value"}
@@ -214,7 +229,11 @@ export function Dashboard(): React.ReactElement {
       {/* Desktop's table leads with every at-risk holding, so it sits above the
           trend; mobile gets the at-risk list and leaves the rest to Holdings. */}
       {hasTableRoom ? (
-        <PositionsSnapshot holdings={holdings} slMap={slMap} />
+        <PositionsSnapshot
+          holdings={holdings}
+          slMap={slMap}
+          targetMap={buildTargetMap(holdingConfigs)}
+        />
       ) : (
         <NeedsAttentionList holdings={holdings} slMap={slMap} />
       )}

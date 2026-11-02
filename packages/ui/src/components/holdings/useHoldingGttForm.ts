@@ -44,6 +44,7 @@ export function useHoldingGttForm(symbol: string): HoldingGttForm {
     }) => updateHoldingConfig(symbol, patch),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["gtt"] });
+      void queryClient.invalidateQueries({ queryKey: ["holding-config"] });
       setSaveError(null);
       setSl("");
       setTarget("");

@@ -17,18 +17,18 @@ export type RankedPosition = {
 type PositionRanking = {
   rows: RankedPosition[];
   atRiskCount: number;
-  noGttCount: number;
+  noSlCount: number;
 };
 
 /**
  * Orders holdings for the dashboard snapshot. Severity always wins, with the
  * P&L sort or distance to SL inside it, and every at-risk row, plus every row
- * with no GTT to judge by, shows regardless of the row limit: this is desktop's
+ * with no stop-loss to judge by, shows regardless of the row limit: this is desktop's
  * only list of them.
  * @param holdings - current holdings
- * @param slMap - symbol -> stop-loss trigger
+ * @param slMap - symbol -> stop-loss price
  * @param sortDirection - the P&L % sort
- * @returns the rows to show, with at-risk and no-GTT counts
+ * @returns the rows to show, with at-risk and no-SL counts
  */
 export function rankPositions(
   holdings: Holding[],
@@ -48,7 +48,7 @@ export function rankPositions(
   const atRiskCount = positions.filter(
     ({ status }) => status.variant === "neg" || status.variant === "warn",
   ).length;
-  const noGttCount = positions.filter(({ status }) => status.variant === "none").length;
+  const noSlCount = positions.filter(({ status }) => status.variant === "none").length;
 
   const sorted = [...positions].sort((a, b) => {
     const bySeverity =
@@ -59,8 +59,8 @@ export function rankPositions(
   });
 
   return {
-    rows: sorted.slice(0, Math.max(DEFAULT_ROW_LIMIT, atRiskCount + noGttCount)),
+    rows: sorted.slice(0, Math.max(DEFAULT_ROW_LIMIT, atRiskCount + noSlCount)),
     atRiskCount,
-    noGttCount,
+    noSlCount,
   };
 }

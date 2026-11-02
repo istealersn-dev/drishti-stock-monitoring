@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { GttOrder, Holding } from "./api";
-import { buildSlMap, resolveHoldingStatus } from "./holdingStatus";
+import type { GttOrder, Holding, HoldingConfig } from "./api";
+import { buildSlMap, buildTargetMap, resolveHoldingStatus } from "./holdingStatus";
 
 const holding = (overrides: Partial<Holding> = {}): Holding => ({
   isin: "INE000",
@@ -49,8 +49,8 @@ describe("resolveHoldingStatus", () => {
     expect(resolveHoldingStatus(holding({ last_price: 106 }), slMap).label).toBe("Safe");
   });
 
-  it("says No GTT rather than Safe when there's nothing to judge by", () => {
-    expect(resolveHoldingStatus(holding(), new Map()).label).toBe("No GTT");
+  it("says No SL rather than Safe when there's nothing to judge by", () => {
+    expect(resolveHoldingStatus(holding(), new Map()).label).toBe("No SL");
   });
 
   it("treats a closed-out holding as safe even below its stop-loss", () => {
@@ -58,13 +58,44 @@ describe("resolveHoldingStatus", () => {
   });
 });
 
+const config = (overrides: Partial<HoldingConfig> = {}): HoldingConfig => ({
+  symbol: "INFY",
+  slThreshold: 90,
+  targetOne: null,
+  targetTwo: null,
+  targetTwoOpen: false,
+  ...overrides,
+});
+
 describe("buildSlMap", () => {
   it("indexes sl_exit orders only", () => {
-    const map = buildSlMap([order(), order({ symbol: "TCS", type: "buy_entry" })]);
+    const map = buildSlMap([order(), order({ symbol: "TCS", type: "buy_entry" })], []);
     expect([...map.keys()]).toEqual(["INFY"]);
   });
 
   it("ignores a malformed zero trigger", () => {
-    expect(buildSlMap([order({ triggerPrice: 0 })]).size).toBe(0);
+    expect(buildSlMap([order({ triggerPrice: 0 })], []).size).toBe(0);
+  });
+
+  it("uses the stock_config threshold for a holding with no GTT", () => {
+    expect(buildSlMap([], [config()]).get("INFY")).toBe(90);
+  });
+
+  it("prefers stock_config over a GTT, since that's what the agent checks", () => {
+    expect(buildSlMap([order()], [config()]).get("INFY")).toBe(90);
+  });
+
+  it("keeps a GTT's trigger for a holding with no config", () => {
+    expect(buildSlMap([order()], [config({ symbol: "TCS" })]).has("INFY")).toBe(true);
+  });
+});
+
+describe("buildTargetMap", () => {
+  it("indexes first targets and skips holdings without one", () => {
+    const map = buildTargetMap([
+      config({ targetOne: 120 }),
+      config({ symbol: "TCS", targetOne: null }),
+    ]);
+    expect([...map]).toEqual([["INFY", 120]]);
   });
 });

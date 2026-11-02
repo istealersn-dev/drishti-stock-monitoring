@@ -40,7 +40,7 @@ export function NeedsAttentionList({
         HOLDING_SEVERITY_RANK[a.status.variant] - HOLDING_SEVERITY_RANK[b.status.variant] ||
         a.distanceToSl - b.distanceToSl,
     );
-  const noGttCount = holdings.filter(
+  const noSlCount = holdings.filter(
     (holding) => resolveHoldingStatus(holding, slMap).variant === "none",
   ).length;
 
@@ -58,17 +58,17 @@ export function NeedsAttentionList({
       ) : atRisk.length === 0 ? (
         <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">
           <StatusDot
-            variant={noGttCount > 0 ? "warn" : "pos"}
-            label={noGttCount > 0 ? "No active GTT near its trigger" : "All positions safe"}
+            variant={noSlCount > 0 ? "warn" : "pos"}
+            label={noSlCount > 0 ? "Some holdings have no stop-loss" : "All positions safe"}
             pulse={false}
           />
           <div>
             <p className="text-body-sm font-medium text-fg">
-              {noGttCount > 0 ? "No active GTT near its trigger" : "All positions safe"}
+              {noSlCount > 0 ? "Some holdings have no stop-loss" : "All positions safe"}
             </p>
             <p className="text-caption text-fg-muted">
-              {noGttCount > 0
-                ? "Holdings without one aren't checked here."
+              {noSlCount > 0
+                ? "The agent won't exit those. Set one in Holdings."
                 : "No holdings near their stop-loss."}
             </p>
           </div>
@@ -89,9 +89,9 @@ export function NeedsAttentionList({
           ))}
         </div>
       )}
-      {noGttCount > 0 && (
+      {noSlCount > 0 && (
         <p className="text-caption text-warn">
-          {noGttCount} of {holdings.length} have no active GTT to check.
+          {noSlCount} of {holdings.length} have no stop-loss.
         </p>
       )}
     </section>

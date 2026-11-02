@@ -10,7 +10,7 @@ import { PageHeader } from "../components/shell/pageHeader";
 import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { useHasTableRoom } from "../hooks/useHasTableRoom";
-import { type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
+import { type Holding, fetchGttOrders, fetchHoldingConfigs, fetchHoldings } from "../lib/api";
 import { buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 import type { ProductFilter } from "../lib/routeSearch";
 
@@ -62,8 +62,13 @@ export function Holdings(): React.ReactElement {
     queryFn: () => fetchGttOrders("active"),
   });
 
+  const { data: holdingConfigs = [], isError: configError } = useQuery({
+    queryKey: ["holding-config"],
+    queryFn: fetchHoldingConfigs,
+  });
+
   const holdings = data?.holdings ?? [];
-  const slMap = buildSlMap(gttOrders);
+  const slMap = buildSlMap(gttOrders, holdingConfigs);
   const visible = applyFilter(holdings, filter, search, slMap);
 
   if (isLoading) {
@@ -85,9 +90,9 @@ export function Holdings(): React.ReactElement {
         title="Holdings"
         subtitle="All positions, with inline stop-loss and target editing."
       />
-      {gttError && (
+      {(gttError || configError) && (
         <p role="alert" className="text-caption text-neg">
-          Couldn&apos;t load GTTs, so Breach and Watch may be missing holdings.
+          Couldn&apos;t load stop-losses, so Breach and Watch may be missing holdings.
         </p>
       )}
       <HoldingFilters

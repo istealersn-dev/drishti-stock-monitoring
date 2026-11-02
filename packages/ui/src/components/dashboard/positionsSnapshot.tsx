@@ -37,9 +37,16 @@ const ARIA_SORT: Record<SortDirection, "none" | "ascending" | "descending"> = {
  * row is a click target for mouse users; the symbol button is the keyboard and
  * screen-reader control.
  * @param props.position - The ranked position to render
+ * @param props.target - The holding's first target, where one is set
  * @returns Position rows
  */
-function PositionRow({ position }: { position: RankedPosition }): React.ReactElement {
+function PositionRow({
+  position,
+  target,
+}: {
+  position: RankedPosition;
+  target: number | undefined;
+}): React.ReactElement {
   const { holding, status, sl, pnlPct, distanceToSl } = position;
   const [expanded, setExpanded] = useState(false);
   const pnlColor = holding.pnl >= 0 ? "!text-pos" : "!text-neg";
@@ -109,7 +116,7 @@ function PositionRow({ position }: { position: RankedPosition }): React.ReactEle
             {/* Pinned to the visible width: the row scrolls sideways when narrow. */}
             <dl className="sticky left-0 grid w-[100cqw] grid-cols-2 gap-x-6 gap-y-2.5 px-9 py-3.5 @3xl:grid-cols-5">
               <Detail term="SL threshold" value={formatPriceOrDash(sl ?? null)} />
-              <Detail term="Target price" value={PLACEHOLDER} />
+              <Detail term="Target price" value={formatPriceOrDash(target ?? null)} />
               <Detail
                 term="Distance to SL"
                 value={distanceToSl !== undefined ? `${distanceToSl.toFixed(1)}%` : PLACEHOLDER}
@@ -142,6 +149,7 @@ function Detail({ term, value }: { term: string; value: string }): React.ReactEl
 type PositionsSnapshotProperties = {
   holdings: Holding[];
   slMap: Map<string, number>;
+  targetMap: Map<string, number>;
 };
 
 /**
@@ -151,14 +159,16 @@ type PositionsSnapshotProperties = {
  * the sort. Sector and target are placeholders until their data sources exist.
  * @param props.holdings - Current holdings
  * @param props.slMap - Symbol -> stop-loss threshold, for status + SL columns
+ * @param props.targetMap - Symbol -> first target, for the expanded detail
  * @returns Positions snapshot card
  */
 export function PositionsSnapshot({
   holdings,
   slMap,
+  targetMap,
 }: PositionsSnapshotProperties): React.ReactElement {
   const [sortDirection, setSortDirection] = useState<SortDirection>("none");
-  const { rows, atRiskCount, noGttCount } = rankPositions(holdings, slMap, sortDirection);
+  const { rows, atRiskCount, noSlCount } = rankPositions(holdings, slMap, sortDirection);
 
   return (
     <Card className="flex flex-col gap-0 overflow-hidden !p-0">
@@ -166,7 +176,7 @@ export function PositionsSnapshot({
         <div className="flex items-center gap-2">
           <h2 className="text-body-sm font-semibold text-fg">Positions snapshot</h2>
           {atRiskCount > 0 && <Badge variant="warn">{atRiskCount} at risk</Badge>}
-          {noGttCount > 0 && <Badge variant="neutral">{noGttCount} no GTT</Badge>}
+          {noSlCount > 0 && <Badge variant="neutral">{noSlCount} no SL</Badge>}
         </div>
         <Link
           to="/holdings"
@@ -213,6 +223,7 @@ export function PositionsSnapshot({
             {rows.map((position) => (
               <PositionRow
                 key={`${position.holding.isin}-${position.holding.product}`}
+                target={targetMap.get(position.holding.trading_symbol)}
                 position={position}
               />
             ))}

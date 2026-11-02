@@ -100,6 +100,15 @@ export const HoldingSchema = z.object({
 });
 export type Holding = z.infer<typeof HoldingSchema>;
 
+export const HoldingConfigSchema = z.object({
+  symbol: z.string(),
+  slThreshold: z.number(),
+  targetOne: z.number().nullable(),
+  targetTwo: z.number().nullable(),
+  targetTwoOpen: z.boolean().nullable(),
+});
+export type HoldingConfig = z.infer<typeof HoldingConfigSchema>;
+
 export const GttOrderSchema = z.object({
   id: z.string(),
   symbol: z.string(),
@@ -195,6 +204,18 @@ export async function fetchRuns(): Promise<AgentRun[]> {
 export async function fetchHoldings(): Promise<{ holdings: Holding[]; cachedAt: string | null }> {
   const response = await apiFetch("/api/holdings", HoldingsResponseSchema);
   return { holdings: response.data, cachedAt: response.cachedAt };
+}
+
+/**
+ * Fetch the active stop-loss and target config for each holding.
+ * @returns Config rows from stock_config
+ */
+export async function fetchHoldingConfigs(): Promise<HoldingConfig[]> {
+  const response = await apiFetch(
+    "/api/holdings/config",
+    z.object({ ok: z.boolean(), data: z.array(HoldingConfigSchema) }),
+  );
+  return response.data;
 }
 
 /**
