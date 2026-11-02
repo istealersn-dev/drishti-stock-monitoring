@@ -23,7 +23,7 @@ type TableHeadProperties = {
 };
 
 function TableHead({ children }: TableHeadProperties): React.ReactElement {
-  return <thead>{children}</thead>;
+  return <thead className="border-b border-border">{children}</thead>;
 }
 
 type TableBodyProperties = {

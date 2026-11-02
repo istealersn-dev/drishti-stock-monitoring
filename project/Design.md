@@ -28,8 +28,6 @@ All colors are dark-theme. Names map 1:1 to Tailwind `@theme` custom properties 
 | `bg-chrome` | `#0d0d0c` | Sidebar, top header, footer |
 | `surface` | `#161513` | Cards, panels |
 | `surface-2` | `#131210` | Inset fields, sub-cards, chips |
-| `surface-3` | `#121110` | Suggestion tiles, list rows |
-| `surface-input` | `#151412` | Icon buttons, inputs |
 | `surface-hover` | `#1b1a17` | Nav / row hover |
 
 ### Borders
@@ -47,8 +45,8 @@ All colors are dark-theme. Names map 1:1 to Tailwind `@theme` custom properties 
 | `fg-soft` | `#e6e2d8` | Data values |
 | `fg-muted` | `#9a9a9a` | Secondary labels |
 | `fg-dim` | `#8f8d86` / `#8a8a8a` | Tertiary / helper |
-| `fg-faint` | `#6a6a6a` | Timestamps, disclaimers |
-| `fg-ghost` | `#4a463e` | Breadcrumb chevrons, disabled |
+| `fg-faint` | `#858585` | Timestamps, disclaimers (lightest that keeps 4.5:1 on `surface-hover`) |
+| `fg-ghost` | `#4a463e` | Decorative icons only (fails AA as text) |
 
 ### Brand (gold)
 | Token | Hex | Use |

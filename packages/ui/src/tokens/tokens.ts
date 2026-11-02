@@ -13,6 +13,8 @@ export const tokens = {
     surface: "#161513",
     surface2: "#131210",
     surfaceHover: "#1b1a17",
+    scrollbar: "#2f2f2f",
+    scrim: "rgb(10 10 10 / 0.7)",
     border: "#242320",
     borderStrong: "#2b2925",
     borderMuted: "#2a2825",
