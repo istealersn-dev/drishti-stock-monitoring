@@ -156,7 +156,7 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 overflow-hidden rounded-3xl border border-border-strong bg-surface-input shadow-card">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-[calc(100dvh-4rem)] w-60 overflow-y-auto rounded-3xl border border-border-strong bg-surface-input shadow-card">
           <div className="flex items-center gap-2.5 border-b border-border px-4 py-3.5">
             <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-[image:var(--gradient-gold)] font-mono text-subtitle font-bold text-bg-base">
               {ACCOUNT.initial}
