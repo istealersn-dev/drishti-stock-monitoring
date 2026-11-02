@@ -3,11 +3,16 @@ import type React from "react";
 type TableRootProperties = {
   children: React.ReactNode;
   className?: string;
+  wrapperClassName?: string;
 };
 
-function TableRoot({ children, className = "" }: TableRootProperties): React.ReactElement {
+function TableRoot({
+  children,
+  className = "",
+  wrapperClassName = "",
+}: TableRootProperties): React.ReactElement {
   return (
-    <div className="w-full overflow-x-auto">
+    <div className={`w-full overflow-x-auto ${wrapperClassName}`}>
       <table className={`w-full border-collapse text-body-sm ${className}`}>{children}</table>
     </div>
   );
@@ -32,11 +37,13 @@ function TableBody({ children }: TableBodyProperties): React.ReactElement {
 type TableRowProperties = {
   children: React.ReactNode;
   className?: string;
+  onClick?: () => void;
 };
 
-function TableRow({ children, className = "" }: TableRowProperties): React.ReactElement {
+function TableRow({ children, className = "", onClick }: TableRowProperties): React.ReactElement {
   return (
     <tr
+      onClick={onClick}
       className={`border-b border-border transition-colors last:border-0 hover:bg-surface-hover ${className}`}
     >
       {children}
@@ -56,16 +63,19 @@ type TableHeaderCellProperties = {
   children: React.ReactNode;
   align?: Alignment;
   className?: string;
+  ariaSort?: "none" | "ascending" | "descending";
 };
 
 function TableHeaderCell({
   children,
   align = "left",
   className = "",
+  ariaSort,
 }: TableHeaderCellProperties): React.ReactElement {
   return (
     <th
       scope="col"
+      aria-sort={ariaSort}
       className={`h-9 px-3 font-mono text-caption font-semibold uppercase tracking-wider text-fg-muted ${ALIGN_CLASS[align]} ${className}`}
     >
       {children}

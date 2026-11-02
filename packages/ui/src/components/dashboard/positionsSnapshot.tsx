@@ -5,34 +5,18 @@ import { useState } from "react";
 
 import type { Holding } from "../../lib/api";
 import { PLACEHOLDER, formatPriceOrDash, formatSignedInr } from "../../lib/format";
-import {
-  distanceToSlPercentage,
-  formatPrice,
-  ltpDirectionArrow,
-  pnlPercentage,
-} from "../../lib/holdingFormat";
-import {
-  HOLDING_SEVERITY_RANK,
-  type HoldingStatus,
-  resolveHoldingStatus,
-} from "../../lib/holdingStatus";
+import { formatPrice, ltpDirectionArrow } from "../../lib/holdingFormat";
+import { type RankedPosition, type SortDirection, rankPositions } from "../../lib/rankPositions";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
 import { StatusDot } from "../ui/statusDot";
+import { Table } from "../ui/table";
 
-// Shared grid template so the header row and every position row align.
-// minmax(0, …) stops a long value from widening its own row's track, which
-// would shift that row's columns out from under the headers.
-const ROW_GRID =
-  "grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1.1fr)]";
-
-const DEFAULT_ROW_LIMIT = 5;
+const COLUMN_COUNT = 9;
 
 // Pinned so a row's status stays in view when the table scrolls sideways on
 // narrow widths: this is desktop's only list of at-risk holdings.
 const STATUS_CELL = "sticky right-0";
-
-type SortDirection = "none" | "desc" | "asc";
 
 const NEXT_SORT: Record<SortDirection, SortDirection> = { none: "desc", desc: "asc", asc: "none" };
 const SORT_ARROW: Record<SortDirection, string> = { none: "↕", desc: "↓", asc: "↑" };
@@ -41,110 +25,102 @@ const SORT_LABEL: Record<SortDirection, string> = {
   desc: "highest first within each risk level",
   asc: "lowest first within each risk level",
 };
-
-type PositionsSnapshotProperties = {
-  holdings: Holding[];
-  slMap: Map<string, number>;
+const ARIA_SORT: Record<SortDirection, "none" | "ascending" | "descending"> = {
+  none: "none",
+  desc: "descending",
+  asc: "ascending",
 };
 
 /**
- * One expandable position row: a summary line and, when open, a detail grid
- * (SL threshold, target, distance-to-SL, margin product, exchange).
- * @param props.holding - The holding to render
- * @param props.status - Precomputed SL status for the holding
- * @param props.sl - Stop-loss threshold, or undefined when none is set
- * @param props.pct - P&L as a percentage of cost
- * @param props.distanceToSl - Percent above the stop-loss, if one is set
- * @returns Position row element
+ * One expandable position row: a summary row and, when open, a detail row
+ * (SL threshold, target, distance-to-SL, margin product, exchange). The whole
+ * row is a click target for mouse users; the symbol button is the keyboard and
+ * screen-reader control.
+ * @param props.position - The ranked position to render
+ * @returns Position rows
  */
-function PositionRow({
-  holding,
-  status,
-  sl,
-  pct,
-  distanceToSl,
-}: {
-  holding: Holding;
-  status: HoldingStatus;
-  sl: number | undefined;
-  pct: number;
-  distanceToSl: number | undefined;
-}): React.ReactElement {
+function PositionRow({ position }: { position: RankedPosition }): React.ReactElement {
+  const { holding, status, sl, pnlPct, distanceToSl } = position;
   const [expanded, setExpanded] = useState(false);
-  const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
-  const ltpColor = holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
-  const rowLabel = [
-    holding.trading_symbol,
-    `quantity ${holding.quantity}`,
-    `average ${formatPrice(holding.average_price)}`,
-    `last price ${formatPrice(holding.last_price)}`,
-    `P&L ${pct.toFixed(2)}%`,
-    `stop-loss ${sl !== undefined ? formatPrice(sl) : "not set"}`,
-    status.label,
-  ].join(", ");
+  const pnlColor = holding.pnl >= 0 ? "!text-pos" : "!text-neg";
+  const ltpColor = holding.last_price >= holding.close_price ? "!text-pos" : "!text-neg";
 
   return (
-    <div className="border-b border-border last:border-b-0">
-      <button
-        type="button"
+    <>
+      <Table.Row
+        className="group cursor-pointer"
         onClick={() => {
           setExpanded((previous) => !previous);
         }}
-        aria-expanded={expanded}
-        aria-label={rowLabel}
-        className={`group grid w-full ${ROW_GRID} items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover`}
       >
-        <span className="flex min-w-0 items-center gap-1.5 font-mono text-body-sm uppercase text-fg">
-          <ChevronRight
-            aria-hidden="true"
-            className={`h-3.5 w-3.5 flex-none text-fg-faint transition-transform ${expanded ? "rotate-90" : ""}`}
-          />
-          <span className="truncate">{holding.trading_symbol}</span>
-        </span>
-        <span className="truncate text-caption text-fg-dim">{PLACEHOLDER}</span>
-        <span className="text-right font-mono text-caption text-fg-muted">{holding.quantity}</span>
-        <span className="text-right font-mono text-caption text-fg-muted">
+        <Table.Cell>
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-label={`${holding.trading_symbol} details`}
+            className="flex min-h-6 cursor-pointer items-center gap-1.5 font-mono uppercase text-fg"
+          >
+            <ChevronRight
+              aria-hidden="true"
+              className={`h-3.5 w-3.5 flex-none text-fg-faint transition-transform ${expanded ? "rotate-90" : ""}`}
+            />
+            {holding.trading_symbol}
+          </button>
+        </Table.Cell>
+        <Table.Cell className="text-caption !text-fg-dim">{PLACEHOLDER}</Table.Cell>
+        <Table.Cell numeric className="text-caption !text-fg-muted">
+          {holding.quantity}
+        </Table.Cell>
+        <Table.Cell numeric className="text-caption !text-fg-muted">
           {formatPrice(holding.average_price)}
-        </span>
-        <span className={`text-right font-mono text-body-sm ${ltpColor}`}>
+        </Table.Cell>
+        <Table.Cell numeric className={ltpColor}>
           <span aria-hidden="true">
             {ltpDirectionArrow(holding.last_price, holding.close_price)}
           </span>{" "}
           {formatPrice(holding.last_price)}
-        </span>
-        <span className={`text-right font-mono text-body-sm ${pnlColor}`}>
+        </Table.Cell>
+        <Table.Cell numeric className={pnlColor}>
           {formatSignedInr(holding.pnl)}
-        </span>
-        <span className={`text-right font-mono text-caption ${pnlColor}`}>
-          {pct >= 0 ? "+" : ""}
-          {pct.toFixed(2)}%
-        </span>
-        <span className="text-right font-mono text-caption text-fg-muted">
+        </Table.Cell>
+        <Table.Cell numeric className={`text-caption ${pnlColor}`}>
+          {pnlPct >= 0 ? "+" : ""}
+          {pnlPct.toFixed(2)}%
+        </Table.Cell>
+        <Table.Cell numeric className="text-caption !text-fg-muted">
           {formatPriceOrDash(sl ?? null)}
-        </span>
-        <span
-          className={`${STATUS_CELL} flex items-center justify-end gap-1.5 bg-surface group-hover:bg-surface-hover`}
+        </Table.Cell>
+        <Table.Cell
+          align="right"
+          className={`${STATUS_CELL} bg-surface group-hover:bg-surface-hover`}
         >
-          {status.variant !== "none" && (
-            <StatusDot variant={status.variant} label={status.label} pulse={false} />
-          )}
-          <span className="text-caption text-fg-muted">{status.label}</span>
-        </span>
-      </button>
+          <span className="inline-flex items-center gap-1.5">
+            {status.variant !== "none" && (
+              <StatusDot variant={status.variant} label={status.label} pulse={false} />
+            )}
+            <span className="text-caption text-fg-muted">{status.label}</span>
+          </span>
+        </Table.Cell>
+      </Table.Row>
 
       {expanded && (
-        <dl className="sticky left-0 grid w-[100cqw] grid-cols-2 gap-x-6 gap-y-2.5 bg-surface-2 px-9 py-3.5 @3xl:grid-cols-5">
-          <Detail term="SL threshold" value={formatPriceOrDash(sl ?? null)} />
-          <Detail term="Target price" value={PLACEHOLDER} />
-          <Detail
-            term="Distance to SL"
-            value={distanceToSl !== undefined ? `${distanceToSl.toFixed(1)}%` : PLACEHOLDER}
-          />
-          <Detail term="Margin product" value={holding.product} />
-          <Detail term="Exchange" value={holding.exchange} />
-        </dl>
+        <tr className="border-b border-border last:border-0">
+          <td colSpan={COLUMN_COUNT} className="bg-surface-2 p-0">
+            {/* Pinned to the visible width: the row scrolls sideways when narrow. */}
+            <dl className="sticky left-0 grid w-[100cqw] grid-cols-2 gap-x-6 gap-y-2.5 px-9 py-3.5 @3xl:grid-cols-5">
+              <Detail term="SL threshold" value={formatPriceOrDash(sl ?? null)} />
+              <Detail term="Target price" value={PLACEHOLDER} />
+              <Detail
+                term="Distance to SL"
+                value={distanceToSl !== undefined ? `${distanceToSl.toFixed(1)}%` : PLACEHOLDER}
+              />
+              <Detail term="Margin product" value={holding.product} />
+              <Detail term="Exchange" value={holding.exchange} />
+            </dl>
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
 
@@ -163,6 +139,11 @@ function Detail({ term, value }: { term: string; value: string }): React.ReactEl
   );
 }
 
+type PositionsSnapshotProperties = {
+  holdings: Holding[];
+  slMap: Map<string, number>;
+};
+
 /**
  * Positions snapshot (updated design) — a compact, expandable holdings table
  * for the dashboard. Each row expands to show SL/target/exchange detail; a
@@ -177,43 +158,19 @@ export function PositionsSnapshot({
   slMap,
 }: PositionsSnapshotProperties): React.ReactElement {
   const [sortDirection, setSortDirection] = useState<SortDirection>("none");
-  const positions = holdings.map((holding) => {
-    const status = resolveHoldingStatus(holding, slMap);
-    const sl = slMap.get(holding.trading_symbol);
-    return {
-      holding,
-      status,
-      sl,
-      severity: HOLDING_SEVERITY_RANK[status.variant],
-      pnlPct: pnlPercentage(holding),
-      distanceToSl: distanceToSlPercentage(holding, sl),
-    };
-  });
-  const atRiskCount = positions.filter(
-    ({ status }) => status.variant === "neg" || status.variant === "warn",
-  ).length;
-  const noGttCount = positions.filter(({ status }) => status.variant === "none").length;
-  // Severity always wins, with the P&L sort or distance to SL inside it, and
-  // every at-risk row, and every row with no GTT to judge by, shows regardless of the limit: this is
-  // desktop's only list of them.
-  const sorted = [...positions].sort((a, b) => {
-    if (a.severity !== b.severity) return a.severity - b.severity;
-    if (sortDirection === "none") return (a.distanceToSl ?? 0) - (b.distanceToSl ?? 0);
-    return sortDirection === "desc" ? b.pnlPct - a.pnlPct : a.pnlPct - b.pnlPct;
-  });
-  const rows = sorted.slice(0, Math.max(DEFAULT_ROW_LIMIT, atRiskCount + noGttCount));
+  const { rows, atRiskCount, noGttCount } = rankPositions(holdings, slMap, sortDirection);
 
   return (
     <Card className="flex flex-col gap-0 overflow-hidden !p-0">
       <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-body-sm font-semibold text-fg">Positions snapshot</span>
+          <h2 className="text-body-sm font-semibold text-fg">Positions snapshot</h2>
           {atRiskCount > 0 && <Badge variant="warn">{atRiskCount} at risk</Badge>}
           {noGttCount > 0 && <Badge variant="neutral">{noGttCount} no GTT</Badge>}
         </div>
         <Link
           to="/holdings"
-          className="font-mono text-caption text-gold transition-colors hover:text-gold-bright"
+          className="inline-flex min-h-6 items-center font-mono text-caption text-gold transition-colors hover:text-gold-bright"
         >
           View all {holdings.length} ›
         </Link>
@@ -225,42 +182,42 @@ export function PositionsSnapshot({
           <p className="text-caption text-fg-faint">Holdings appear once data is synced.</p>
         </div>
       ) : (
-        <div className="@container overflow-x-auto">
-          <div className="min-w-[56rem]">
-            <div
-              className={`grid ${ROW_GRID} items-center gap-2 border-b border-border bg-surface-2 px-3 py-2 text-micro uppercase tracking-wide text-fg-faint`}
-            >
-              <span className="pl-5">Symbol</span>
-              <span>Sector</span>
-              <span className="text-right">Qty</span>
-              <span className="text-right">Avg</span>
-              <span className="text-right">LTP</span>
-              <span className="text-right">P&L ₹</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSortDirection((previous) => NEXT_SORT[previous]);
-                }}
-                aria-label={`P&L %, ${SORT_LABEL[sortDirection]}. Change sort`}
-                className="flex cursor-pointer items-center justify-end gap-1 uppercase transition-colors hover:text-gold-bright"
-              >
-                P&L %<span aria-hidden="true">{SORT_ARROW[sortDirection]}</span>
-              </button>
-              <span className="text-right">SL</span>
-              <span className={`${STATUS_CELL} bg-surface-2 text-right`}>Status</span>
-            </div>
-            {rows.map(({ holding, status, sl, pnlPct, distanceToSl }) => (
+        <Table className="min-w-[56rem]" wrapperClassName="@container">
+          <Table.Head>
+            <Table.Row className="bg-surface-2 hover:!bg-surface-2">
+              <Table.HeaderCell className="pl-8">Symbol</Table.HeaderCell>
+              <Table.HeaderCell>Sector</Table.HeaderCell>
+              <Table.HeaderCell align="right">Qty</Table.HeaderCell>
+              <Table.HeaderCell align="right">Avg</Table.HeaderCell>
+              <Table.HeaderCell align="right">LTP</Table.HeaderCell>
+              <Table.HeaderCell align="right">P&L ₹</Table.HeaderCell>
+              <Table.HeaderCell align="right" ariaSort={ARIA_SORT[sortDirection]}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortDirection((previous) => NEXT_SORT[previous]);
+                  }}
+                  aria-label={`P&L %, ${SORT_LABEL[sortDirection]}. Change sort`}
+                  className="inline-flex min-h-6 cursor-pointer items-center justify-end gap-1 uppercase transition-colors hover:text-gold-bright"
+                >
+                  P&L %<span aria-hidden="true">{SORT_ARROW[sortDirection]}</span>
+                </button>
+              </Table.HeaderCell>
+              <Table.HeaderCell align="right">SL</Table.HeaderCell>
+              <Table.HeaderCell align="right" className={`${STATUS_CELL} bg-surface-2`}>
+                Status
+              </Table.HeaderCell>
+            </Table.Row>
+          </Table.Head>
+          <Table.Body>
+            {rows.map((position) => (
               <PositionRow
-                key={`${holding.isin}-${holding.product}`}
-                holding={holding}
-                status={status}
-                sl={sl}
-                pct={pnlPct}
-                distanceToSl={distanceToSl}
+                key={`${position.holding.isin}-${position.holding.product}`}
+                position={position}
               />
             ))}
-          </div>
-        </div>
+          </Table.Body>
+        </Table>
       )}
     </Card>
   );
