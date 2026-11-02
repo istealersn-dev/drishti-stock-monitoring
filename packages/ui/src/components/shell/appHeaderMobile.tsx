@@ -1,5 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
-import { RefreshCw } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Clock, RefreshCw } from "lucide-react";
 import type React from "react";
 
 import { resolveHealth, resolveStatusPill } from "../../lib/agentStatus";
@@ -7,6 +7,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { StatusDot } from "../ui/statusDot";
 
+import { AccountMenu } from "./accountMenu";
 import { Logo } from "./logo";
 
 type AppHeaderMobileProperties = {
@@ -24,7 +25,8 @@ type AppHeaderMobileProperties = {
  * `AppFooter` (the mobile shell has no footer), including the Dry Run pill —
  * a mobile user needs the same dry-run visibility a desktop user gets from
  * the footer's status pill (CLAUDE.md: dry-run must be visibly respected).
- * Pairs with `MobileTabBar` for the mobile shell (< 760px).
+ * The logo is the way to Ask Drishti, which has no tab of its own. Pairs with
+ * `MobileTabBar` for the mobile shell (< 578px).
  * @param props.dryRun - whether dry-run mode is active
  * @param props.paused - whether the agent poll tick is paused
  * @param props.hasError - whether the settings/health fetch failed
@@ -47,10 +49,10 @@ export function AppHeaderMobile({
 
   return (
     <header className="sticky top-0 z-30 flex h-mobile-header flex-none items-center justify-between gap-2 border-b border-border bg-bg-chrome/85 px-3 backdrop-blur-md">
-      <div className="flex min-w-0 items-center gap-2">
+      <Link to="/ask" aria-label="Ask Drishti" className="flex min-w-0 items-center gap-2">
         <Logo className="h-6 w-6 rounded-md text-micro" />
         <span className="truncate text-body-sm font-semibold tracking-tight text-fg">Drishti</span>
-      </div>
+      </Link>
 
       <div className="flex flex-none items-center gap-2">
         <StatusDot variant={variant} label={`Agent status: ${label}`} />
@@ -64,7 +66,10 @@ export function AppHeaderMobile({
             aria-label={`${pendingCount} pending approvals`}
             className="cursor-pointer rounded-pill transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            <Badge variant="info">{pendingCount} pending</Badge>
+            <Badge variant="info">
+              <Clock aria-hidden="true" className="h-3 w-3" />
+              {pendingCount}
+            </Badge>
           </button>
         )}
         <Button variant="icon" aria-label="Refresh data" onClick={onRefresh}>
@@ -73,6 +78,7 @@ export function AppHeaderMobile({
             className={`h-3.5 w-3.5 ${spinning ? "animate-spin" : ""}`}
           />
         </Button>
+        <AccountMenu compact />
       </div>
     </header>
   );
