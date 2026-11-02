@@ -13,6 +13,7 @@ import { TodaysActivityCard } from "../components/dashboard/todaysActivityCard";
 import { Spinner } from "../components/ui/spinner";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
+import { filterPendingApprovals } from "../lib/approvals";
 import { PLACEHOLDER, formatInr, formatSignedInr, timeOfDayGreeting } from "../lib/format";
 import { sumHoldingsValue } from "../lib/holdingFormat";
 import { buildSlMap } from "../lib/holdingStatus";
@@ -68,7 +69,7 @@ export function Dashboard(): React.ReactElement {
     .reduce((sum, h) => sum + h.quantity * h.average_price, 0);
   const mtfBurnPerDay = (mtfValue * MTF_ANNUAL_INTEREST_RATE) / DAYS_IN_YEAR;
   const slMap = buildSlMap(gttOrders);
-  const pendingApprovals = approvals.filter((approval) => approval.status === "pending").length;
+  const pendingApprovals = filterPendingApprovals(approvals).length;
 
   if (isError) {
     return (

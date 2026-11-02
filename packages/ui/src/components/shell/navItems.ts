@@ -17,6 +17,8 @@ export type NavItem = {
   pendingBadge?: boolean;
   /** Position in the mobile tab bar; items without one aren't tabs. */
   mobileTabOrder?: number;
+  /** No mobile tab of its own, so it joins the mobile account menu. */
+  mobileMenu?: boolean;
   /** Tighter label for the mobile tab bar, where the full one won't fit. */
   shortLabel?: string;
   // Secondary routes live in the account menu on both shells (updated design
@@ -32,7 +34,7 @@ export type NavItem = {
 // order matches Drishti.dc.html's sidebar exactly (Ask Drishti, Dashboard,
 // Approvals, Holdings, GTT Orders); secondary items follow.
 export const MAIN_NAV_ITEMS: NavItem[] = [
-  { path: "/ask", label: "Ask Drishti", icon: MessageSquare },
+  { path: "/ask", label: "Ask Drishti", icon: MessageSquare, mobileMenu: true },
   { path: "/", label: "Dashboard", icon: LayoutDashboard, mobileTabOrder: 0 },
   { path: "/instructions", label: "Approvals", icon: Send, pendingBadge: true, mobileTabOrder: 2 },
   { path: "/holdings", label: "Holdings", icon: Table2, mobileTabOrder: 1 },

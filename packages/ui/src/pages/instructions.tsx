@@ -10,7 +10,6 @@ import { InstructionComposer } from "../components/instructions/instructionCompo
 import { PageHeader } from "../components/shell/pageHeader";
 import { Badge } from "../components/ui/badge";
 import { Spinner } from "../components/ui/spinner";
-import { useIsDesktop } from "../hooks/useIsDesktop";
 import {
   type Approval,
   approveInstruction,
@@ -19,13 +18,12 @@ import {
   submitInstruction,
   updateApprovalAmount,
 } from "../lib/api";
-
-// The agent doesn't raise its own proposals yet — every approval is a buy
-// instruction the user sent — so "From Drishti" says so instead of showing a count.
+import { filterPendingApprovals } from "../lib/approvals";
 
 /**
- * Approvals page (updated design) — "From Drishti" holds the agent's own
- * proposals; "From you" holds the buy-instruction composer and the pending
+ * Approvals page (updated design) — "From Drishti" is for the agent's own
+ * proposals, which it doesn't raise yet, so that tab says so instead of showing
+ * a count; "From you" holds the buy-instruction composer and the pending
  * approval cards it produces. Opens on "From you" while that's the only tab
  * with content, so a pending approval is never hidden behind an empty tab
  * during its timeout window.
@@ -40,7 +38,6 @@ export function Instructions(): React.ReactElement {
   const [pendingRejectIds, setPendingRejectIds] = useState<ReadonlySet<string>>(new Set());
   const [pendingAmountIds, setPendingAmountIds] = useState<ReadonlySet<string>>(new Set());
   const [segment, setSegment] = useState<ApprovalSource>("you");
-  const isDesktop = useIsDesktop();
   const queryClient = useQueryClient();
 
   const {
@@ -170,7 +167,7 @@ export function Instructions(): React.ReactElement {
     rejectMutation.mutate(id);
   };
 
-  const pendingApprovals = approvals.filter((approval) => approval.status === "pending");
+  const pendingApprovals = filterPendingApprovals(approvals);
   // A 0 while loading or after a failed fetch would read as "nothing to do".
   const approvalsKnown = !isLoading && !(approvalsError && approvals.length === 0);
   const pendingCount = approvalsKnown ? pendingApprovals.length : null;
@@ -179,11 +176,7 @@ export function Instructions(): React.ReactElement {
     <div className="flex max-w-[65rem] flex-col gap-4">
       <PageHeader
         title="Approvals"
-        subtitle={
-          isDesktop
-            ? "Your buy instructions wait here for a decision. No new buy goes through until you approve."
-            : "No new buy goes through until you approve."
-        }
+        subtitle="Your buy instructions wait here for a decision. No new buy goes through until you approve."
       />
 
       <ApprovalSegments active={segment} youCount={pendingCount} onSelect={setSegment} />
@@ -195,9 +188,7 @@ export function Instructions(): React.ReactElement {
           </span>
           <p className="mt-1 text-body-sm font-medium text-fg">No proposals from Drishti</p>
           <p className="text-center text-caption text-fg-faint">
-            {isDesktop
-              ? "Drishti doesn't raise its own proposals yet. Your buy instructions are under From you."
-              : "Drishti doesn't raise proposals yet."}
+            Drishti doesn't raise its own proposals yet. Your buy instructions are under From you.
           </p>
         </div>
       )}

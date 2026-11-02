@@ -6,8 +6,11 @@ import { MAIN_NAV_ITEMS, type NavItem, SETTINGS_NAV_ITEM, isNavItemActive } from
 // Drishti.dc.html's mobile tab order, which differs from the sidebar's. Ask
 // is reached from the header logo; secondary routes from the account menu.
 const MOBILE_TABS: NavItem[] = [...MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM]
-  .filter((item) => item.mobileTabOrder !== undefined)
-  .sort((a, b) => (a.mobileTabOrder ?? 0) - (b.mobileTabOrder ?? 0));
+  .flatMap((item) =>
+    item.mobileTabOrder === undefined ? [] : [{ item, order: item.mobileTabOrder }],
+  )
+  .sort((a, b) => a.order - b.order)
+  .map(({ item }) => item);
 
 type MobileTabBarProperties = {
   pendingApprovals: number;

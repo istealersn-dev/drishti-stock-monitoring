@@ -6,6 +6,7 @@ import type React from "react";
 import { useIsDesktop } from "../../hooks/useIsDesktop";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { fetchApprovals, fetchHoldings, fetchRuns, fetchSettings } from "../../lib/api";
+import { filterPendingApprovals } from "../../lib/approvals";
 import { formatInr } from "../../lib/format";
 import { sumHoldingsValue } from "../../lib/holdingFormat";
 import { tokens } from "../../tokens/tokens";
@@ -83,7 +84,7 @@ export function AppShell(): React.ReactElement {
 
   const dryRun = settings?.dryRun ?? false;
   const paused = settings?.pauseAgent ?? false;
-  const pendingCount = approvals.filter((approval) => approval.status === "pending").length;
+  const pendingCount = filterPendingApprovals(approvals).length;
   const lastPollAt = runs[0]?.startedAt ?? null;
   const portfolioValue = sumHoldingsValue(holdingData?.holdings ?? []);
 
