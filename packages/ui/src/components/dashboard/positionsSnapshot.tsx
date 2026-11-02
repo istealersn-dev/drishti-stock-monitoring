@@ -4,8 +4,13 @@ import type React from "react";
 import { useState } from "react";
 
 import type { Holding } from "../../lib/api";
-import { formatInr } from "../../lib/format";
-import { formatPrice, ltpDirectionArrow } from "../../lib/holdingFormat";
+import { PLACEHOLDER, formatInr } from "../../lib/format";
+import {
+  distanceToSlPercentage,
+  formatPrice,
+  ltpDirectionArrow,
+  pnlPercentage,
+} from "../../lib/holdingFormat";
 import {
   HOLDING_SEVERITY_RANK,
   type HoldingStatus,
@@ -15,8 +20,6 @@ import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
 import { StatusDot } from "../ui/statusDot";
 
-const PLACEHOLDER = "—";
-
 // Shared grid template so the header row and every position row align.
 // minmax(0, …) stops a long value from widening its own row's track, which
 // would shift that row's columns out from under the headers.
@@ -24,6 +27,10 @@ const ROW_GRID =
   "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.1fr)]";
 
 const DEFAULT_ROW_LIMIT = 5;
+
+// Pinned so a row's status stays in view when the table scrolls sideways on
+// narrow widths: this is desktop's only list of at-risk holdings.
+const STATUS_CELL = "sticky right-0";
 
 type SortDirection = "none" | "desc" | "asc";
 
@@ -41,16 +48,6 @@ type PositionsSnapshotProperties = {
   /** How many rows to show before the "View all" link; at-risk rows always show. */
   limit?: number;
 };
-
-/**
- * Percentage P&L for a holding, guarding a zero cost basis.
- * @param holding - The holding
- * @returns P&L as a percentage of cost
- */
-function pnlPercentage(holding: Holding): number {
-  const cost = holding.quantity * holding.average_price;
-  return cost > 0 ? (holding.pnl / cost) * 100 : 0;
-}
 
 /**
  * One expandable position row: a summary line and, when open, a detail grid
@@ -73,8 +70,16 @@ function PositionRow({
   const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
   const ltpColor = holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
   const pct = pnlPercentage(holding);
-  const distanceToSl =
-    sl !== undefined && sl !== 0 ? ((holding.last_price - sl) / sl) * 100 : undefined;
+  const distanceToSl = distanceToSlPercentage(holding, sl);
+  const rowLabel = [
+    holding.trading_symbol,
+    `quantity ${holding.quantity}`,
+    `average ${formatPrice(holding.average_price)}`,
+    `last price ${formatPrice(holding.last_price)}`,
+    `P&L ${pct.toFixed(2)}%`,
+    `stop-loss ${sl !== undefined ? formatPrice(sl) : "not set"}`,
+    status.label,
+  ].join(", ");
 
   return (
     <div className="border-b border-border last:border-b-0">
@@ -84,7 +89,8 @@ function PositionRow({
           setExpanded((previous) => !previous);
         }}
         aria-expanded={expanded}
-        className={`grid w-full ${ROW_GRID} items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover`}
+        aria-label={rowLabel}
+        className={`group grid w-full ${ROW_GRID} items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover`}
       >
         <span className="flex min-w-0 items-center gap-1.5 font-mono text-body-sm uppercase text-fg">
           <ChevronRight
@@ -115,7 +121,9 @@ function PositionRow({
         <span className="text-right font-mono text-caption text-fg-muted">
           {sl !== undefined ? formatPrice(sl) : PLACEHOLDER}
         </span>
-        <span className="flex items-center justify-end gap-1.5">
+        <span
+          className={`${STATUS_CELL} flex items-center justify-end gap-1.5 bg-surface group-hover:bg-surface-hover`}
+        >
           <StatusDot variant={status.variant} label={status.label} pulse={false} />
           <span className="text-caption text-fg-muted">{status.label}</span>
         </span>
@@ -168,25 +176,26 @@ export function PositionsSnapshot({
   limit = DEFAULT_ROW_LIMIT,
 }: PositionsSnapshotProperties): React.ReactElement {
   const [sortDirection, setSortDirection] = useState<SortDirection>("none");
-  const severity = (holding: Holding): number =>
-    HOLDING_SEVERITY_RANK[resolveHoldingStatus(holding, slMap).variant];
-  const atRiskCount = holdings.filter(
-    (holding) => resolveHoldingStatus(holding, slMap).variant !== "pos",
-  ).length;
-  const distanceToSl = (holding: Holding): number => {
+  const positions = holdings.map((holding) => {
+    const status = resolveHoldingStatus(holding, slMap);
     const sl = slMap.get(holding.trading_symbol);
-    return sl ? (holding.last_price - sl) / sl : Number.POSITIVE_INFINITY;
-  };
+    return {
+      holding,
+      status,
+      sl,
+      severity: HOLDING_SEVERITY_RANK[status.variant],
+      pnlPct: pnlPercentage(holding),
+      distanceToSl: distanceToSlPercentage(holding, sl) ?? Number.POSITIVE_INFINITY,
+    };
+  });
+  const atRiskCount = positions.filter(({ status }) => status.variant !== "pos").length;
   // Severity always wins, with the P&L sort or distance to SL inside it, and
   // every at-risk row shows regardless of `limit`: Needs attention is
   // mobile-only, so this is desktop's only list of them.
-  const sorted = [...holdings].sort((a, b) => {
-    const bySeverity = severity(a) - severity(b);
-    if (bySeverity !== 0) return bySeverity;
-    if (sortDirection === "none") return distanceToSl(a) - distanceToSl(b);
-    return sortDirection === "desc"
-      ? pnlPercentage(b) - pnlPercentage(a)
-      : pnlPercentage(a) - pnlPercentage(b);
+  const sorted = [...positions].sort((a, b) => {
+    if (a.severity !== b.severity) return a.severity - b.severity;
+    if (sortDirection === "none") return a.distanceToSl - b.distanceToSl;
+    return sortDirection === "desc" ? b.pnlPct - a.pnlPct : a.pnlPct - b.pnlPct;
   });
   const rows = sorted.slice(0, Math.max(limit, atRiskCount));
 
@@ -233,14 +242,14 @@ export function PositionsSnapshot({
                 P&L %<span aria-hidden="true">{SORT_ARROW[sortDirection]}</span>
               </button>
               <span className="text-right">SL</span>
-              <span className="text-right">Status</span>
+              <span className={`${STATUS_CELL} bg-surface-2 text-right`}>Status</span>
             </div>
-            {rows.map((holding) => (
+            {rows.map(({ holding, status, sl }) => (
               <PositionRow
                 key={`${holding.isin}-${holding.product}`}
                 holding={holding}
-                status={resolveHoldingStatus(holding, slMap)}
-                sl={slMap.get(holding.trading_symbol)}
+                status={status}
+                sl={sl}
               />
             ))}
           </div>

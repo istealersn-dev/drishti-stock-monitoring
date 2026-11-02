@@ -24,6 +24,29 @@ export function sumHoldingsValue(holdings: Holding[]): number {
 }
 
 /**
+ * A holding's unrealised P&L as a percentage of cost, guarding a zero cost.
+ * @param holding - the holding
+ * @returns P&L percent, or 0 when there's no cost basis
+ */
+export function pnlPercentage(holding: Holding): number {
+  const cost = holding.quantity * holding.average_price;
+  return cost > 0 ? (holding.pnl / cost) * 100 : 0;
+}
+
+/**
+ * How far a holding's LTP sits above its stop-loss, as a percentage of the SL.
+ * @param holding - the holding
+ * @param sl - the stop-loss trigger, if one is set
+ * @returns the distance percent, or undefined with no usable stop-loss
+ */
+export function distanceToSlPercentage(
+  holding: Holding,
+  sl: number | undefined,
+): number | undefined {
+  return sl ? ((holding.last_price - sl) / sl) * 100 : undefined;
+}
+
+/**
  * Formats an unrealised P&L as a signed rupee amount plus a percent-of-cost
  * suffix, e.g. "+₹32,160 (+114.5%)".
  * @param pnl - unrealised profit/loss in rupees

@@ -1,5 +1,8 @@
 const ONE_LAKH = 100_000;
 
+/** Shown wherever a value has no data source yet. */
+export const PLACEHOLDER = "—";
+
 /**
  * Formats a rupee amount, abbreviating to lakhs above ₹1L (e.g. "₹4.2L"),
  * otherwise a plain grouped rupee figure (e.g. "₹32,160").

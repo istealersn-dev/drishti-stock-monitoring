@@ -14,11 +14,10 @@ import { Spinner } from "../components/ui/spinner";
 import { StatusDot } from "../components/ui/statusDot";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
-import { formatInr, timeOfDayGreeting } from "../lib/format";
-import { sumHoldingsValue } from "../lib/holdingFormat";
+import { PLACEHOLDER, formatInr, timeOfDayGreeting } from "../lib/format";
+import { distanceToSlPercentage, pnlPercentage, sumHoldingsValue } from "../lib/holdingFormat";
 import { HOLDING_SEVERITY_RANK, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
-const PLACEHOLDER = "—";
 const MTF_ANNUAL_INTEREST_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
 
@@ -204,51 +203,53 @@ export function Dashboard(): React.ReactElement {
         />
       </div>
 
-      <section className="flex flex-col gap-2.5 tab:hidden">
-        <div className="flex items-center gap-2">
-          <h2 className="text-title font-semibold text-fg">Needs attention</h2>
-          <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
-            {needsAttention.length}
-          </span>
-        </div>
-        {needsAttention.length === 0 ? (
-          <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">
-            <StatusDot variant="pos" label="All positions safe" pulse={false} />
-            <div>
-              <p className="text-body-sm font-medium text-fg">All positions safe</p>
-              <p className="text-caption text-fg-muted">No holdings near their stop-loss.</p>
+      {/* Desktop's table leads with every at-risk holding, so it sits above the
+          trend; mobile gets the at-risk list and leaves the rest to Holdings. */}
+      {isDesktop ? (
+        <PositionsSnapshot holdings={holdings} slMap={slMap} />
+      ) : (
+        <section className="flex flex-col gap-2.5">
+          <div className="flex items-center gap-2">
+            <h2 className="text-title font-semibold text-fg">Needs attention</h2>
+            <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
+              {needsAttention.length}
+            </span>
+          </div>
+          {holdings.length === 0 ? (
+            <div className="rounded-xl border border-border-strong bg-surface-2 p-4">
+              <p className="text-body-sm font-medium text-fg-muted">No positions</p>
+              <p className="text-caption text-fg-faint">Holdings appear once data is synced.</p>
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {needsAttention.map(({ holding, sl, status }) => {
-              const cost = holding.quantity * holding.average_price;
-              const pnlPct = cost > 0 ? (holding.pnl / cost) * 100 : 0;
-              const distanceToSl = sl !== 0 ? ((holding.last_price - sl) / sl) * 100 : 0;
-              return (
-                <NeedsAttentionCard
-                  key={`${holding.isin}-${holding.product}`}
-                  symbol={holding.trading_symbol}
-                  statusLabel={status.label}
-                  variant={status.variant === "neg" ? "danger" : "warning"}
-                  ltp={holding.last_price}
-                  pnlPercentage={pnlPct}
-                  sl={sl}
-                  distanceToSlPercentage={distanceToSl}
-                />
-              );
-            })}
-          </div>
-        )}
-      </section>
+          ) : needsAttention.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">
+              <StatusDot variant="pos" label="All positions safe" pulse={false} />
+              <div>
+                <p className="text-body-sm font-medium text-fg">All positions safe</p>
+                <p className="text-caption text-fg-muted">No holdings near their stop-loss.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {needsAttention.map(({ holding, sl, status }) => {
+                return (
+                  <NeedsAttentionCard
+                    key={`${holding.isin}-${holding.product}`}
+                    symbol={holding.trading_symbol}
+                    statusLabel={status.label}
+                    variant={status.variant === "neg" ? "danger" : "warning"}
+                    ltp={holding.last_price}
+                    pnlPercentage={pnlPercentage(holding)}
+                    sl={sl}
+                    distanceToSlPercentage={distanceToSlPercentage(holding, sl) ?? 0}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       <PortfolioTrendCard />
-
-      {/* Positions live in a wide table on desktop; the mobile dashboard
-          focuses on at-risk holdings and sends the full list to Holdings. */}
-      <div className="hidden tab:block">
-        <PositionsSnapshot holdings={holdings} slMap={slMap} />
-      </div>
 
       <div className="grid grid-cols-1 items-start gap-3.5 lap:grid-cols-2">
         <OpenOrdersCard orders={gttOrders} />

@@ -1,11 +1,11 @@
 import type React from "react";
 
+import { PLACEHOLDER } from "../../lib/format";
 import { MARKET_INDEX_NAMES } from "../../lib/marketIndices";
 
 import { AccountMenu } from "./accountMenu";
 
 const TICKER_INDEX_COUNT = 2;
-const PLACEHOLDER = "—";
 
 /**
  * Market indices ticker for the desktop header's left side. Renders em-dashes

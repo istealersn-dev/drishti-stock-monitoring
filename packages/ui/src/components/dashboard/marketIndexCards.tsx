@@ -1,9 +1,8 @@
 import type React from "react";
 
+import { PLACEHOLDER } from "../../lib/format";
 import { MARKET_INDEX_NAMES } from "../../lib/marketIndices";
 import { Card } from "../ui/card";
-
-const PLACEHOLDER = "—";
 
 /**
  * Market index cards (updated design) — a row of index tiles above the KPI
