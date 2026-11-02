@@ -15,6 +15,16 @@ const PLACEHOLDER = "—";
 // Shared grid template so the header row and every position row align.
 const ROW_GRID = "grid-cols-[1.4fr_1fr_0.6fr_0.8fr_1fr_1fr_0.8fr_0.8fr_1.1fr]";
 
+type SortDirection = "none" | "desc" | "asc";
+
+const NEXT_SORT: Record<SortDirection, SortDirection> = { none: "desc", desc: "asc", asc: "none" };
+const SORT_ARROW: Record<SortDirection, string> = { none: "↕", desc: "↓", asc: "↑" };
+const SORT_LABEL: Record<SortDirection, string> = {
+  none: "not sorted",
+  desc: "sorted highest first",
+  asc: "sorted lowest first",
+};
+
 type PositionsSnapshotProperties = {
   holdings: Holding[];
   slMap: Map<string, number>;
@@ -135,8 +145,8 @@ function Detail({ term, value }: { term: string; value: string }): React.ReactEl
 /**
  * Positions snapshot (updated design) — a compact, expandable holdings table
  * for the dashboard. Each row expands to show SL/target/exchange detail; a
- * "View all" link goes to the full Holdings page. Sector and target are
- * placeholders until their data sources exist.
+ * "View all" link goes to the full Holdings page, and the P&L % header cycles
+ * the sort. Sector and target are placeholders until their data sources exist.
  * @param props.holdings - Current holdings
  * @param props.slMap - Symbol -> stop-loss threshold, for status + SL columns
  * @param props.limit - Max rows before the "View all" link (default 5)
@@ -147,7 +157,16 @@ export function PositionsSnapshot({
   slMap,
   limit = 5,
 }: PositionsSnapshotProperties): React.ReactElement {
-  const rows = holdings.slice(0, limit);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("none");
+  const sorted =
+    sortDirection === "none"
+      ? holdings
+      : [...holdings].sort((a, b) =>
+          sortDirection === "desc"
+            ? pnlPercentage(b) - pnlPercentage(a)
+            : pnlPercentage(a) - pnlPercentage(b),
+        );
+  const rows = sorted.slice(0, limit);
 
   return (
     <Card className="flex flex-col gap-0 overflow-hidden !p-0">
@@ -171,7 +190,16 @@ export function PositionsSnapshot({
           <span className="text-right">Avg</span>
           <span className="text-right">LTP</span>
           <span className="text-right">P&L ₹</span>
-          <span className="text-right">P&L %</span>
+          <button
+            type="button"
+            onClick={() => {
+              setSortDirection((previous) => NEXT_SORT[previous]);
+            }}
+            aria-label={`P&L %, ${SORT_LABEL[sortDirection]}. Change sort`}
+            className="flex cursor-pointer items-center justify-end gap-1 uppercase transition-colors hover:text-gold-bright"
+          >
+            P&L %<span aria-hidden="true">{SORT_ARROW[sortDirection]}</span>
+          </button>
           <span className="text-right">SL</span>
           <span className="text-right">Status</span>
         </div>

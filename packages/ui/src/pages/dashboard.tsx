@@ -5,11 +5,14 @@ import type React from "react";
 
 import { MarketIndexCards } from "../components/dashboard/marketIndexCards";
 import { NeedsAttentionCard } from "../components/dashboard/needsAttentionCard";
+import { OpenOrdersCard } from "../components/dashboard/openOrdersCard";
 import { PortfolioTrendCard } from "../components/dashboard/portfolioTrendCard";
 import { PositionsSnapshot } from "../components/dashboard/positionsSnapshot";
 import { StatCard } from "../components/dashboard/statCard";
+import { TodaysActivityCard } from "../components/dashboard/todaysActivityCard";
 import { Spinner } from "../components/ui/spinner";
 import { StatusDot } from "../components/ui/statusDot";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
 import { formatInr } from "../lib/format";
 import { sumHoldingsValue } from "../lib/holdingFormat";
@@ -35,12 +38,15 @@ function greeting(): string {
 
 /**
  * Dashboard (updated design) — "Portfolio overview": market index cards, a
- * proposals banner, a KPI row, the portfolio-trend panel, and an expandable
- * positions snapshot. Realised-P&L-today, the trend chart, sector, and the
- * indices are placeholders until their data sources exist.
+ * pending-approvals banner, a KPI row, the portfolio-trend panel, an expandable
+ * positions snapshot, and the open-orders and today's-activity panels. Mobile
+ * swaps the snapshot for a Needs attention list above the trend. Realised
+ * P&L, trades, triggered GTTs, the trend chart, sector, and the indices are
+ * placeholders until their data sources exist.
  * @returns Dashboard page element
  */
 export function Dashboard(): React.ReactElement {
+  const isDesktop = useMediaQuery("(min-width: 578px)");
   const {
     data: holdingData,
     isLoading: holdingsLoading,
@@ -73,7 +79,7 @@ export function Dashboard(): React.ReactElement {
   const totalPnl = holdings.reduce((sum, h) => sum + h.pnl, 0);
   const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
   const slMap = buildSlMap(gttOrders);
-  const pendingProposals = approvals.filter((approval) => approval.status === "pending").length;
+  const pendingApprovals = approvals.filter((approval) => approval.status === "pending").length;
 
   // Holdings at or within 5% of their stop-loss, breach-first — the mobile
   // dashboard's focus (desktop conveys the same via the positions Status
@@ -110,7 +116,10 @@ export function Dashboard(): React.ReactElement {
         <div className="flex flex-col gap-1">
           <h1 className="text-h1 font-semibold tracking-tight text-fg">Portfolio overview</h1>
           <p className="text-body-sm text-fg-muted">
-            {greeting()} Your book, open orders and today&apos;s activity at a glance.
+            {greeting()}{" "}
+            {isDesktop
+              ? "Your book, open orders and today's activity at a glance."
+              : "Your book at a glance."}
           </p>
         </div>
         {holdingData?.cachedAt != null && (
@@ -122,16 +131,16 @@ export function Dashboard(): React.ReactElement {
 
       <MarketIndexCards />
 
-      {pendingProposals > 0 && (
+      {pendingApprovals > 0 && (
         <Link
           to="/instructions"
           className="flex items-center gap-3 rounded-xl border border-warn-ring bg-warn-tint px-4 py-3 transition-colors hover:brightness-110"
         >
           <Bell aria-hidden="true" className="h-4 w-4 flex-none text-warn" />
           <span className="flex-1 text-body-sm text-fg">
-            Drishti has{" "}
+            You have{" "}
             <b className="font-semibold text-warn">
-              {pendingProposals} proposal{pendingProposals !== 1 ? "s" : ""}
+              {pendingApprovals} instruction{pendingApprovals !== 1 ? "s" : ""}
             </b>{" "}
             waiting for your approval.
           </span>
@@ -143,7 +152,7 @@ export function Dashboard(): React.ReactElement {
 
       <div className="grid grid-cols-2 gap-3.5 lap:grid-cols-4">
         <StatCard
-          label="Total portfolio value"
+          label={isDesktop ? "Total portfolio value" : "Portfolio value"}
           accent="gold"
           value={formatInr(totalValue)}
           sub={
@@ -165,10 +174,10 @@ export function Dashboard(): React.ReactElement {
               {formatInr(Math.abs(totalPnl))}
             </span>
           }
-          sub="open positions · MTM"
+          sub={isDesktop ? "open positions · MTM" : "open · MTM"}
         />
         <StatCard
-          label="Realised P&L today"
+          label={isDesktop ? "Realised P&L today" : "Realised today"}
           accent="info"
           value={<span className="text-fg-muted">{PLACEHOLDER}</span>}
           sub="today's trades not tracked yet"
@@ -177,20 +186,21 @@ export function Dashboard(): React.ReactElement {
           label="Open orders"
           accent="pos"
           value={<span className="text-pos">{gttOrders.length}</span>}
-          sub={`${gttOrders.length} active · ${PLACEHOLDER} triggered`}
+          sub={
+            isDesktop
+              ? `${gttOrders.length} active · ${PLACEHOLDER} triggered`
+              : `${gttOrders.length} active`
+          }
         />
       </div>
 
-      <PortfolioTrendCard />
-
-      {/* Positions live in a wide table on desktop; the mobile dashboard
-          focuses on at-risk holdings and sends the full list to Holdings. */}
-      <div className="hidden tab:block">
-        <PositionsSnapshot holdings={holdings} slMap={slMap} />
-      </div>
-
       <section className="flex flex-col gap-2.5 tab:hidden">
-        <h2 className="text-title font-semibold text-fg">Needs attention</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-title font-semibold text-fg">Needs attention</h2>
+          <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
+            {needsAttention.length}
+          </span>
+        </div>
         {needsAttention.length === 0 ? (
           <div className="flex items-center gap-2 rounded-xl border border-border-strong bg-surface-2 p-4">
             <StatusDot variant="pos" label="All positions safe" pulse={false} />
@@ -221,6 +231,19 @@ export function Dashboard(): React.ReactElement {
           </div>
         )}
       </section>
+
+      <PortfolioTrendCard />
+
+      {/* Positions live in a wide table on desktop; the mobile dashboard
+          focuses on at-risk holdings and sends the full list to Holdings. */}
+      <div className="hidden tab:block">
+        <PositionsSnapshot holdings={holdings} slMap={slMap} />
+      </div>
+
+      <div className="grid grid-cols-1 items-start gap-3.5 lap:grid-cols-2">
+        <OpenOrdersCard orders={gttOrders} />
+        <TodaysActivityCard />
+      </div>
     </div>
   );
 }
