@@ -85,6 +85,10 @@ describe("buildSlMap", () => {
     expect(buildSlMap([order()], [config()]).get("INFY")).toBe(90);
   });
 
+  it("reads a zero threshold as no stop-loss", () => {
+    expect(buildSlMap([], [config({ slThreshold: 0 })]).size).toBe(0);
+  });
+
   it("keeps a GTT's trigger for a holding with no config", () => {
     expect(buildSlMap([order()], [config({ symbol: "TCS" })]).has("INFY")).toBe(true);
   });

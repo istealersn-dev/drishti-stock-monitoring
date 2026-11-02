@@ -96,6 +96,7 @@ export function Instructions(): React.ReactElement {
       finishAction(id);
       void queryClient.invalidateQueries({ queryKey: ["approvals"] });
       void queryClient.invalidateQueries({ queryKey: ["gtt"] });
+      void queryClient.invalidateQueries({ queryKey: ["holding-config"] });
     },
     onError: (error: Error, id: string) => {
       finishAction(id);

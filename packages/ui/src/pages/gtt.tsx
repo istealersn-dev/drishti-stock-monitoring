@@ -45,6 +45,11 @@ export function Gtt(): React.ReactElement {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="GTT Orders" subtitle="Stop-loss and target orders placed on Upstox." />
+        {isError && (
+          <ErrorNotice compact>
+            Couldn&apos;t refresh GTT orders, so this list may be out of date.
+          </ErrorNotice>
+        )}
         <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
           <p className="text-body-sm font-medium text-fg-muted">No active GTTs</p>
           <p className="max-w-sm text-center text-caption text-fg-faint">
@@ -58,6 +63,11 @@ export function Gtt(): React.ReactElement {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title="GTT Orders" subtitle="Stop-loss and target orders placed on Upstox." />
+      {isError && (
+        <ErrorNotice compact>
+          Couldn&apos;t refresh GTT orders, so this list may be out of date.
+        </ErrorNotice>
+      )}
       {hasTableRoom ? (
         <GttTable orders={sorted} />
       ) : (

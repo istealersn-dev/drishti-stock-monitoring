@@ -51,11 +51,10 @@ export function useLogout(): () => void {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   return (): void => {
-    // After navigating, or AppShell's still-mounted queries would refetch
-    // without a key and turn the 401 into a full reload.
-    void navigate({ to: "/login" }).finally(() => {
-      clearKey();
-      queryClient.clear();
-    });
+    // First, so a stalled /login chunk can't leave the session alive. A poll
+    // that beats the navigation just gets a 401, which also lands on /login.
+    clearKey();
+    queryClient.clear();
+    void navigate({ to: "/login" });
   };
 }

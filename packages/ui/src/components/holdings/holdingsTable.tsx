@@ -1,7 +1,7 @@
 import type React from "react";
 
 import type { Holding } from "../../lib/api";
-import { PLACEHOLDER } from "../../lib/format";
+import { formatPriceOrDash } from "../../lib/format";
 import {
   formatPnl,
   formatPrice,
@@ -16,9 +16,15 @@ import { useHoldingGttForm } from "./useHoldingGttForm";
 
 type HoldingRowProperties = {
   holding: Holding;
+  currentSl: number | undefined;
+  currentTarget: number | undefined;
 };
 
-function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
+function HoldingRow({
+  holding,
+  currentSl,
+  currentTarget,
+}: HoldingRowProperties): React.ReactElement {
   const { sl, setSl, target, setTarget, saveError, isPending, handleSaveThreshold } =
     useHoldingGttForm(holding.trading_symbol);
   const errorId = `${holding.trading_symbol}-${holding.product}-save-error`;
@@ -49,7 +55,7 @@ function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
           type="text"
           inputMode="decimal"
           value={sl}
-          placeholder={PLACEHOLDER}
+          placeholder={formatPriceOrDash(currentSl ?? null)}
           aria-invalid={saveError !== null}
           aria-describedby={saveError !== null ? errorId : undefined}
           onChange={(event) => {
@@ -65,7 +71,7 @@ function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
           type="text"
           inputMode="decimal"
           value={target}
-          placeholder={PLACEHOLDER}
+          placeholder={formatPriceOrDash(currentTarget ?? null)}
           aria-invalid={saveError !== null}
           aria-describedby={saveError !== null ? errorId : undefined}
           onChange={(event) => {
@@ -99,6 +105,8 @@ function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
 
 type HoldingsTableProperties = {
   holdings: Holding[];
+  slMap: Map<string, number>;
+  targetMap: Map<string, number>;
 };
 
 /**
@@ -106,9 +114,15 @@ type HoldingsTableProperties = {
  * with inline SL/target inputs and a per-row "Save SL" action. Shares
  * `useHoldingGttForm` with `HoldingCard`'s mobile presentation.
  * @param props.holdings - the filtered holdings to render
+ * @param props.slMap - Symbol -> current stop-loss, shown as each SL input's hint
+ * @param props.targetMap - Symbol -> current target, shown as each target input's hint
  * @returns Holdings table element
  */
-export function HoldingsTable({ holdings }: HoldingsTableProperties): React.ReactElement {
+export function HoldingsTable({
+  holdings,
+  slMap,
+  targetMap,
+}: HoldingsTableProperties): React.ReactElement {
   return (
     <Table>
       <Table.Head>
@@ -127,7 +141,12 @@ export function HoldingsTable({ holdings }: HoldingsTableProperties): React.Reac
       </Table.Head>
       <Table.Body>
         {holdings.map((holding) => (
-          <HoldingRow key={`${holding.isin}-${holding.product}`} holding={holding} />
+          <HoldingRow
+            key={`${holding.isin}-${holding.product}`}
+            holding={holding}
+            currentSl={slMap.get(holding.trading_symbol)}
+            currentTarget={targetMap.get(holding.trading_symbol)}
+          />
         ))}
       </Table.Body>
     </Table>

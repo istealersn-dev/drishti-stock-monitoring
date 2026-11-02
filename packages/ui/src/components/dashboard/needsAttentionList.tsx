@@ -1,8 +1,8 @@
 import type React from "react";
 
 import type { Holding } from "../../lib/api";
-import { distanceToSlPercentage, pnlPercentage } from "../../lib/holdingFormat";
-import { HOLDING_SEVERITY_RANK, resolveHoldingStatus } from "../../lib/holdingStatus";
+import { pnlPercentage } from "../../lib/holdingFormat";
+import { rankPositions } from "../../lib/rankPositions";
 import { Badge } from "../ui/badge";
 import { StatusDot } from "../ui/statusDot";
 
@@ -25,24 +25,13 @@ export function NeedsAttentionList({
   holdings,
   slMap,
 }: NeedsAttentionListProperties): React.ReactElement {
+  const { rows, noSlCount } = rankPositions(holdings, slMap, "none");
   // flatMap so `sl` and its distance are proven defined for each survivor.
-  const atRisk = holdings
-    .flatMap((holding) => {
-      const sl = slMap.get(holding.trading_symbol);
-      const distanceToSl = distanceToSlPercentage(holding, sl);
-      if (sl === undefined || distanceToSl === undefined) return [];
-      const status = resolveHoldingStatus(holding, slMap);
-      if (status.variant !== "neg" && status.variant !== "warn") return [];
-      return [{ holding, sl, distanceToSl, status }];
-    })
-    .sort(
-      (a, b) =>
-        HOLDING_SEVERITY_RANK[a.status.variant] - HOLDING_SEVERITY_RANK[b.status.variant] ||
-        a.distanceToSl - b.distanceToSl,
-    );
-  const noSlCount = holdings.filter(
-    (holding) => resolveHoldingStatus(holding, slMap).variant === "none",
-  ).length;
+  const atRisk = rows.flatMap(({ holding, status, sl, distanceToSl }) => {
+    if (sl === undefined || distanceToSl === undefined) return [];
+    if (status.variant !== "neg" && status.variant !== "warn") return [];
+    return [{ holding, sl, distanceToSl, status }];
+  });
 
   return (
     <section className="flex flex-col gap-2.5">

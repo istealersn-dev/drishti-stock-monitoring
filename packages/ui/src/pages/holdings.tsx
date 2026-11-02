@@ -11,7 +11,7 @@ import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { type Holding, fetchGttOrders, fetchHoldingConfigs, fetchHoldings } from "../lib/api";
-import { buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
+import { buildSlMap, buildTargetMap, resolveHoldingStatus } from "../lib/holdingStatus";
 import type { ProductFilter } from "../lib/routeSearch";
 
 const route = getRouteApi("/layout/holdings");
@@ -57,21 +57,31 @@ export function Holdings(): React.ReactElement {
     queryKey: ["holdings"],
     queryFn: fetchHoldings,
   });
-  const { data: gttOrders = [], isError: gttError } = useQuery({
+  const {
+    data: gttOrders = [],
+    isLoading: gttLoading,
+    isError: gttError,
+  } = useQuery({
     queryKey: ["gtt", "active"],
     queryFn: () => fetchGttOrders("active"),
   });
 
-  const { data: holdingConfigs = [], isError: configError } = useQuery({
+  const {
+    data: holdingConfigs = [],
+    isLoading: configLoading,
+    isError: configError,
+  } = useQuery({
     queryKey: ["holding-config"],
     queryFn: fetchHoldingConfigs,
   });
 
   const holdings = data?.holdings ?? [];
   const slMap = buildSlMap(gttOrders, holdingConfigs);
+  const targetMap = buildTargetMap(holdingConfigs);
   const visible = applyFilter(holdings, filter, search, slMap);
 
-  if (isLoading) {
+  // Statuses wait for stop-losses, or ?filter=BREACH reads as empty on reload.
+  if (isLoading || gttLoading || configLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Spinner />
@@ -90,6 +100,11 @@ export function Holdings(): React.ReactElement {
         title="Holdings"
         subtitle="All positions, with inline stop-loss and target editing."
       />
+      {isError && (
+        <ErrorNotice compact>
+          Couldn&apos;t refresh holdings, so these prices may be out of date.
+        </ErrorNotice>
+      )}
       {(gttError || configError) && (
         <p role="alert" className="text-caption text-neg">
           Couldn&apos;t load stop-losses, so Breach and Watch may be missing holdings.
@@ -112,11 +127,16 @@ export function Holdings(): React.ReactElement {
           </p>
         </div>
       ) : hasTableRoom ? (
-        <HoldingsTable holdings={visible} />
+        <HoldingsTable holdings={visible} slMap={slMap} targetMap={targetMap} />
       ) : (
         <div className="flex flex-col gap-2.5">
           {visible.map((holding) => (
-            <HoldingCard key={`${holding.isin}-${holding.product}`} holding={holding} />
+            <HoldingCard
+              key={`${holding.isin}-${holding.product}`}
+              holding={holding}
+              currentSl={slMap.get(holding.trading_symbol)}
+              currentTarget={targetMap.get(holding.trading_symbol)}
+            />
           ))}
         </div>
       )}

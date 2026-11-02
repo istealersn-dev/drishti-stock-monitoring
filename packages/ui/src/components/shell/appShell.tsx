@@ -97,7 +97,10 @@ export function AppShell(): React.ReactElement {
       isFirstRoute.current = false;
       return;
     }
-    mainReference.current?.focus({ preventScroll: true });
+    const main = mainReference.current;
+    if (main === null) return;
+    main.scrollTop = 0;
+    main.focus({ preventScroll: true });
   }, [pathname]);
 
   const dryRun = settings?.dryRun ?? false;

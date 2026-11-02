@@ -65,7 +65,8 @@ export function buildSlMap(
     }
   }
   for (const config of holdingConfigs) {
-    map.set(config.symbol, config.slThreshold);
+    // Zero means the instruction gave no stop-loss.
+    if (config.slThreshold > 0) map.set(config.symbol, config.slThreshold);
   }
   return map;
 }
