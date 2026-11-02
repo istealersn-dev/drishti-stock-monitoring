@@ -192,7 +192,7 @@ export function Instructions(): React.ReactElement {
         onSelect={setSegment}
       />
 
-      {segment === "drishti" ? (
+      {segment === "drishti" && (
         <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-12">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-pos-tint">
             <Check aria-hidden="true" className="h-5 w-5 text-pos" />
@@ -206,62 +206,64 @@ export function Instructions(): React.ReactElement {
               : "New proposals will appear here."}
           </p>
         </div>
-      ) : (
-        <>
-          <InstructionComposer
-            value={instructionText}
-            onChange={(value) => {
-              setInstructionText(value);
-              setSubmitError(null);
-              setSubmitSuccess(null);
-            }}
-            onSubmit={handleSubmit}
-            isPending={submitMutation.isPending}
-            submitError={submitError}
-            submitSuccess={submitSuccess}
-          />
-
-          <div className="flex items-center gap-2">
-            <h2 className="text-body-sm font-semibold text-fg">Pending approvals</h2>
-            {pendingCount !== null && (
-              <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
-                {pendingCount}
-              </span>
-            )}
-          </div>
-
-          {approvalsError && approvals.length === 0 ? (
-            <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-              Failed to load approvals. Is the agent running?
-            </div>
-          ) : isLoading ? (
-            <div className="flex h-24 items-center justify-center">
-              <Spinner />
-            </div>
-          ) : pendingApprovals.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
-              <p className="text-body-sm font-medium text-fg-muted">No pending approvals</p>
-              <p className="text-caption text-fg-faint">Send a buy instruction above.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 items-start gap-3 lap:grid-cols-2">
-              {pendingApprovals.map((approval: Approval) => (
-                <ApprovalCard
-                  key={approval.id}
-                  approval={approval}
-                  onApprove={handleApprove}
-                  onReject={handleReject}
-                  onUpdateAmount={handleUpdateAmount}
-                  approvePending={pendingApproveIds.has(approval.id)}
-                  rejectPending={pendingRejectIds.has(approval.id)}
-                  amountPending={pendingAmountIds.has(approval.id)}
-                  actionError={actionErrors[approval.id] ?? null}
-                />
-              ))}
-            </div>
-          )}
-        </>
       )}
+
+      {/* Stays mounted so a half-edited amount on an approval card survives a
+          look at the other tab. */}
+      <div className={`flex-col gap-4 ${segment === "you" ? "flex" : "hidden"}`}>
+        <InstructionComposer
+          value={instructionText}
+          onChange={(value) => {
+            setInstructionText(value);
+            setSubmitError(null);
+            setSubmitSuccess(null);
+          }}
+          onSubmit={handleSubmit}
+          isPending={submitMutation.isPending}
+          submitError={submitError}
+          submitSuccess={submitSuccess}
+        />
+
+        <div className="flex items-center gap-2">
+          <h2 className="text-body-sm font-semibold text-fg">Pending approvals</h2>
+          {pendingCount !== null && (
+            <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
+              {pendingCount}
+            </span>
+          )}
+        </div>
+
+        {approvalsError && approvals.length === 0 ? (
+          <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
+            Failed to load approvals. Is the agent running?
+          </div>
+        ) : isLoading ? (
+          <div className="flex h-24 items-center justify-center">
+            <Spinner />
+          </div>
+        ) : pendingApprovals.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
+            <p className="text-body-sm font-medium text-fg-muted">No pending approvals</p>
+            <p className="text-caption text-fg-faint">Send a buy instruction above.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 items-start gap-3 lap:grid-cols-2">
+            {pendingApprovals.map((approval: Approval) => (
+              <ApprovalCard
+                key={approval.id}
+                approval={approval}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                onUpdateAmount={handleUpdateAmount}
+                approvePending={pendingApproveIds.has(approval.id)}
+                rejectPending={pendingRejectIds.has(approval.id)}
+                amountPending={pendingAmountIds.has(approval.id)}
+                actionError={actionErrors[approval.id] ?? null}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

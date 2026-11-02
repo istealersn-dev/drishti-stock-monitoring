@@ -42,7 +42,7 @@ export function ApprovalSegments({
 
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label="Approval source"
       className="inline-flex gap-1 self-start rounded-xl border border-border-strong bg-surface-2 p-1"
     >
@@ -52,8 +52,7 @@ export function ApprovalSegments({
           <button
             key={segment.id}
             type="button"
-            role="tab"
-            aria-selected={isActive}
+            aria-pressed={isActive}
             onClick={() => {
               onSelect(segment.id);
             }}
