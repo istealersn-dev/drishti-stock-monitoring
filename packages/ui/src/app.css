@@ -85,7 +85,9 @@ body {
     #e2c584 62%,
     #8a6a24 92%
   );
-  --shadow-ring-glow-gold: 0 0 0 1px rgb(200 162 74 / 0.45), 0 4px 16px rgb(200 162 74 / 0.28);
+  --shadow-ring-glow-gold:
+    0 0 0 1px rgb(200 162 74 / 0.45),
+    0 4px 16px rgb(200 162 74 / 0.28);
   --pattern-dot-gold-strong: radial-gradient(
     circle,
     color-mix(in srgb, var(--color-gold) 78%, transparent) 1.9px,
@@ -97,16 +99,8 @@ body {
     transparent 1.8px
   );
   --glow-gold-corners:
-    radial-gradient(
-      85% 75% at 100% 0%,
-      color-mix(in srgb, var(--color-gold) 22%, transparent),
-      transparent 56%
-    ),
-    radial-gradient(
-      80% 70% at 6% 96%,
-      color-mix(in srgb, var(--color-gold) 16%, transparent),
-      transparent 62%
-    );
+    radial-gradient(85% 75% at 100% 0%, color-mix(in srgb, var(--color-gold) 22%, transparent), transparent 56%),
+    radial-gradient(80% 70% at 6% 96%, color-mix(in srgb, var(--color-gold) 16%, transparent), transparent 62%);
 
   /* semantic */
   --color-pos: #22c55e;
@@ -220,12 +214,7 @@ body {
 .pattern-dot-gold-strong {
   background-image: var(--pattern-dot-gold-strong);
   background-size: 17px 17px;
-  -webkit-mask-image: radial-gradient(
-    92% 72% at 100% 0%,
-    #000 0%,
-    rgb(0 0 0 / 0.75) 30%,
-    transparent 60%
-  );
+  -webkit-mask-image: radial-gradient(92% 72% at 100% 0%, #000 0%, rgb(0 0 0 / 0.75) 30%, transparent 60%);
   mask-image: radial-gradient(92% 72% at 100% 0%, #000 0%, rgb(0 0 0 / 0.75) 30%, transparent 60%);
 }
 
