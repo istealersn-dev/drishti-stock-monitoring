@@ -60,8 +60,8 @@ export function Login(): React.ReactElement {
       await loginWithKey(trimmed);
       storeKey(trimmed, remember);
       await navigate({ to: "/" });
-    } catch {
-      setError("Invalid access key. Check and try again.");
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "Login failed. Try again.");
     } finally {
       setLoading(false);
     }

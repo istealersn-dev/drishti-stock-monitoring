@@ -370,6 +370,48 @@ describe("DELETE /api/gtt/:id", () => {
   });
 });
 
+describe("auth lockout", () => {
+  const LOCKOUT_FAILURES = 10;
+  const login = (
+    app: Awaited<ReturnType<typeof buildApiApp>>,
+    key: string,
+    ip = "198.51.100.1",
+  ): ReturnType<typeof app.inject> =>
+    app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: { "cf-connecting-ip": ip },
+      payload: { key },
+    });
+
+  it("locks a client out after repeated bad keys, even with the right key", async () => {
+    const app = await buildApiApp();
+    for (let attempt = 0; attempt < LOCKOUT_FAILURES; attempt += 1) {
+      expect((await login(app, "wrong")).statusCode).toBe(401);
+    }
+    const blocked = await login(app, "test-key");
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.headers["retry-after"]).toBeDefined();
+  });
+
+  it("shares the lockout between login and the API header", async () => {
+    const app = await buildApiApp();
+    for (let attempt = 0; attempt < LOCKOUT_FAILURES; attempt += 1) await login(app, "wrong");
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/holdings",
+      headers: { "cf-connecting-ip": "198.51.100.1", "x-access-key": "test-key" },
+    });
+    expect(response.statusCode).toBe(429);
+  });
+
+  it("leaves other clients alone", async () => {
+    const app = await buildApiApp();
+    for (let attempt = 0; attempt < LOCKOUT_FAILURES; attempt += 1) await login(app, "wrong");
+    expect((await login(app, "test-key", "198.51.100.2")).statusCode).toBe(200);
+  });
+});
+
 describe("queryHoldingConfigs", () => {
   beforeEach(() => vi.clearAllMocks());
 

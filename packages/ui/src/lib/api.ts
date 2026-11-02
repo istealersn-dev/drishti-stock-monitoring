@@ -59,13 +59,21 @@ async function apiFetch<T>(path: string, schema: z.ZodType<T>, init?: RequestIni
  * @returns Resolves on success, throws on invalid key
  */
 export async function loginWithKey(key: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+  } catch {
+    throw new Error("Cannot reach Drishti API. Is the agent running?");
+  }
   if (response.status === 401) {
-    throw new Error("Invalid access key");
+    throw new Error("Invalid access key. Check and try again.");
+  }
+  if (response.status === 429) {
+    throw new Error("Too many failed attempts. Try again in 15 minutes.");
   }
   if (!response.ok) {
     throw new Error(`Cannot reach Drishti API (${response.status})`);

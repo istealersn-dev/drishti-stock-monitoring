@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 
 import cors from "@fastify/cors";
 import { and, desc, eq, gt } from "drizzle-orm";
-import Fastify from "fastify";
+import Fastify, { type FastifyRequest } from "fastify";
 import { z } from "zod";
 
 import {
@@ -57,6 +57,10 @@ import { BrokerError } from "../shared/errors.js";
 import { HTTP_UNAUTHORIZED } from "../shared/httpStatus.js";
 import { logger } from "../shared/logger.js";
 
+import { createAuthThrottle, isValidAccessKey } from "./api.auth.js";
+
+// Loopback only: the Cloudflare tunnel connects over localhost.
+const API_BIND_HOST = "127.0.0.1";
 const API_RUNS_LIMIT = 20;
 const API_LOGS_LIMIT = 100;
 
@@ -257,6 +261,18 @@ const HoldingConfigBodySchema = z.object({
 });
 
 /**
+ * Identify the caller for auth throttling. Everything outside this machine
+ * arrives through the Cloudflare tunnel, which sets this header itself, and the
+ * server only binds to loopback, so the header can't be forged from outside.
+ * @param request - The incoming request
+ * @returns The caller's address
+ */
+function clientAddress(request: FastifyRequest): string {
+  const forwarded = request.headers["cf-connecting-ip"];
+  return typeof forwarded === "string" ? forwarded : request.ip;
+}
+
+/**
  * Build and return the configured Fastify app (without starting the server).
  * Separated from startApiServer for testability.
  * @returns Configured Fastify application
@@ -270,22 +286,42 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
     allowedHeaders: ["Content-Type", "X-Access-Key"],
   });
 
+  const authThrottle = createAuthThrottle();
+
   // Auth hook: all /api/* except /api/auth/login requires X-Access-Key
   app.addHook("preHandler", async (request, reply) => {
     if (request.url === "/api/auth/login") return;
-    const key = request.headers["x-access-key"];
-    if (key !== env.DRISHTI_ACCESS_KEY) {
+    const client = clientAddress(request);
+    const retryAfter = authThrottle.retryAfterSeconds(client);
+    if (retryAfter > 0) {
+      return reply
+        .status(429)
+        .header("Retry-After", retryAfter)
+        .send({ ok: false, error: "Too many failed attempts" });
+    }
+    if (!isValidAccessKey(request.headers["x-access-key"], env.DRISHTI_ACCESS_KEY)) {
+      authThrottle.recordFailure(client);
       return reply.status(401).send({ ok: false, error: "Unauthorized" });
     }
+    authThrottle.clear(client);
   });
 
   // ── Public ─────────────────────────────────────────────────────────────────
 
   app.post<{ Body: Record<string, unknown> }>("/api/auth/login", async (request, reply) => {
-    const key = typeof request.body["key"] === "string" ? request.body["key"] : "";
-    if (key !== env.DRISHTI_ACCESS_KEY) {
+    const client = clientAddress(request);
+    const retryAfter = authThrottle.retryAfterSeconds(client);
+    if (retryAfter > 0) {
+      return reply
+        .status(429)
+        .header("Retry-After", retryAfter)
+        .send({ ok: false, error: "Too many failed attempts" });
+    }
+    if (!isValidAccessKey(request.body["key"], env.DRISHTI_ACCESS_KEY)) {
+      authThrottle.recordFailure(client);
       return reply.status(401).send({ ok: false, error: "Invalid access key" });
     }
+    authThrottle.clear(client);
     return reply.send({ ok: true });
   });
 
@@ -779,6 +815,6 @@ export async function buildApiApp(): Promise<ReturnType<typeof Fastify>> {
  */
 export async function startApiServer(): Promise<void> {
   const app = await buildApiApp();
-  await app.listen({ port: env.AGENT_API_PORT, host: "0.0.0.0" });
+  await app.listen({ port: env.AGENT_API_PORT, host: API_BIND_HOST });
   logger.info("REST API server started", { port: env.AGENT_API_PORT });
 }
