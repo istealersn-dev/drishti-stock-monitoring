@@ -19,6 +19,8 @@ import { sumHoldingsValue } from "../lib/holdingFormat";
 import { HOLDING_SEVERITY_RANK, buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
 const PLACEHOLDER = "—";
+const MTF_ANNUAL_INTEREST_RATE = 0.18;
+const DAYS_IN_YEAR = 365;
 
 /**
  * Dashboard (updated design) — "Portfolio overview": market index cards, a
@@ -63,6 +65,10 @@ export function Dashboard(): React.ReactElement {
   const totalPnl = holdings.reduce((sum, h) => sum + h.pnl, 0);
   const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
   const dayPnl = holdings.reduce((sum, h) => sum + h.day_change * h.quantity, 0);
+  const mtfValue = holdings
+    .filter((h) => h.product === "MTF")
+    .reduce((sum, h) => sum + h.quantity * h.average_price, 0);
+  const mtfBurnPerDay = (mtfValue * MTF_ANNUAL_INTEREST_RATE) / DAYS_IN_YEAR;
   const slMap = buildSlMap(gttOrders);
   const pendingApprovals = approvals.filter((approval) => approval.status === "pending").length;
 
@@ -157,7 +163,7 @@ export function Dashboard(): React.ReactElement {
                 {totalPnlPct >= 0 ? "+" : ""}
                 {totalPnlPct.toFixed(2)}%
               </span>{" "}
-              vs cost
+              vs cost{mtfBurnPerDay > 0 && ` · ${formatInr(mtfBurnPerDay)}/day MTF`}
             </>
           }
         />
