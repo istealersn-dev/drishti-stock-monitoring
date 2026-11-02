@@ -1,7 +1,7 @@
 import type React from "react";
 
 import type { GttOrder } from "../../lib/api";
-import { formatDate } from "../../lib/format";
+import { PLACEHOLDER, formatDate } from "../../lib/format";
 import { gttStatusVariant, gttTypeLabel, gttTypeVariant } from "../../lib/gttFormat";
 import { formatPrice } from "../../lib/holdingFormat";
 import { Badge } from "../ui/badge";
@@ -14,7 +14,7 @@ type GttRowProperties = {
 };
 
 function GttRow({ order }: GttRowProperties): React.ReactElement {
-  const approvalShort = order.approvalId != null ? order.approvalId.slice(0, 8) : "—";
+  const approvalShort = order.approvalId != null ? order.approvalId.slice(0, 8) : PLACEHOLDER;
 
   return (
     <Table.Row>

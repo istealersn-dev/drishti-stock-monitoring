@@ -1,6 +1,7 @@
 import type React from "react";
 
 import type { Holding } from "../../lib/api";
+import { PLACEHOLDER } from "../../lib/format";
 import {
   formatPnl,
   formatPrice,
@@ -29,6 +30,7 @@ type HoldingCardProperties = {
 export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElement {
   const { sl, setSl, target, setTarget, saveError, isPending, handleSaveThreshold } =
     useHoldingGttForm(holding.trading_symbol);
+  const errorId = `${holding.trading_symbol}-${holding.product}-save-error`;
   const ltpColor = holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
   const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
   const cost = holding.quantity * holding.average_price;
@@ -70,7 +72,9 @@ export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElem
             type="text"
             inputMode="decimal"
             value={sl}
-            placeholder="—"
+            placeholder={PLACEHOLDER}
+            aria-invalid={saveError !== null}
+            aria-describedby={saveError !== null ? errorId : undefined}
             onChange={(event) => {
               setSl(event.target.value);
             }}
@@ -84,7 +88,9 @@ export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElem
             type="text"
             inputMode="decimal"
             value={target}
-            placeholder="—"
+            placeholder={PLACEHOLDER}
+            aria-invalid={saveError !== null}
+            aria-describedby={saveError !== null ? errorId : undefined}
             onChange={(event) => {
               setTarget(event.target.value);
             }}
@@ -94,7 +100,11 @@ export function HoldingCard({ holding }: HoldingCardProperties): React.ReactElem
         </label>
       </div>
 
-      {saveError !== null && <p className="text-caption text-neg">{saveError}</p>}
+      {saveError !== null && (
+        <p role="alert" className="text-caption text-neg">
+          {saveError}
+        </p>
+      )}
 
       <Button variant="secondary" onClick={handleSaveThreshold} disabled={isPending}>
         {isPending ? "Saving…" : "Save SL threshold"}

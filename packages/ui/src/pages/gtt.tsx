@@ -4,6 +4,7 @@ import type React from "react";
 import { GttCard } from "../components/gtt/gttCard";
 import { GttTable } from "../components/gtt/gttTable";
 import { PageHeader } from "../components/shell/pageHeader";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { fetchGttOrders } from "../lib/api";
@@ -32,11 +33,7 @@ export function Gtt(): React.ReactElement {
 
   // A failed background refetch keeps its data, which beats a blank page.
   if (isError && data === undefined) {
-    return (
-      <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-        Failed to load GTT orders. Is the agent running?
-      </div>
-    );
+    return <ErrorNotice>Failed to load GTT orders. Is the agent running?</ErrorNotice>;
   }
 
   const orders = data ?? [];

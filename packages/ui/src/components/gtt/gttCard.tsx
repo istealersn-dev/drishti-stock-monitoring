@@ -1,7 +1,7 @@
 import type React from "react";
 
 import type { GttOrder } from "../../lib/api";
-import { formatDate } from "../../lib/format";
+import { PLACEHOLDER, formatDate } from "../../lib/format";
 import { gttStatusVariant, gttTypeLabel, gttTypeVariant } from "../../lib/gttFormat";
 import { formatPrice } from "../../lib/holdingFormat";
 import { Badge } from "../ui/badge";
@@ -22,7 +22,7 @@ type GttCardProperties = {
  * @returns Gtt card element
  */
 export function GttCard({ order }: GttCardProperties): React.ReactElement {
-  const approvalShort = order.approvalId != null ? order.approvalId.slice(0, 8) : "—";
+  const approvalShort = order.approvalId != null ? order.approvalId.slice(0, 8) : PLACEHOLDER;
 
   return (
     <Card className="flex flex-col gap-3">

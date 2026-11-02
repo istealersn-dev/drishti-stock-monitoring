@@ -14,6 +14,8 @@ type InputProperties = {
   disabled?: boolean;
   autoComplete?: React.HTMLInputAutoCompleteAttribute;
   autoFocus?: boolean;
+  /** Validation message, linked to the field for assistive tech. */
+  error?: string | null;
   className?: string;
 };
 
@@ -35,6 +37,7 @@ type InputProperties = {
  * @param props.disabled - disables the input
  * @param props.autoComplete - native autocomplete hint (e.g. "current-password")
  * @param props.autoFocus - focus the field on mount
+ * @param props.error - validation message shown under the field
  * @param props.className - additional classes on the input element
  * @returns Labelled input element
  */
@@ -50,11 +53,13 @@ export function Input({
   disabled = false,
   autoComplete,
   autoFocus = false,
+  error = null,
   className = "",
 }: InputProperties): React.ReactElement {
   const [revealed, setRevealed] = useState(false);
   const isPassword = type === "password";
   const fieldType = isPassword && revealed ? "text" : type;
+  const errorId = `${id}-error`;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -72,6 +77,8 @@ export function Input({
           disabled={disabled}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
+          aria-invalid={error !== null}
+          aria-describedby={error !== null ? errorId : undefined}
           onChange={(event): void => onChange(event.target.value)}
           className={`h-10 min-w-0 flex-1 bg-transparent px-3 text-body text-fg outline-none placeholder:text-fg-faint disabled:cursor-not-allowed disabled:text-fg-faint ${numeric ? "text-center font-mono tabular-nums" : ""}`}
         />
@@ -91,6 +98,11 @@ export function Input({
           </button>
         )}
       </div>
+      {error !== null && (
+        <p id={errorId} role="alert" className="text-caption text-neg">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

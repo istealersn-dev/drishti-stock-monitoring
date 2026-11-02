@@ -49,12 +49,6 @@ const COLOR_GROUPS: ColorGroup[] = [
       { label: "bg-chrome", hex: tokens.color.bgChrome, swatchClassName: "bg-bg-chrome" },
       { label: "surface", hex: tokens.color.surface, swatchClassName: "bg-surface" },
       { label: "surface-2", hex: tokens.color.surface2, swatchClassName: "bg-surface-2" },
-      { label: "surface-3", hex: tokens.color.surface3, swatchClassName: "bg-surface-3" },
-      {
-        label: "surface-input",
-        hex: tokens.color.surfaceInput,
-        swatchClassName: "bg-surface-input",
-      },
       {
         label: "surface-hover",
         hex: tokens.color.surfaceHover,

@@ -118,13 +118,21 @@ export function ConnectBroker(): React.ReactElement {
             </Badge>
           )}
         </div>
-        {isError && <p className="text-body-sm text-neg">Could not load broker status.</p>}
+        {isError && (
+          <p role="alert" className="text-body-sm text-neg">
+            Could not load broker status.
+          </p>
+        )}
         {broker?.lastCheckedAt && (
           <p className="text-caption text-fg-faint">
             Last checked {new Date(broker.lastCheckedAt).toLocaleString("en-IN")}
           </p>
         )}
-        {broker?.lastError && <p className="text-caption text-neg">{broker.lastError}</p>}
+        {broker?.lastError && (
+          <p role="alert" className="text-caption text-neg">
+            {broker.lastError}
+          </p>
+        )}
       </Card>
 
       <Card className="flex flex-col gap-3">
@@ -159,10 +167,14 @@ export function ConnectBroker(): React.ReactElement {
               : "Set as active broker"}
         </Button>
         {verifyMutation.isError && (
-          <p className="text-body-sm text-neg">{(verifyMutation.error as Error).message}</p>
+          <p role="alert" className="text-body-sm text-neg">
+            {verifyMutation.error.message}
+          </p>
         )}
         {activateMutation.isError && (
-          <p className="text-body-sm text-neg">{(activateMutation.error as Error).message}</p>
+          <p role="alert" className="text-body-sm text-neg">
+            {activateMutation.error.message}
+          </p>
         )}
       </div>
     </div>

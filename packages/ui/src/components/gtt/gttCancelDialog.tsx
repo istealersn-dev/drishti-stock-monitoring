@@ -36,7 +36,11 @@ export function GttCancelDialog({ order }: GttCancelDialogProperties): React.Rea
         description={`This will cancel the ${gttTypeLabel(order.type)} order for ${order.symbol}. This cannot be undone.`}
         tone="destructive"
       >
-        {errorMessage !== null && <p className="text-caption text-neg">{errorMessage}</p>}
+        {errorMessage !== null && (
+          <p role="alert" className="text-caption text-neg">
+            {errorMessage}
+          </p>
+        )}
         <Dialog.Footer>
           <Button
             variant="secondary"

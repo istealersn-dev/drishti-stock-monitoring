@@ -10,6 +10,7 @@ import { PortfolioTrendCard } from "../components/dashboard/portfolioTrendCard";
 import { PositionsSnapshot } from "../components/dashboard/positionsSnapshot";
 import { StatCard } from "../components/dashboard/statCard";
 import { TodaysActivityCard } from "../components/dashboard/todaysActivityCard";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { useIsDesktop } from "../hooks/useIsDesktop";
@@ -79,14 +80,14 @@ export function Dashboard(): React.ReactElement {
   const approvalNotices = (
     <>
       {approvalsError && (
-        <div className="rounded-xl border border-neg-ring bg-neg-tint px-4 py-3 text-body-sm text-neg">
+        <ErrorNotice compact>
           {approvals.length === 0
             ? "Couldn't check for pending approvals. "
             : "Couldn't refresh approvals, so new ones may be missing. "}
           <Link to="/instructions" className="underline">
             Open Approvals
           </Link>
-        </div>
+        </ErrorNotice>
       )}
 
       {pendingApprovals > 0 && (
@@ -115,9 +116,7 @@ export function Dashboard(): React.ReactElement {
     return (
       <div className="flex flex-col gap-4">
         {approvalNotices}
-        <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-          Failed to load portfolio data. Is the agent running?
-        </div>
+        <ErrorNotice>Failed to load portfolio data. Is the agent running?</ErrorNotice>
       </div>
     );
   }
@@ -157,9 +156,9 @@ export function Dashboard(): React.ReactElement {
       {approvalNotices}
 
       {isError && (
-        <div className="rounded-xl border border-neg-ring bg-neg-tint px-4 py-3 text-body-sm text-neg">
+        <ErrorNotice compact>
           Couldn&apos;t refresh portfolio data, so these figures may be out of date.
-        </div>
+        </ErrorNotice>
       )}
 
       <div className="grid grid-cols-2 gap-3.5 lap:grid-cols-4">

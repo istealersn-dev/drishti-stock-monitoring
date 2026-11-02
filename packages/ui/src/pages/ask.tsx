@@ -10,6 +10,7 @@ import { SuggestionGrid } from "../components/ask/suggestionGrid";
 import { Logo } from "../components/shell/logo";
 import { Breadcrumb } from "../components/ui/breadcrumb";
 import { Button } from "../components/ui/button";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Spinner } from "../components/ui/spinner";
 import { askAdvisor, fetchAdvisoryConversations } from "../lib/api";
 import { timeOfDayGreeting } from "../lib/timeOfDayGreeting";
@@ -159,16 +160,14 @@ export function Ask(): React.ReactElement {
             <Spinner />
           </div>
         ) : isError ? (
-          <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-            Failed to load conversation. Is the agent running?
-          </div>
+          <ErrorNotice>Failed to load conversation. Is the agent running?</ErrorNotice>
         ) : (
           <MessageList messages={sessionMessages} pending={isPendingForSession} />
         )}
       </div>
 
       {askError !== null && (
-        <div className="rounded-lg border border-neg-ring bg-neg-tint px-3 py-2 text-body-sm text-neg animate-fade">
+        <div className="rounded-lg border border-neg-ring bg-neg-tint px-3 py-2 text-body-sm text-neg-soft animate-fade">
           {askError}
         </div>
       )}

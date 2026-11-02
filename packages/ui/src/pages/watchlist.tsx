@@ -6,6 +6,7 @@ import { StatCard } from "../components/dashboard/statCard";
 import { PageHeader } from "../components/shell/pageHeader";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import { ErrorNotice } from "../components/ui/errorNotice";
 import { Input } from "../components/ui/input";
 import { Spinner } from "../components/ui/spinner";
 import { Table } from "../components/ui/table";
@@ -16,6 +17,7 @@ import {
   fetchWatchlist,
   removeWatchlistEntry,
 } from "../lib/api";
+import { PLACEHOLDER } from "../lib/format";
 
 type ProximityCardProperties = {
   alert: ProximityAlert;
@@ -47,7 +49,7 @@ function EntryRow({ entry, onRemove, removing }: EntryRowProperties): React.Reac
   return (
     <Table.Row>
       <Table.Cell className="font-mono uppercase">{entry.symbol}</Table.Cell>
-      <Table.Cell className="max-w-xs truncate">{entry.notes ?? "—"}</Table.Cell>
+      <Table.Cell className="max-w-xs truncate">{entry.notes ?? PLACEHOLDER}</Table.Cell>
       <Table.Cell>{new Date(entry.addedAt).toLocaleDateString("en-IN")}</Table.Cell>
       <Table.Cell align="right">
         <Button
@@ -197,7 +199,11 @@ export function Watchlist(): React.ReactElement {
             {addMutation.isPending ? "Adding…" : "Add"}
           </Button>
         </form>
-        {formError !== null && <p className="text-caption text-neg">{formError}</p>}
+        {formError !== null && (
+          <p role="alert" className="text-caption text-neg">
+            {formError}
+          </p>
+        )}
       </Card>
 
       {proximityAlerts.length > 0 && (
@@ -216,9 +222,7 @@ export function Watchlist(): React.ReactElement {
           <Spinner />
         </div>
       ) : isError ? (
-        <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-          Failed to load watchlist. Is the agent running?
-        </div>
+        <ErrorNotice>Failed to load watchlist. Is the agent running?</ErrorNotice>
       ) : entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
           <p className="text-body-sm font-medium text-fg-muted">Watchlist is empty</p>

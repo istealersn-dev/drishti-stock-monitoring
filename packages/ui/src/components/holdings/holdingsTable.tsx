@@ -1,6 +1,7 @@
 import type React from "react";
 
 import type { Holding } from "../../lib/api";
+import { PLACEHOLDER } from "../../lib/format";
 import {
   formatPnl,
   formatPrice,
@@ -20,6 +21,7 @@ type HoldingRowProperties = {
 function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
   const { sl, setSl, target, setTarget, saveError, isPending, handleSaveThreshold } =
     useHoldingGttForm(holding.trading_symbol);
+  const errorId = `${holding.trading_symbol}-${holding.product}-save-error`;
   const ltpColor = holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
   const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
   const cost = holding.quantity * holding.average_price;
@@ -47,7 +49,9 @@ function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
           type="text"
           inputMode="decimal"
           value={sl}
-          placeholder="—"
+          placeholder={PLACEHOLDER}
+          aria-invalid={saveError !== null}
+          aria-describedby={saveError !== null ? errorId : undefined}
           onChange={(event) => {
             setSl(event.target.value);
           }}
@@ -61,7 +65,9 @@ function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
           type="text"
           inputMode="decimal"
           value={target}
-          placeholder="—"
+          placeholder={PLACEHOLDER}
+          aria-invalid={saveError !== null}
+          aria-describedby={saveError !== null ? errorId : undefined}
           onChange={(event) => {
             setTarget(event.target.value);
           }}
@@ -80,7 +86,11 @@ function HoldingRow({ holding }: HoldingRowProperties): React.ReactElement {
           >
             {isPending ? "Saving…" : "Save SL"}
           </Button>
-          {saveError !== null && <span className="text-caption text-neg">{saveError}</span>}
+          {saveError !== null && (
+            <span id={errorId} role="alert" className="text-caption text-neg">
+              {saveError}
+            </span>
+          )}
         </div>
       </Table.Cell>
     </Table.Row>
