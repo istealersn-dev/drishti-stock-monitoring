@@ -48,7 +48,7 @@ export function AppHeaderMobile({
   const statusPill = resolveStatusPill(dryRun, paused);
 
   return (
-    <header className="sticky top-0 z-40 flex h-mobile-header flex-none items-center justify-between gap-2 border-b border-border bg-bg-chrome/85 px-3 backdrop-blur-md">
+    <header className="sticky top-0 z-header flex h-mobile-header flex-none items-center justify-between gap-2 border-b border-border bg-bg-chrome/85 px-3 backdrop-blur-md">
       <Link to="/ask" aria-label="Ask Drishti" className="flex min-w-0 items-center gap-2">
         <Logo className="h-6 w-6 rounded-md text-micro" />
         <span className="truncate text-body-sm font-semibold tracking-tight text-fg">Drishti</span>

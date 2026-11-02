@@ -29,7 +29,7 @@ export function MobileTabBar({ pendingApprovals }: MobileTabBarProperties): Reac
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-30 flex h-mobile-tabbar flex-none items-stretch border-t border-border bg-bg-chrome/95 backdrop-blur-md"
+      className="fixed inset-x-0 bottom-0 z-chrome flex h-mobile-tabbar flex-none items-stretch border-t border-border bg-bg-chrome/95 backdrop-blur-md"
     >
       {MOBILE_TABS.map((item) => {
         const Icon = item.icon;

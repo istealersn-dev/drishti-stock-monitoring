@@ -21,7 +21,7 @@ export function Tooltip({ content, children }: TooltipProperties): React.ReactEl
         <TooltipPrimitive.Portal>
           <TooltipPrimitive.Content
             sideOffset={6}
-            className="z-50 rounded-md border border-border-strong bg-surface px-2 py-1 text-caption text-fg shadow-card data-[state=delayed-open]:animate-fade"
+            className="z-modal rounded-md border border-border-strong bg-surface px-2 py-1 text-caption text-fg shadow-card data-[state=delayed-open]:animate-fade"
           >
             {content}
             <TooltipPrimitive.Arrow className="fill-surface" />

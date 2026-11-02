@@ -29,7 +29,7 @@ export function OpenOrdersCard({ orders }: OpenOrdersCardProperties): React.Reac
         <span className="text-body-sm font-semibold text-fg">Open orders</span>
         <Link
           to="/gtt"
-          className="font-mono text-caption text-gold transition-colors hover:text-gold-bright"
+          className="inline-flex min-h-6 items-center font-mono text-caption text-gold transition-colors hover:text-gold-bright"
         >
           {orders.length} active ›
         </Link>

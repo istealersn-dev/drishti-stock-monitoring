@@ -2,8 +2,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type React from "react";
 
-const DIALOG_OVERLAY_CLASS_NAME =
-  "fixed inset-0 z-40 bg-[color:rgb(10_10_10_/_0.7)] data-[state=open]:animate-fade";
+const DIALOG_OVERLAY_CLASS_NAME = "fixed inset-0 z-overlay bg-scrim data-[state=open]:animate-fade";
 
 type DialogRootProperties = {
   open: boolean;
@@ -51,7 +50,7 @@ function DialogContent({
       <DialogPrimitive.Content
         {...(description === undefined ? { "aria-describedby": undefined } : {})}
         {...(onCloseAutoFocus === undefined ? {} : { onCloseAutoFocus })}
-        className={`fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border p-5 shadow-card outline-none data-[state=open]:animate-fade ${tone === "destructive" ? "border-neg-ring bg-neg-tint" : "border-border-strong bg-surface"} ${className}`}
+        className={`fixed left-1/2 top-1/2 z-modal w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border p-5 shadow-card outline-none data-[state=open]:animate-fade ${tone === "destructive" ? "border-neg-ring bg-neg-tint" : "border-border-strong bg-surface"} ${className}`}
       >
         <div className="flex items-start justify-between gap-3">
           <DialogPrimitive.Title className="text-title font-semibold text-fg">

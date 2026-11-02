@@ -137,7 +137,7 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
         className={
           compact
             ? "flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg bg-[image:var(--gradient-gold)] font-mono text-body-sm font-bold text-bg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-            : "flex h-9 items-center gap-2.5 rounded-xl border border-border-strong bg-surface-3 px-2 transition-colors hover:border-border-muted hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            : "flex h-9 items-center gap-2.5 rounded-xl border border-border-strong bg-surface-2 px-2 transition-colors hover:border-border-muted hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         }
       >
         {compact ? (
@@ -156,7 +156,7 @@ export function AccountMenu({ compact = false }: AccountMenuProperties): React.R
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-[calc(100dvh-4rem)] w-60 overflow-y-auto rounded-3xl border border-border-strong bg-surface-input shadow-card">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-modal max-h-[calc(100dvh-4rem)] w-60 overflow-y-auto rounded-3xl border border-border-strong bg-surface shadow-card">
           <div className="flex items-center gap-2.5 border-b border-border px-4 py-3.5">
             <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-[image:var(--gradient-gold)] font-mono text-subtitle font-bold text-bg-base">
               {ACCOUNT.initial}
