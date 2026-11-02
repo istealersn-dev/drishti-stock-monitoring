@@ -51,8 +51,11 @@ export function useLogout(): () => void {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   return (): void => {
-    clearKey();
-    queryClient.clear();
-    void navigate({ to: "/login" });
+    // After navigating, or AppShell's still-mounted queries would refetch
+    // without a key and turn the 401 into a full reload.
+    void navigate({ to: "/login" }).finally(() => {
+      clearKey();
+      queryClient.clear();
+    });
   };
 }

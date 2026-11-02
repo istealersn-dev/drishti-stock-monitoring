@@ -9,13 +9,13 @@ import { fetchApprovals, fetchHoldings, fetchRuns, fetchSettings } from "../../l
 import { filterPendingApprovals } from "../../lib/approvals";
 import { formatInr } from "../../lib/format";
 import { sumHoldingsValue } from "../../lib/holdingFormat";
-import { pageTitle } from "../../lib/pageTitle";
 import { tokens } from "../../tokens/tokens";
 
 import { AppFooter } from "./appFooter";
 import { AppHeaderMobile } from "./appHeaderMobile";
 import { AppTopHeader } from "./appTopHeader";
 import { MobileTabBar } from "./mobileTabBar";
+import { pageTitle } from "./pageTitle";
 import { Sidebar } from "./sidebar";
 
 const TABLET_QUERY = `(min-width: ${tokens.breakpoint.tab}px) and (max-width: ${tokens.breakpoint.lap - 1}px)`;
@@ -44,7 +44,9 @@ export function AppShell(): React.ReactElement {
   // then it collapses on tablet widths (Drishti.dc.html: 578–1023).
   const [collapseOverride, setCollapseOverride] = useState<boolean | null>(null);
   const [spinning, setSpinning] = useState(false);
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  // resolvedLocation, not location: that changes when a load starts, which for
+  // a lazy route is before its content exists to focus.
+  const pathname = useRouterState({ select: (state) => state.resolvedLocation?.pathname });
   const mainReference = useRef<HTMLElement>(null);
   const isFirstRoute = useRef(true);
   const spinTimerReference = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,6 +91,7 @@ export function AppShell(): React.ReactElement {
   // A client-side route change is silent to assistive tech, so name the page
   // and move focus to its content, the way a full page load would.
   useEffect(() => {
+    if (pathname === undefined) return;
     document.title = pageTitle(pathname);
     if (isFirstRoute.current) {
       isFirstRoute.current = false;
