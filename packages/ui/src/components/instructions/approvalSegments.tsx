@@ -4,8 +4,8 @@ import type { ApprovalSource } from "./approvalSource";
 
 type ApprovalSegmentsProperties = {
   active: ApprovalSource;
-  /** Pending agent proposals, shown on the "From Drishti" tab. */
-  drishtiCount: number;
+  /** Pending agent proposals, shown on the "From Drishti" tab; null until known. */
+  drishtiCount: number | null;
   /** Pending buy instructions, shown on the "From you" tab; null until known. */
   youCount: number | null;
   onSelect: (source: ApprovalSource) => void;

@@ -20,8 +20,7 @@ import {
 } from "../lib/api";
 
 // The agent doesn't raise its own proposals yet — every approval is a buy
-// instruction the user sent — so "From Drishti" is always empty for now.
-const AGENT_PROPOSAL_COUNT = 0;
+// instruction the user sent — so "From Drishti" has no count and says so.
 
 /**
  * Approvals page (updated design) — "From Drishti" holds the agent's own
@@ -181,14 +180,14 @@ export function Instructions(): React.ReactElement {
         title="Approvals"
         subtitle={
           isDesktop
-            ? "Two places decisions come from — Drishti's proposals and your own instructions. No new buy goes through until you approve."
-            : "Drishti's proposals and your own instructions. No new buy goes through until you approve."
+            ? "Your buy instructions wait here for a decision. No new buy goes through until you approve."
+            : "No new buy goes through until you approve."
         }
       />
 
       <ApprovalSegments
         active={segment}
-        drishtiCount={AGENT_PROPOSAL_COUNT}
+        drishtiCount={null}
         youCount={pendingCount}
         onSelect={setSegment}
       />
@@ -198,13 +197,11 @@ export function Instructions(): React.ReactElement {
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-pos-tint">
             <Check aria-hidden="true" className="h-5 w-5 text-pos" />
           </span>
-          <p className="mt-1 text-body-sm font-medium text-fg">
-            {pendingCount === 0 ? "You're all caught up" : "No proposals from Drishti"}
-          </p>
-          <p className="text-caption text-fg-faint">
+          <p className="mt-1 text-body-sm font-medium text-fg">No proposals from Drishti</p>
+          <p className="text-center text-caption text-fg-faint">
             {isDesktop
-              ? "The agent will surface new proposals here as conditions change."
-              : "New proposals will appear here."}
+              ? "Drishti doesn't raise its own proposals yet. Your buy instructions are under From you."
+              : "Drishti doesn't raise proposals yet."}
           </p>
         </div>
       )}
