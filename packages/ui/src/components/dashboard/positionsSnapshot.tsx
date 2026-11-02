@@ -18,22 +18,27 @@ import { StatusDot } from "../ui/statusDot";
 const PLACEHOLDER = "—";
 
 // Shared grid template so the header row and every position row align.
-const ROW_GRID = "grid-cols-[1.4fr_1fr_0.6fr_0.8fr_1fr_1fr_0.8fr_0.8fr_1.1fr]";
+// minmax(0, …) stops a long value from widening its own row's track, which
+// would shift that row's columns out from under the headers.
+const ROW_GRID =
+  "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.1fr)]";
+
+const DEFAULT_ROW_LIMIT = 5;
 
 type SortDirection = "none" | "desc" | "asc";
 
 const NEXT_SORT: Record<SortDirection, SortDirection> = { none: "desc", desc: "asc", asc: "none" };
 const SORT_ARROW: Record<SortDirection, string> = { none: "↕", desc: "↓", asc: "↑" };
 const SORT_LABEL: Record<SortDirection, string> = {
-  none: "not sorted",
-  desc: "sorted highest first",
-  asc: "sorted lowest first",
+  none: "riskiest first",
+  desc: "highest first within each risk level",
+  asc: "lowest first within each risk level",
 };
 
 type PositionsSnapshotProperties = {
   holdings: Holding[];
   slMap: Map<string, number>;
-  /** How many rows to show before the "View all" link. */
+  /** How many rows to show before the "View all" link; at-risk rows always show. */
   limit?: number;
 };
 
@@ -81,12 +86,12 @@ function PositionRow({
         aria-expanded={expanded}
         className={`grid w-full ${ROW_GRID} items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover`}
       >
-        <span className="flex items-center gap-1.5 font-mono text-body-sm uppercase text-fg">
+        <span className="flex min-w-0 items-center gap-1.5 font-mono text-body-sm uppercase text-fg">
           <ChevronRight
             aria-hidden="true"
             className={`h-3.5 w-3.5 flex-none text-fg-faint transition-transform ${expanded ? "rotate-90" : ""}`}
           />
-          {holding.trading_symbol}
+          <span className="truncate">{holding.trading_symbol}</span>
         </span>
         <span className="truncate text-caption text-fg-dim">{PLACEHOLDER}</span>
         <span className="text-right font-mono text-caption text-fg-muted">{holding.quantity}</span>
@@ -154,13 +159,13 @@ function Detail({ term, value }: { term: string; value: string }): React.ReactEl
  * the sort. Sector and target are placeholders until their data sources exist.
  * @param props.holdings - Current holdings
  * @param props.slMap - Symbol -> stop-loss threshold, for status + SL columns
- * @param props.limit - Max rows before the "View all" link (default 5)
+ * @param props.limit - Rows before the "View all" link, unless more are at risk
  * @returns Positions snapshot card
  */
 export function PositionsSnapshot({
   holdings,
   slMap,
-  limit = 5,
+  limit = DEFAULT_ROW_LIMIT,
 }: PositionsSnapshotProperties): React.ReactElement {
   const [sortDirection, setSortDirection] = useState<SortDirection>("none");
   const severity = (holding: Holding): number =>
@@ -168,16 +173,22 @@ export function PositionsSnapshot({
   const atRiskCount = holdings.filter(
     (holding) => resolveHoldingStatus(holding, slMap).variant !== "pos",
   ).length;
-  // Severity always wins, and P&L sorts within it: only `limit` rows show and
-  // Needs attention is mobile-only, so a breach must not fall below the cut.
+  const distanceToSl = (holding: Holding): number => {
+    const sl = slMap.get(holding.trading_symbol);
+    return sl ? (holding.last_price - sl) / sl : Number.POSITIVE_INFINITY;
+  };
+  // Severity always wins, with the P&L sort or distance to SL inside it, and
+  // every at-risk row shows regardless of `limit`: Needs attention is
+  // mobile-only, so this is desktop's only list of them.
   const sorted = [...holdings].sort((a, b) => {
     const bySeverity = severity(a) - severity(b);
-    if (bySeverity !== 0 || sortDirection === "none") return bySeverity;
+    if (bySeverity !== 0) return bySeverity;
+    if (sortDirection === "none") return distanceToSl(a) - distanceToSl(b);
     return sortDirection === "desc"
       ? pnlPercentage(b) - pnlPercentage(a)
       : pnlPercentage(a) - pnlPercentage(b);
   });
-  const rows = sorted.slice(0, limit);
+  const rows = sorted.slice(0, Math.max(limit, atRiskCount));
 
   return (
     <Card className="flex flex-col gap-0 overflow-hidden !p-0">
