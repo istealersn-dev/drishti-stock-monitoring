@@ -214,6 +214,12 @@ export function Instructions(): React.ReactElement {
           {pendingCount !== null && <Badge variant="neutral">{pendingCount}</Badge>}
         </div>
 
+        {approvalsError && approvals.length > 0 && (
+          <p className="text-caption text-neg">
+            Couldn&apos;t refresh approvals, so these may be out of date.
+          </p>
+        )}
+
         {approvalsError && approvals.length === 0 ? (
           <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
             Failed to load approvals. Is the agent running?
