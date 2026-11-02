@@ -8,6 +8,7 @@ import { ApprovalSegments } from "../components/instructions/approvalSegments";
 import type { ApprovalSource } from "../components/instructions/approvalSource";
 import { InstructionComposer } from "../components/instructions/instructionComposer";
 import { PageHeader } from "../components/shell/pageHeader";
+import { Badge } from "../components/ui/badge";
 import { Spinner } from "../components/ui/spinner";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import {
@@ -20,7 +21,7 @@ import {
 } from "../lib/api";
 
 // The agent doesn't raise its own proposals yet — every approval is a buy
-// instruction the user sent — so "From Drishti" has no count and says so.
+// instruction the user sent — so "From Drishti" says so instead of showing a count.
 
 /**
  * Approvals page (updated design) — "From Drishti" holds the agent's own
@@ -185,12 +186,7 @@ export function Instructions(): React.ReactElement {
         }
       />
 
-      <ApprovalSegments
-        active={segment}
-        drishtiCount={null}
-        youCount={pendingCount}
-        onSelect={setSegment}
-      />
+      <ApprovalSegments active={segment} youCount={pendingCount} onSelect={setSegment} />
 
       {segment === "drishti" && (
         <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-12">
@@ -224,11 +220,7 @@ export function Instructions(): React.ReactElement {
 
         <div className="flex items-center gap-2">
           <h2 className="text-body-sm font-semibold text-fg">Pending approvals</h2>
-          {pendingCount !== null && (
-            <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
-              {pendingCount}
-            </span>
-          )}
+          {pendingCount !== null && <Badge variant="neutral">{pendingCount}</Badge>}
         </div>
 
         {approvalsError && approvals.length === 0 ? (

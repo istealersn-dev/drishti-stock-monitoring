@@ -56,7 +56,7 @@ type AccountMenuProperties = {
  * Account trigger + dropdown shared by the desktop and mobile headers. Holds
  * the secondary routes, Settings, and Log out (behind a confirmation). A
  * disclosure of plain buttons, so Tab moves through it natively; closes on
- * outside click, Esc, or focus leaving it.
+ * outside click, Esc, or focus moving elsewhere on the page.
  * @param props.compact - render the avatar-only trigger
  * @returns Account menu element
  */
