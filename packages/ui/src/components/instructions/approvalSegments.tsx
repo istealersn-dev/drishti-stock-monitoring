@@ -5,30 +5,39 @@ export type ApprovalSource = "drishti" | "you";
 
 type ApprovalSegmentsProperties = {
   active: ApprovalSource;
-  /** Count shown on the "From Drishti" tab (pending proposals). */
+  /** Pending agent proposals, shown on the "From Drishti" tab. */
   drishtiCount: number;
+  /** Pending buy instructions, shown on the "From you" tab. */
+  youCount: number;
   onSelect: (source: ApprovalSource) => void;
 };
 
-type Segment = { id: ApprovalSource; label: string; count?: number };
+type Segment = { id: ApprovalSource; label: string; count: number; activeClass: string };
 
 /**
  * Segmented control for the Approvals screen (updated design) — splits
- * Drishti's proposals ("From Drishti") from the user's own buy-instruction
- * composer ("From you").
+ * Drishti's proposals ("From Drishti") from the user's own buy instructions
+ * ("From you").
  * @param props.active - Currently selected source
- * @param props.drishtiCount - Pending-proposal count badge for "From Drishti"
+ * @param props.drishtiCount - Pending-proposal count for "From Drishti"
+ * @param props.youCount - Pending-instruction count for "From you"
  * @param props.onSelect - Called with the chosen source
  * @returns Segmented control element
  */
 export function ApprovalSegments({
   active,
   drishtiCount,
+  youCount,
   onSelect,
 }: ApprovalSegmentsProperties): React.ReactElement {
   const segments: Segment[] = [
-    { id: "drishti", label: "From Drishti", count: drishtiCount },
-    { id: "you", label: "From you" },
+    {
+      id: "drishti",
+      label: "From Drishti",
+      count: drishtiCount,
+      activeClass: "bg-warn-tint text-warn",
+    },
+    { id: "you", label: "From you", count: youCount, activeClass: "bg-info-tint text-info" },
   ];
 
   return (
@@ -49,15 +58,13 @@ export function ApprovalSegments({
               onSelect(segment.id);
             }}
             className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-body-sm font-medium transition-colors ${
-              isActive ? "bg-surface text-fg shadow-card" : "text-fg-muted hover:text-fg"
+              isActive ? segment.activeClass : "text-fg-muted hover:text-fg"
             }`}
           >
             {segment.label}
-            {segment.count !== undefined && segment.count > 0 && (
-              <span className="rounded-pill bg-warn-tint px-1.5 py-0.5 font-mono text-micro text-warn">
-                {segment.count}
-              </span>
-            )}
+            <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro">
+              {segment.count}
+            </span>
           </button>
         );
       })}

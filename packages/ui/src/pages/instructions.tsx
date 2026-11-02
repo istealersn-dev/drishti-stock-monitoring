@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 
@@ -7,6 +8,7 @@ import { type ApprovalSource, ApprovalSegments } from "../components/instruction
 import { InstructionComposer } from "../components/instructions/instructionComposer";
 import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import {
   type Approval,
   approveInstruction,
@@ -16,11 +18,17 @@ import {
   updateApprovalAmount,
 } from "../lib/api";
 
+// The agent doesn't raise its own proposals yet — every approval is a buy
+// instruction the user sent — so "From Drishti" is always empty for now.
+const AGENT_PROPOSAL_COUNT = 0;
+
 /**
- * Instructions page (Design.md/handoff.md §3 "buy-instruction + approvals")
- * — a composer for free-text buy instructions and a grid of pending
- * approval cards.
- * @returns Instructions page element
+ * Approvals page (updated design) — "From Drishti" holds the agent's own
+ * proposals; "From you" holds the buy-instruction composer and the pending
+ * approval cards it produces. Opens on "From you" while that's the only tab
+ * with content, so a pending approval is never hidden behind an empty tab
+ * during its timeout window.
+ * @returns Approvals page element
  */
 export function Instructions(): React.ReactElement {
   const [instructionText, setInstructionText] = useState("");
@@ -30,7 +38,8 @@ export function Instructions(): React.ReactElement {
   const [pendingApproveIds, setPendingApproveIds] = useState<ReadonlySet<string>>(new Set());
   const [pendingRejectIds, setPendingRejectIds] = useState<ReadonlySet<string>>(new Set());
   const [pendingAmountIds, setPendingAmountIds] = useState<ReadonlySet<string>>(new Set());
-  const [segment, setSegment] = useState<ApprovalSource>("drishti");
+  const [segment, setSegment] = useState<ApprovalSource>("you");
+  const isDesktop = useMediaQuery("(min-width: 578px)");
   const queryClient = useQueryClient();
 
   const {
@@ -163,62 +172,88 @@ export function Instructions(): React.ReactElement {
   const pendingApprovals = approvals.filter((approval) => approval.status === "pending");
 
   return (
-    <div className="flex max-w-3xl flex-col gap-4">
+    <div className="flex max-w-[65rem] flex-col gap-4">
       <PageHeader
         title="Approvals"
-        subtitle="Drishti's proposals and your own instructions. Nothing executes until you approve."
+        subtitle={
+          isDesktop
+            ? "Two places decisions come from — Drishti's proposals and your own instructions. Nothing executes until you approve."
+            : "Drishti's proposals and your own instructions. Nothing executes until you approve."
+        }
       />
 
       <ApprovalSegments
         active={segment}
-        drishtiCount={pendingApprovals.length}
+        drishtiCount={AGENT_PROPOSAL_COUNT}
+        youCount={pendingApprovals.length}
         onSelect={setSegment}
       />
 
       {segment === "drishti" ? (
-        approvalsError && approvals.length === 0 ? (
-          <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-            Failed to load approvals. Is the agent running?
-          </div>
-        ) : isLoading ? (
-          <div className="flex h-24 items-center justify-center">
-            <Spinner />
-          </div>
-        ) : pendingApprovals.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-12">
-            <p className="text-body-sm font-medium text-fg">You&apos;re all caught up</p>
-            <p className="text-caption text-fg-faint">New proposals will appear here.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 items-start gap-3 lap:grid-cols-2">
-            {pendingApprovals.map((approval: Approval) => (
-              <ApprovalCard
-                key={approval.id}
-                approval={approval}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                onUpdateAmount={handleUpdateAmount}
-                approvePending={pendingApproveIds.has(approval.id)}
-                rejectPending={pendingRejectIds.has(approval.id)}
-                amountPending={pendingAmountIds.has(approval.id)}
-                actionError={actionErrors[approval.id] ?? null}
-              />
-            ))}
-          </div>
-        )
+        <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-12">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-pos-tint">
+            <Check aria-hidden="true" className="h-5 w-5 text-pos" />
+          </span>
+          <p className="mt-1 text-body-sm font-medium text-fg">You&apos;re all caught up</p>
+          <p className="text-caption text-fg-faint">
+            {isDesktop
+              ? "The agent will surface new proposals here as conditions change."
+              : "New proposals will appear here."}
+          </p>
+        </div>
       ) : (
-        <InstructionComposer
-          value={instructionText}
-          onChange={(value) => {
-            setInstructionText(value);
-            setSubmitError(null);
-            setSubmitSuccess(null);
-          }}
-          onSubmit={handleSubmit}
-          isPending={submitMutation.isPending}
-          submitError={submitError}
-          submitSuccess={submitSuccess}
-        />
+        <>
+          <InstructionComposer
+            value={instructionText}
+            onChange={(value) => {
+              setInstructionText(value);
+              setSubmitError(null);
+              setSubmitSuccess(null);
+            }}
+            onSubmit={handleSubmit}
+            isPending={submitMutation.isPending}
+            submitError={submitError}
+            submitSuccess={submitSuccess}
+          />
+
+          <div className="flex items-center gap-2">
+            <h2 className="text-body-sm font-semibold text-fg">Pending approvals</h2>
+            <span className="rounded-pill bg-surface-3 px-1.5 py-0.5 font-mono text-micro text-fg-muted">
+              {pendingApprovals.length}
+            </span>
+          </div>
+
+          {approvalsError && approvals.length === 0 ? (
+            <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
+              Failed to load approvals. Is the agent running?
+            </div>
+          ) : isLoading ? (
+            <div className="flex h-24 items-center justify-center">
+              <Spinner />
+            </div>
+          ) : pendingApprovals.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-surface-2 py-10">
+              <p className="text-body-sm font-medium text-fg-muted">No pending approvals</p>
+              <p className="text-caption text-fg-faint">Send a buy instruction above.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 items-start gap-3 lap:grid-cols-2">
+              {pendingApprovals.map((approval: Approval) => (
+                <ApprovalCard
+                  key={approval.id}
+                  approval={approval}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                  onUpdateAmount={handleUpdateAmount}
+                  approvePending={pendingApproveIds.has(approval.id)}
+                  rejectPending={pendingRejectIds.has(approval.id)}
+                  amountPending={pendingAmountIds.has(approval.id)}
+                  actionError={actionErrors[approval.id] ?? null}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
