@@ -11,11 +11,12 @@ import { PositionsSnapshot } from "../components/dashboard/positionsSnapshot";
 import { StatCard } from "../components/dashboard/statCard";
 import { TodaysActivityCard } from "../components/dashboard/todaysActivityCard";
 import { Spinner } from "../components/ui/spinner";
+import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fetchApprovals, fetchGttOrders, fetchHoldings } from "../lib/api";
 import { filterPendingApprovals } from "../lib/approvals";
 import { PLACEHOLDER, formatInr, formatSignedInr } from "../lib/format";
-import { sumHoldingsValue } from "../lib/holdingFormat";
+import { percentOfCost, selectOpenHoldings, sumHoldingsValue } from "../lib/holdingFormat";
 import { buildSlMap } from "../lib/holdingStatus";
 import { timeOfDayGreeting } from "../lib/timeOfDayGreeting";
 
@@ -33,6 +34,7 @@ const DAYS_IN_YEAR = 365;
  */
 export function Dashboard(): React.ReactElement {
   const isDesktop = useIsDesktop();
+  const hasTableRoom = useHasTableRoom();
   const {
     data: holdingData,
     isLoading: holdingsLoading,
@@ -43,7 +45,7 @@ export function Dashboard(): React.ReactElement {
   });
 
   const {
-    data: gttOrders = [],
+    data: gttData,
     isLoading: gttLoading,
     isError: gttError,
   } = useQuery({
@@ -56,16 +58,15 @@ export function Dashboard(): React.ReactElement {
     queryFn: fetchApprovals,
   });
 
-  // Closed-out rows linger in the feed with no real exposure, so nothing here
-  // counts them.
-  const holdings = (holdingData?.holdings ?? []).filter((holding) => holding.quantity > 0);
+  const holdings = selectOpenHoldings(holdingData?.holdings ?? []);
+  const gttOrders = gttData ?? [];
   const isLoading = holdingsLoading || gttLoading;
   const isError = holdingsError || gttError;
 
   const totalValue = sumHoldingsValue(holdings);
   const totalCost = holdings.reduce((sum, h) => sum + h.quantity * h.average_price, 0);
   const totalPnl = holdings.reduce((sum, h) => sum + h.pnl, 0);
-  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+  const totalPnlPct = percentOfCost(totalPnl, totalCost);
   const dayPnl = holdings.reduce((sum, h) => sum + h.day_change * h.quantity, 0);
   const mtfValue = holdings
     .filter((h) => h.product === "MTF")
@@ -74,10 +75,49 @@ export function Dashboard(): React.ReactElement {
   const slMap = buildSlMap(gttOrders);
   const pendingApprovals = filterPendingApprovals(approvals).length;
 
-  if (isError) {
+  // Approvals have a timeout, so these stay up even if portfolio data fails.
+  const approvalNotices = (
+    <>
+      {approvalsError && (
+        <div className="rounded-xl border border-neg-ring bg-neg-tint px-4 py-3 text-body-sm text-neg">
+          {approvals.length === 0
+            ? "Couldn't check for pending approvals. "
+            : "Couldn't refresh approvals, so new ones may be missing. "}
+          <Link to="/instructions" className="underline">
+            Open Approvals
+          </Link>
+        </div>
+      )}
+
+      {pendingApprovals > 0 && (
+        <Link
+          to="/instructions"
+          className="flex items-center gap-3 rounded-xl border border-warn-ring bg-warn-tint px-4 py-3 transition-colors hover:brightness-110"
+        >
+          <Bell aria-hidden="true" className="h-4 w-4 flex-none text-warn" />
+          <span className="flex-1 text-body-sm text-fg">
+            You have{" "}
+            <b className="font-semibold text-warn">
+              {pendingApprovals} instruction{pendingApprovals !== 1 ? "s" : ""}
+            </b>{" "}
+            waiting for your approval.
+          </span>
+          <span className="flex flex-none items-center gap-1 font-mono text-caption text-warn">
+            Review <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+          </span>
+        </Link>
+      )}
+    </>
+  );
+
+  // A failed background refetch keeps its cached data, which beats a blank page.
+  if (isError && (holdingData === undefined || gttData === undefined)) {
     return (
-      <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
-        Failed to load portfolio data. Is the agent running?
+      <div className="flex flex-col gap-4">
+        {approvalNotices}
+        <div className="rounded-xl border border-neg-ring bg-neg-tint p-4 text-body-sm text-neg">
+          Failed to load portfolio data. Is the agent running?
+        </div>
       </div>
     );
   }
@@ -111,34 +151,12 @@ export function Dashboard(): React.ReactElement {
 
       <MarketIndexCards />
 
-      {approvalsError && (
-        <div className="rounded-xl border border-neg-ring bg-neg-tint px-4 py-3 text-body-sm text-neg">
-          {approvals.length === 0
-            ? "Couldn't check for pending approvals. "
-            : "Couldn't refresh approvals, so this count may be out of date. "}
-          <Link to="/instructions" className="underline">
-            Open Approvals
-          </Link>
-        </div>
-      )}
+      {approvalNotices}
 
-      {pendingApprovals > 0 && (
-        <Link
-          to="/instructions"
-          className="flex items-center gap-3 rounded-xl border border-warn-ring bg-warn-tint px-4 py-3 transition-colors hover:brightness-110"
-        >
-          <Bell aria-hidden="true" className="h-4 w-4 flex-none text-warn" />
-          <span className="flex-1 text-body-sm text-fg">
-            You have{" "}
-            <b className="font-semibold text-warn">
-              {pendingApprovals} instruction{pendingApprovals !== 1 ? "s" : ""}
-            </b>{" "}
-            waiting for your approval.
-          </span>
-          <span className="flex flex-none items-center gap-1 font-mono text-caption text-warn">
-            Review <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
-          </span>
-        </Link>
+      {isError && (
+        <div className="rounded-xl border border-neg-ring bg-neg-tint px-4 py-3 text-body-sm text-neg">
+          Couldn&apos;t refresh portfolio data, so these figures may be out of date.
+        </div>
       )}
 
       <div className="grid grid-cols-2 gap-3.5 lap:grid-cols-4">
@@ -193,7 +211,7 @@ export function Dashboard(): React.ReactElement {
 
       {/* Desktop's table leads with every at-risk holding, so it sits above the
           trend; mobile gets the at-risk list and leaves the rest to Holdings. */}
-      {isDesktop ? (
+      {hasTableRoom ? (
         <PositionsSnapshot holdings={holdings} slMap={slMap} />
       ) : (
         <NeedsAttentionList holdings={holdings} slMap={slMap} />
