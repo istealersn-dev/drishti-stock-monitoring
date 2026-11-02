@@ -4,7 +4,8 @@ import type React from "react";
 import { useState } from "react";
 
 import { ApprovalCard } from "../components/instructions/approvalCard";
-import { type ApprovalSource, ApprovalSegments } from "../components/instructions/approvalSegments";
+import { ApprovalSegments } from "../components/instructions/approvalSegments";
+import type { ApprovalSource } from "../components/instructions/approvalSource";
 import { InstructionComposer } from "../components/instructions/instructionComposer";
 import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
@@ -180,8 +181,8 @@ export function Instructions(): React.ReactElement {
         title="Approvals"
         subtitle={
           isDesktop
-            ? "Two places decisions come from — Drishti's proposals and your own instructions. Nothing executes until you approve."
-            : "Drishti's proposals and your own instructions. Nothing executes until you approve."
+            ? "Two places decisions come from — Drishti's proposals and your own instructions. No new buy goes through until you approve."
+            : "Drishti's proposals and your own instructions. No new buy goes through until you approve."
         }
       />
 

@@ -1,7 +1,6 @@
 import type React from "react";
 
-/** Which side of the approvals screen is showing. */
-export type ApprovalSource = "drishti" | "you";
+import type { ApprovalSource } from "./approvalSource";
 
 type ApprovalSegmentsProperties = {
   active: ApprovalSource;
