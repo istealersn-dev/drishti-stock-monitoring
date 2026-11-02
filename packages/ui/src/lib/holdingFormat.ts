@@ -13,6 +13,15 @@ export function formatPrice(price: number): string {
 }
 
 /**
+ * Drops closed-out rows, which linger in the feed with no real exposure.
+ * @param holdings - holdings from the API
+ * @returns the positions still held
+ */
+export function selectOpenHoldings(holdings: Holding[]): Holding[] {
+  return holdings.filter((holding) => holding.quantity > 0);
+}
+
+/**
  * Sums a holdings list's current market value (quantity × last price).
  * Shared by Dashboard's headline stat and the shell footer/header's
  * portfolio-value meta so the two can't silently drift on the formula.
@@ -23,7 +32,13 @@ export function sumHoldingsValue(holdings: Holding[]): number {
   return holdings.reduce((sum, h) => sum + h.quantity * h.last_price, 0);
 }
 
-function percentOfCost(pnl: number, cost: number): number {
+/**
+ * Profit or loss as a percentage of cost, guarding a zero cost.
+ * @param pnl - profit or loss in rupees
+ * @param cost - the cost basis
+ * @returns the percentage, or 0 when there's no cost basis
+ */
+export function percentOfCost(pnl: number, cost: number): number {
   return cost > 0 ? (pnl / cost) * 100 : 0;
 }
 

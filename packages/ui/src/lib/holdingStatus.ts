@@ -3,15 +3,16 @@ import type { GttOrder, Holding } from "./api";
 const NEAR_SL_BAND = 1.05; // within 5% above the SL trigger counts as "near"
 
 export type HoldingStatus = {
-  variant: "pos" | "warn" | "neg";
+  variant: "pos" | "warn" | "neg" | "none";
   label: string;
 };
 
-/** Sort rank by SL status: breach first, then watch, then safe. */
+/** Sort rank by SL status: breach, watch, unprotected, then safe. */
 export const HOLDING_SEVERITY_RANK: Record<HoldingStatus["variant"], number> = {
   neg: 0,
   warn: 1,
-  pos: 2,
+  none: 2,
+  pos: 3,
 };
 
 /**
@@ -29,10 +30,13 @@ export function resolveHoldingStatus(holding: Holding, slMap: Map<string, number
   if (holding.quantity <= 0) {
     return { variant: "pos", label: "Safe" };
   }
-  if (sl !== undefined && holding.last_price <= sl) {
+  if (sl === undefined) {
+    return { variant: "none", label: "No SL" };
+  }
+  if (holding.last_price <= sl) {
     return { variant: "neg", label: "Breach" };
   }
-  if (sl !== undefined && holding.last_price <= sl * NEAR_SL_BAND) {
+  if (holding.last_price <= sl * NEAR_SL_BAND) {
     return { variant: "warn", label: "Watch" };
   }
   return { variant: "pos", label: "Safe" };
@@ -49,7 +53,8 @@ export function buildSlMap(gttOrders: GttOrder[]): Map<string, number> {
     // packages/agent only ever writes "sl_exit" (stopLoss.handler.ts,
     // agent.graph.ts) or "buy_entry" (instructions.executor.ts) — never the
     // literal "SL" this used to check, which meant this map was always empty.
-    if (order.type === "sl_exit" && !map.has(order.symbol)) {
+    // A zero trigger is malformed, not protection, so it reads as no stop-loss.
+    if (order.type === "sl_exit" && order.triggerPrice > 0 && !map.has(order.symbol)) {
       map.set(order.symbol, order.triggerPrice);
     }
   }

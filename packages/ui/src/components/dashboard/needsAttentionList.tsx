@@ -32,7 +32,7 @@ export function NeedsAttentionList({
       const distanceToSl = distanceToSlPercentage(holding, sl);
       if (sl === undefined || distanceToSl === undefined) return [];
       const status = resolveHoldingStatus(holding, slMap);
-      if (status.variant === "pos") return [];
+      if (status.variant !== "neg" && status.variant !== "warn") return [];
       return [{ holding, sl, distanceToSl, status }];
     })
     .sort(

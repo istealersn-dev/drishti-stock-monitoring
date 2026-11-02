@@ -73,8 +73,6 @@ function PositionRow({
   const [expanded, setExpanded] = useState(false);
   const pnlColor = holding.pnl >= 0 ? "text-pos" : "text-neg";
   const ltpColor = holding.last_price >= holding.close_price ? "text-pos" : "text-neg";
-  // Green "Safe" would overstate a holding nothing is protecting.
-  const statusLabel = sl === undefined ? "No SL" : status.label;
   const rowLabel = [
     holding.trading_symbol,
     `quantity ${holding.quantity}`,
@@ -82,7 +80,7 @@ function PositionRow({
     `last price ${formatPrice(holding.last_price)}`,
     `P&L ${pct.toFixed(2)}%`,
     `stop-loss ${sl !== undefined ? formatPrice(sl) : "not set"}`,
-    statusLabel,
+    status.label,
   ].join(", ");
 
   return (
@@ -127,15 +125,15 @@ function PositionRow({
         <span
           className={`${STATUS_CELL} flex items-center justify-end gap-1.5 bg-surface group-hover:bg-surface-hover`}
         >
-          {sl !== undefined && (
+          {status.variant !== "none" && (
             <StatusDot variant={status.variant} label={status.label} pulse={false} />
           )}
-          <span className="text-caption text-fg-muted">{statusLabel}</span>
+          <span className="text-caption text-fg-muted">{status.label}</span>
         </span>
       </button>
 
       {expanded && (
-        <dl className="sticky left-0 grid max-w-[calc(100vw-7rem)] grid-cols-2 gap-x-6 gap-y-2.5 bg-surface-2 px-9 py-3.5 lap:max-w-none lap:grid-cols-5">
+        <dl className="sticky left-0 grid w-[100cqw] grid-cols-2 gap-x-6 gap-y-2.5 bg-surface-2 px-9 py-3.5 @3xl:grid-cols-5">
           <Detail term="SL threshold" value={formatPriceOrDash(sl ?? null)} />
           <Detail term="Target price" value={PLACEHOLDER} />
           <Detail
@@ -191,23 +189,19 @@ export function PositionsSnapshot({
       distanceToSl: distanceToSlPercentage(holding, sl),
     };
   });
-  const atRiskCount = positions.filter(({ status }) => status.variant !== "pos").length;
-  const noStopLossCount = positions.filter(({ sl }) => sl === undefined).length;
+  const atRiskCount = positions.filter(
+    ({ status }) => status.variant === "neg" || status.variant === "warn",
+  ).length;
+  const noStopLossCount = positions.filter(({ status }) => status.variant === "none").length;
   // Severity always wins, with the P&L sort or distance to SL inside it, and
-  // every at-risk row shows regardless of the limit: Needs attention is
-  // mobile-only, so this is desktop's only list of them.
+  // every at-risk or unprotected row shows regardless of the limit: this is
+  // desktop's only list of them.
   const sorted = [...positions].sort((a, b) => {
     if (a.severity !== b.severity) return a.severity - b.severity;
-    // Unset distances lead the safe rows: an unprotected holding shouldn't
-    // fall below the cut behind ones with a stop-loss.
-    if (sortDirection === "none") {
-      return (
-        (a.distanceToSl ?? Number.NEGATIVE_INFINITY) - (b.distanceToSl ?? Number.NEGATIVE_INFINITY)
-      );
-    }
+    if (sortDirection === "none") return (a.distanceToSl ?? 0) - (b.distanceToSl ?? 0);
     return sortDirection === "desc" ? b.pnlPct - a.pnlPct : a.pnlPct - b.pnlPct;
   });
-  const rows = sorted.slice(0, Math.max(DEFAULT_ROW_LIMIT, atRiskCount));
+  const rows = sorted.slice(0, Math.max(DEFAULT_ROW_LIMIT, atRiskCount + noStopLossCount));
 
   return (
     <Card className="flex flex-col gap-0 overflow-hidden !p-0">
@@ -231,7 +225,7 @@ export function PositionsSnapshot({
           <p className="text-caption text-fg-faint">Holdings appear once data is synced.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="@container overflow-x-auto">
           <div className="min-w-[56rem]">
             <div
               className={`grid ${ROW_GRID} items-center gap-2 border-b border-border bg-surface-2 px-3 py-2 text-micro uppercase tracking-wide text-fg-faint`}

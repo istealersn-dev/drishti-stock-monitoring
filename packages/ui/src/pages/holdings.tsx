@@ -9,6 +9,7 @@ import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
 import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
+import { selectOpenHoldings } from "../lib/holdingFormat";
 import { buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
 function applyFilter(
@@ -56,7 +57,7 @@ export function Holdings(): React.ReactElement {
     queryFn: () => fetchGttOrders("active"),
   });
 
-  const holdings = data?.holdings ?? [];
+  const holdings = selectOpenHoldings(data?.holdings ?? []);
   const slMap = buildSlMap(gttOrders);
   const visible = applyFilter(holdings, filter, search, slMap);
 
