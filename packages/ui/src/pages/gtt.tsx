@@ -5,7 +5,7 @@ import { GttCard } from "../components/gtt/gttCard";
 import { GttTable } from "../components/gtt/gttTable";
 import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
-import { useIsDesktop } from "../hooks/useIsDesktop";
+import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { fetchGttOrders } from "../lib/api";
 
 /**
@@ -15,7 +15,7 @@ import { fetchGttOrders } from "../lib/api";
  * @returns Gtt page element
  */
 export function Gtt(): React.ReactElement {
-  const isDesktop = useIsDesktop();
+  const hasTableRoom = useHasTableRoom();
 
   const {
     data: orders = [],
@@ -63,7 +63,7 @@ export function Gtt(): React.ReactElement {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title="GTT Orders" subtitle="Stop-loss and target orders placed on Upstox." />
-      {isDesktop ? (
+      {hasTableRoom ? (
         <GttTable orders={sorted} />
       ) : (
         <div className="flex flex-col gap-2.5">

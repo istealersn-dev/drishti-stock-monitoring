@@ -7,7 +7,7 @@ import { type ProductFilter, HoldingFilters } from "../components/holdings/holdi
 import { HoldingsTable } from "../components/holdings/holdingsTable";
 import { PageHeader } from "../components/shell/pageHeader";
 import { Spinner } from "../components/ui/spinner";
-import { useIsDesktop } from "../hooks/useIsDesktop";
+import { useHasTableRoom } from "../hooks/useHasTableRoom";
 import { type Holding, fetchGttOrders, fetchHoldings } from "../lib/api";
 import { buildSlMap, resolveHoldingStatus } from "../lib/holdingStatus";
 
@@ -38,14 +38,14 @@ function applyFilter(
 /**
  * Holdings (handoff.md §4) — a filterable list of positions with inline
  * SL/target-setting. Renders `HoldingsTable` (desktop) or a stack of
- * `HoldingCard` (mobile) via `useIsDesktop`, sharing the same filtered
+ * `HoldingCard` (mobile) via `useHasTableRoom`, sharing the same filtered
  * holdings and `useHoldingGttForm` row logic either way.
  * @returns Holdings page element
  */
 export function Holdings(): React.ReactElement {
   const [filter, setFilter] = useState<ProductFilter>("ALL");
   const [search, setSearch] = useState("");
-  const isDesktop = useIsDesktop();
+  const hasTableRoom = useHasTableRoom();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["holdings"],
@@ -96,7 +96,7 @@ export function Holdings(): React.ReactElement {
             {search ? "Try a different search." : "Holdings appear once data is synced."}
           </p>
         </div>
-      ) : isDesktop ? (
+      ) : hasTableRoom ? (
         <HoldingsTable holdings={visible} />
       ) : (
         <div className="flex flex-col gap-2.5">
